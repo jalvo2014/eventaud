@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "0.50000";
+my $gVersion = "1.01000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -369,7 +369,7 @@ $hdri++;$hdr[$hdri]="Event Status History open $total_open $ppc/min";
 $res_rate = 0;
 $res_rate = ($total_close*60)/$event_dur if $event_dur > 0;
 $ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Event Status History close $total_open $ppc/min";
+$hdri++;$hdr[$hdri]="Event Status History close $total_close $ppc/min";
 
 $res_rate = 0;
 $res_rate = ($total_transitions*60)/$event_dur if $event_dur > 0;
@@ -444,7 +444,7 @@ foreach $g ( sort { $situationx{$b}->{count} <=>  $situationx{$a}->{count} }  ke
    $res_rate = ($situationx_ref->{transitions}*3600)/($event_dur*$node_ct) if $event_dur > 0;
    $ppc = sprintf '%.2f', $res_rate;
    if ($res_rate >= 1) {
-      $advi++;$advonline[$advi] = "Situation $g on showing $ppc open<->close transitions per hour per agent over $ct agents";
+      $advi++;$advonline[$advi] = "Situation $g on showing $ppc open<->close transitions per hour per agent over $node_ct agents";
       $advcode[$advi] = "EVENTAUDIT1003W";
       $advimpact[$advi] = $advcx{$advcode[$advi]};
       $advsit[$advi] = "TEMS";
@@ -1229,7 +1229,8 @@ sub get_epoch {
 # get current time in ITM standard timestamp form
 # History log
 
-# 0.50000  : New script derived from sitcache.pl
+# 1.00000  : New script derived from sitcache.pl
+# 1.01000  : Correct two display calculations
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
