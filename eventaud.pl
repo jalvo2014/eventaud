@@ -126,6 +126,7 @@ my $opt_odir;                   # Directory for output file
 my $opt_workpath;               # Directory to store output files
 my $opt_syntax;                 # syntax tracing
 my $opt_all;                    # dump all details
+my $opt_sum;                    # When 1 create summary file
 my $opt_nohdr;                  # skip printing header
 
 # produce output report
@@ -361,6 +362,8 @@ $res_rate = ($total_count*60)/$event_dur if $event_dur > 0;
 $ppc = sprintf '%.2f', $res_rate;
 $hdri++;$hdr[$hdri]="Event Status History count $total_count $ppc/min";
 
+my $ppc_event_rate = $ppc;
+
 $res_rate = 0;
 $res_rate = ($total_open*60)/$event_dur if $event_dur > 0;
 $ppc = sprintf '%.2f', $res_rate;
@@ -382,6 +385,8 @@ $res_rate = 0;
 $res_rate = ($total_sampled*60)/$event_dur if $event_dur > 0;
 $ppc = sprintf '%.2f', $res_rate;
 $hdri++;$hdr[$hdri]="Event Result History sampled $total_sampled $ppc/min";
+
+my $ppc_sample_rate = $ppc;
 
 $res_rate = 0;
 $res_rate = ($total_pure*60)/$event_dur if $event_dur > 0;
@@ -545,6 +550,8 @@ if ($opt_all == 1) {
    }
 }
 
+$opt_o = $opt_odir . $opt_o if index($opt_o,'/') == -1;
+
 open OH, ">$opt_o" or die "unable to open $opt_o: $!";
 
 if ($opt_nohdr == 0) {
@@ -608,6 +615,22 @@ if ($rpti != -1) {
    }
 }
 close OH;
+
+if ($opt_sum != 0) {
+   my $sumline;
+# EVENTAUD 100 25
+   $sumline = "EVENTAUDIT ";
+   my $padvi = $advi + 1;
+   $sumline .= $max_impact . " ";
+   $sumline .= $padvi . " ";
+   $sumline .= $event_dur . " seconds ";
+   $sumline .= $total_count . " events" . "[$ppc_event_rate/min] ";
+   $sumline .= $total_sampled . " results" . "[$ppc_sample_rate/min] ";
+   my $sumfn = $opt_odir . "eventaud.txt";
+   open SUM, ">$sumfn" or die "Unable to open summary file $sumfn\n";
+   print SUM "$sumline\n";
+   close(SUM);
+}
 
 exit;
 
@@ -826,9 +849,15 @@ sub init_all {
 
    my $read_fn;
 
+
    # (1) the TNAME data
-   $read_fn = $opt_txt_tname if $opt_txt == 1;
-   $read_fn = $opt_lst_tname if $opt_lst == 1;
+   if ($opt_txt == 1) {
+      $read_fn = $opt_txt_tname;
+      $read_fn = $opt_workpath . $opt_txt_tname if -e $opt_workpath . $opt_txt_tname;
+   } else {
+      $read_fn = $opt_lst_tname;
+      $read_fn = $opt_workpath . $opt_lst_tname if -e $opt_workpath . $opt_lst_tname;
+   }
    # QA1DNAME would be missing on a remote TEMS capture
    if(open(KNAM, "< $read_fn")) {
       @knam_data = <KNAM>;
@@ -856,8 +885,13 @@ sub init_all {
    }
 
    # (2) the TSITDESC data
-   $read_fn = $opt_txt_tsitdesc if $opt_txt == 1;
-   $read_fn = $opt_lst_tsitdesc if $opt_lst == 1;
+   if ($opt_txt == 1) {
+      $read_fn = $opt_txt_tsitdesc;
+      $read_fn = $opt_workpath . $opt_txt_tsitdesc if -e $opt_workpath . $opt_txt_tsitdesc;
+   } else {
+      $read_fn = $opt_lst_tsitdesc;
+      $read_fn = $opt_workpath . $opt_lst_tsitdesc if -e $opt_workpath . $opt_lst_tsitdesc;
+   }
    open(KSIT, "< $read_fn") || die("Could not open TSITDESC $read_fn\n");
    @ksit_data = <KSIT>;
    close(KSIT);
@@ -880,7 +914,7 @@ sub init_all {
          $ipdt =~ s/\s+$//;   #trim trailing whitespace
       } else {
          next if substr($oneline,0,10) eq "KCIIN0187I";      # A Linux/Unix first line
-         ($isitname,$isitinfo,$ireevdays,$ireevtime,$ipdt) = parse_lst(4,$oneline);
+         ($isitname,$isitinfo,$ireevdays,$ireevtime,$ipdt) = parse_lst(5,$oneline);
          $isitname =~ s/\s+$//;   #trim trailing whitespace
          $isitinfo =~ s/\s+$//;   #trim trailing whitespace
          $ireevdays =~ s/\s+$//;   #trim trailing whitespace
@@ -891,8 +925,13 @@ sub init_all {
    }
 
 #  # (3) the TSITSTSH data
-   $read_fn = $opt_txt_tsitstsh if $opt_txt == 1;
-   $read_fn = $opt_lst_tsitstsh if $opt_lst == 1;
+   if ($opt_txt == 1) {
+      $read_fn = $opt_txt_tsitstsh;
+      $read_fn = $opt_workpath . $opt_txt_tsitstsh if -e $opt_workpath . $opt_txt_tsitstsh;
+   } else {
+      $read_fn = $opt_lst_tsitstsh;
+      $read_fn = $opt_workpath . $opt_lst_tsitstsh if -e $opt_workpath . $opt_lst_tsitstsh;
+   }
    open(KSTSH, "< $read_fn") || die("Could not open TSITSTSH $read_fn\n");
    @kstsh_data = <KSTSH>;
    close(KSTSH);
@@ -954,6 +993,9 @@ sub init {
          shift(@ARGV);
       } elsif ($ARGV[0] eq "-all") {
          $opt_all = 1;
+         shift(@ARGV);
+      } elsif ($ARGV[0] eq "-sum") {
+         $opt_sum = 1;
          shift(@ARGV);
       } elsif ($ARGV[0] eq "-debug") {
          $opt_debug = 1;
@@ -1051,6 +1093,7 @@ sub init {
          next if $#words == -1;                  # skip blank line
           if ($#words == 0) {                         # single word parameters
             if ($words[0] eq "verbose") {$opt_v = 1;}
+            elsif ($words[0] eq "sum") {$opt_sum = 1;}
             else {
                print STDERR "EVENTAUDIT003E Control without needed parameters $words[0] - $opt_ini [$l]\n";
                $run_status++;
@@ -1061,35 +1104,15 @@ sub init {
          if ($#words == 1) {
             # two word controls - option and value
             if ($words[0] eq "log") {$opt_log = $words[1];}
-            elsif ($words[0] eq "log") {$opt_log = $words[1];}
             elsif ($words[0] eq "o") {$opt_o = $words[1];}
             elsif ($words[0] eq "workpath") {$opt_workpath = $words[1];}
-            else {
-               print STDERR "EVENTAUDIT005E ini file $l - unknown control oneline\n"; # kill process after current phase
-               $run_status++;
-            }
-            next;
-         }
-         if ($#words == 2) {
-            # two word controls - option and value
-            if (substr($uword,0,10) eq "EVENTAUDIT"){
+            elsif (substr($uword,0,10) eq "EVENTAUDIT"){
                die "unknown advisory code $words[0]" if !defined $advcx{$uword};
                die "Advisory code $words[0] with no advisory impact" if !defined $words[1];
                $advcx{$uword} = $words[1];
             }
             else {
                print STDERR "EVENTAUDIT005E ini file $l - unknown control oneline\n"; # kill process after current phase
-               $run_status++;
-            }
-            next;
-         }
-         if ($#words == 3) {
-            # four+ word controls - option and three values and optional message template
-            if ($words[0] eq "txt") {
-               $opt_txt=1;
-               $opt_txt_tsitstsh=$words[1];
-            } else {
-               print STDERR "EVENTAUDIT005E ini file $l - unknown control $oneline\n"; # kill process after current phase
                $run_status++;
             }
             next;
@@ -1101,10 +1124,11 @@ sub init {
 
    # defaults for options not set otherwise
 
-   if (!defined $opt_log) {$opt_log = "eventaud.log";}           # default log file if not specified
+   if (!defined $opt_log) {$opt_log = "eventaud.log";}         # default log file if not specified
    if (!defined $opt_v) {$opt_v=0;}                            # verbose flag
    if (!defined $opt_o) {$opt_o="eventaud.csv";}               # default output file
    if (!defined $opt_workpath) {$opt_workpath="";}             # default is current directory
+   if (!defined $opt_sum) {$opt_sum = 0;}                      # default no summary file
    if (!defined $opt_txt) {$opt_txt = 0;}                      # default no txt input
    if (!defined $opt_lst) {$opt_lst = 0;}                      # default no lst input
 
@@ -1229,8 +1253,7 @@ sub get_epoch {
 # get current time in ITM standard timestamp form
 # History log
 
-# 1.00000  : New script derived from sitcache.pl
-# 1.01000  : Correct two display calculations
+# 0.50000  : New script derived from sitcache.pl
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
