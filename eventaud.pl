@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.01000";
+my $gVersion = "1.02000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -54,6 +54,11 @@ my $event_min = 0;
 my $event_max = 0;
 my $event_dur = 0;
 
+my %seq999;
+
+my %seq998;
+
+
 # forward declarations of subroutines
 
 sub init;                                # read command line and ini file
@@ -66,6 +71,7 @@ sub newsit;                              # create new situation entry
 sub newagt;                              # create new agemt entry
 sub newlst;                              # create new TNODELST MSL entry
 sub parse_lst;                           # parse the KfwSQLClient output
+sub sec2time;
 
 my $full_logfn;
 my $logfn;
@@ -144,6 +150,7 @@ my %advcx = (
               "EVENTAUDIT1004W" => "75",
               "EVENTAUDIT1005W" => "70",
               "EVENTAUDIT1006W" => "70",
+              "EVENTAUDIT1007W" => "80",
            );
 
 my $advi = -1;                  # capture advisories
@@ -248,7 +255,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                $atomize_ref->{pure_ct} += 1;
                $situation_ref->{pure_ct} += 1;
             }
-            ##? calculate open versus close for sampled events and thus calculate open time
+            # calculate open versus close for sampled events and thus calculate open time
             if ($situation_ref->{reeval} > 0) {
                if ($detail_state == 1) {   # waiting for Y record
                   if ($detail_ref->{deltastat} eq "Y") {
@@ -313,6 +320,12 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                                 nodes => {},
                                 nn => 0,
                                 yy => 0,
+                                time999 => {},
+                                time998 => {},
+                                ct999 => 0,
+                                ct998 => 0,
+                                node999 => {},
+                                node998 => {},
                              );
           $situationx_ref = \%situationxref;
           $situationx{$g} = \%situationxref;
@@ -329,6 +342,20 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
       $situationx_ref->{nodes}{$f} += 1;
       foreach my $h (keys %{$situation_ref->{atomize}}) {
          $situationx_ref->{atomize}{$h} += 1;
+      }
+      foreach my $h (keys %{$situation_ref->{time999}}) {
+         $situationx_ref->{time999}{$h} += 1;
+         $situationx_ref->{ct999} += 1;
+      }
+      foreach my $h (keys %{$situation_ref->{time998}}) {
+         $situationx_ref->{time998}{$h} += 1;
+         $situationx_ref->{ct998} += 1;
+      }
+      foreach my $h (keys %{$situation_ref->{node999}}) {
+         $situationx_ref->{node999}{$h} += 1;
+      }
+      foreach my $h (keys %{$situation_ref->{node998}}) {
+         $situationx_ref->{node998}{$h} += 1;
       }
    }
 }
@@ -356,6 +383,8 @@ foreach $g (keys %situationx) {
    $total_nn += $situationx_ref->{nn};
 }
 
+$rptkey = "EVENTREPORT000";$advrptx{$rptkey} = 1;         # record report key
+$hdri++;$hdr[$hdri]="$rptkey: Summary report";
 $hdri++;$hdr[$hdri]="Duration $event_dur seconds";
 $res_rate = 0;
 $res_rate = ($total_count*60)/$event_dur if $event_dur > 0;
@@ -398,7 +427,7 @@ $rptkey = "EVENTREPORT001";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $outline = "$rptkey: Event Summary sorted by Event Status Count";
 $cnt++;$oline[$cnt]="$outline\n";
-$outline = "Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour";
+$outline = "Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour,PDT";
 $cnt++;$oline[$cnt]="$outline\n";
 my $res_pc;
 foreach $g ( sort { $situationx{$b}->{count} <=>  $situationx{$a}->{count} }  keys %situationx) {
@@ -445,6 +474,10 @@ foreach $g ( sort { $situationx{$b}->{count} <=>  $situationx{$a}->{count} }  ke
    $res_rate = ($situationx_ref->{transitions}*3600)/$event_dur if $event_dur > 0;
    $ppc = sprintf '%.2f', $res_rate;
    $outline .= $ppc . ",";
+   my $ppdt = "";
+   my $sx = $sitx{$g};
+   $ppdt = $sit_pdt[$sx] if defined $sx;
+   $outline .= $ppdt . ",";
    $cnt++;$oline[$cnt]="$outline\n";
    $res_rate = ($situationx_ref->{transitions}*3600)/($event_dur*$node_ct) if $event_dur > 0;
    $ppc = sprintf '%.2f', $res_rate;
@@ -456,20 +489,20 @@ foreach $g ( sort { $situationx{$b}->{count} <=>  $situationx{$a}->{count} }  ke
    }
    if ($situationx_ref->{tfwd} == 0) {   # is this event forwarded
       if ($sit_forwarded > 0) {          # are any events forwarded
-         $advi++;$advonline[$advi] = "Situation $g showing $situationx_ref->{count} event statuses over $ct agents - but event not forwarded";
+         $advi++;$advonline[$advi] = "Situation $g showing $situationx_ref->{count} event statuses over $node_ct agents - but event not forwarded";
          $advcode[$advi] = "EVENTAUDIT1004W";
          $advimpact[$advi] = $advcx{$advcode[$advi]};
          $advsit[$advi] = "TEMS";
       }
    }
    if ($situationx_ref->{yy} > 0) {
-      $advi++;$advonline[$advi] = "Situation $g showing $situationx_ref->{yy} open->open transitions over $ct agents";
+      $advi++;$advonline[$advi] = "Situation $g showing $situationx_ref->{yy} open->open transitions over $node_ct agents";
       $advcode[$advi] = "EVENTAUDIT1005W";
       $advimpact[$advi] = $advcx{$advcode[$advi]};
       $advsit[$advi] = "TEMS";
    }
    if ($situationx_ref->{nn} > 0) {
-      $advi++;$advonline[$advi] = "Situation $g showing $situationx_ref->{nn} close->close transitions over $ct agents";
+      $advi++;$advonline[$advi] = "Situation $g showing $situationx_ref->{nn} close->close transitions over $node_ct agents";
       $advcode[$advi] = "EVENTAUDIT1006W";
       $advimpact[$advi] = $advcx{$advcode[$advi]};
       $advsit[$advi] = "TEMS";
@@ -480,7 +513,7 @@ $rptkey = "EVENTREPORT002";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $outline = "$rptkey: Event Summary sorted by Event Status Samples";
 $cnt++;$oline[$cnt]="$outline\n";
-$outline = "Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour";
+$outline = "Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour,PDT";
 $cnt++;$oline[$cnt]="$outline\n";
 foreach $g ( sort { $situationx{$b}->{sampled_ct} <=>  $situationx{$a}->{sampled_ct} }  keys %situationx) {
    my $situationx_ref = $situationx{$g};
@@ -526,6 +559,64 @@ foreach $g ( sort { $situationx{$b}->{sampled_ct} <=>  $situationx{$a}->{sampled
    $res_rate = ($situationx_ref->{transitions}*3600)/$event_dur if $event_dur > 0;
    $ppc = sprintf '%.2f', $res_rate;
    $outline .= $ppc . ",";
+   my $ppdt = "";
+   my $sx = $sitx{$g};
+   $ppdt = $sit_pdt[$sx] if defined $sx;
+   $outline .= $ppdt . ",";
+   $cnt++;$oline[$cnt]="$outline\n";
+}
+
+my $node999_total = 0;
+my $time999_total = 0;
+
+$rptkey = "EVENTREPORT004";$advrptx{$rptkey} = 1;         # record report key
+$cnt++;$oline[$cnt]="\n";
+$outline = "$rptkey: Extreme event arrival report SEQ999";
+$cnt++;$oline[$cnt]="$outline\n";
+$outline = "Situation,Count,Nodes,Times";
+$cnt++;$oline[$cnt]="$outline\n";
+foreach $g ( sort { $situationx{$b}->{ct999} <=> $situationx{$a}->{ct999}}  keys %situationx) {
+   my $situation_ref = $situationx{$g};
+   next if $situation_ref->{ct999} == 0;
+   $outline = $g . ",";
+   $outline .= $situation_ref->{ct999} . ",";
+   my $ct = scalar keys %{$situation_ref->{node999}};
+   $outline .= $ct . ",";
+   $node999_total += $ct;
+   my $tp = "";
+   foreach my $i (sort {$situation_ref->{time999}{$b} <=> $situation_ref->{time999}{$a}} keys %{$situation_ref->{time999}}) {
+      $tp .= $i . "[" . $situation_ref->{time999}{$i} . "] ";
+      $time999_total += $situation_ref->{time999}{$i};
+   }
+   $outline .= $tp . ",";
+   $cnt++;$oline[$cnt]="$outline\n";
+}
+
+if ($time999_total > 0) {
+   $advi++;$advonline[$advi] = "Extreme Event Status agents[$node999_total] in $time999_total instances - See report $rptkey";
+   $advcode[$advi] = "EVENTAUDIT1007W";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
+}
+
+$rptkey = "EVENTREPORT005";$advrptx{$rptkey} = 1;         # record report key
+$cnt++;$oline[$cnt]="\n";
+$outline = "$rptkey: Segmented arrival report SEQ998";
+$cnt++;$oline[$cnt]="$outline\n";
+$outline = "Situation,Count,Nodes,Times";
+$cnt++;$oline[$cnt]="$outline\n";
+foreach $g ( sort { $situationx{$b}->{ct998} <=> $situationx{$a}->{ct998}}  keys %situationx) {
+   my $situation_ref = $situationx{$g};
+   next if $situation_ref->{ct998} == 0;
+   $outline = $g . ",";
+   $outline .= $situation_ref->{ct998} . ",";
+   my $ct = scalar keys %{$situation_ref->{node998}};
+   $outline .= $ct . ",";
+   my $tp = "";
+   foreach my $i (sort {$situation_ref->{time998}{$b} <=> $situation_ref->{time998}{$a}} keys %{$situation_ref->{time998}}) {
+      $tp .= $i . "[" . $situation_ref->{time998}{$i} . "] ";
+   }
+   $outline .= $tp . ",";
    $cnt++;$oline[$cnt]="$outline\n";
 }
 
@@ -675,6 +766,7 @@ sub newsit {
 }
 sub newstsh {
    my ($ill,$isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$inode,$iatomize) = @_;
+
    my $node_ref = $nodex{$ioriginnode};
 
    if (!defined $node_ref) {
@@ -707,6 +799,10 @@ sub newstsh {
                             tfwd => 0,
                             nn => 0,
                             yy => 0,
+                            time999 => {},
+                            time998 => {},
+                            node999 => {},
+                            node998 => {},
                          );
       $situation_ref = \%situationref;
       $node_ref->{situations}{$isitname} = \%situationref;
@@ -760,6 +856,13 @@ sub newstsh {
    $event_details{epoch} = get_epoch($ilcltmstmp);
    $atomize_ref->{secs}{$event_details{epoch}} += 1;
    $atomize_ref->{details}{$ill} = \%event_details;
+   if (substr($ilcltmstmp,-3,3) eq "999") {
+      $situation_ref->{time999}{$ilcltmstmp} += 1;
+      $situation_ref->{node999}{$ioriginnode} += 1;
+   } elsif (substr($ilcltmstmp,-3,3) eq "998") {
+      $situation_ref->{time998}{$ilcltmstmp} += 1;
+      $situation_ref->{node998}{$ioriginnode} += 1;
+   }
 
    # track global start/stop time
    if ($event_min == 0) {
@@ -848,7 +951,6 @@ sub init_all {
    my $iatomize;
 
    my $read_fn;
-
 
    # (1) the TNAME data
    if ($opt_txt == 1) {
@@ -957,7 +1059,6 @@ sub init_all {
          $iatomize =~ s/\s+$//;   #trim trailing whitespace
          next if ($ideltastat ne 'Y') and ($ideltastat ne 'N');
       } else {
-         next if substr($oneline,0,10) eq "KCIIN0187I";      # A Linux/Unix first line
          ($isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$inode,$iatomize) = parse_lst(6,$oneline);
          $isitname =~ s/\s+$//;   #trim trailing whitespace
          $ideltastat =~ s/\s+$//;   #trim trailing whitespace
@@ -966,6 +1067,7 @@ sub init_all {
          $inode =~ s/\s+$//;   #trim trailing whitespace
          $iatomize =~ s/\s+$//;   #trim trailing whitespace
       }
+      next if ($ideltastat ne 'Y') and ($ideltastat ne 'N');
       newstsh($ll,$isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$inode,$iatomize);
    }
 
@@ -1117,6 +1219,9 @@ sub init {
             }
             next;
          }
+         if ($#words == 2) {
+            next;
+         }
          print STDERR "EVENTAUDIT005E ini file $l - unknown control $oneline\n"; # kill process after current phase
          $run_status++;
       }
@@ -1124,7 +1229,7 @@ sub init {
 
    # defaults for options not set otherwise
 
-   if (!defined $opt_log) {$opt_log = "eventaud.log";}         # default log file if not specified
+   if (!defined $opt_log) {$opt_log = "eventaud.log";}           # default log file if not specified
    if (!defined $opt_v) {$opt_v=0;}                            # verbose flag
    if (!defined $opt_o) {$opt_o="eventaud.csv";}               # default output file
    if (!defined $opt_workpath) {$opt_workpath="";}             # default is current directory
@@ -1221,6 +1326,23 @@ sub datadumperlog
    print FH Data::Dumper->Dumper($dd_var);
 }
 
+sub sec2time
+{
+   my ($itime) = @_;
+
+   my $sec;
+   my $min;
+   my $hour;
+   my $mday;
+   my $mon;
+   my $year;
+   my $wday;
+   my $yday;
+   my $isdst;
+   ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=gmtime($itime);
+   return sprintf "%4d%02d%02d%02d%02d%02d",$year+1900,$mon+1,$mday,$hour,$min,$sec;
+}
+
 # return timestamp
 sub get_time
 {
@@ -1245,6 +1367,7 @@ sub get_epoch {
       my $wday = 0;
       my $yday = 0;
       $iyy += 100;
+      $imo -= 1;
       $unixtime = mktime ($iss, $imm, $ihh, $idd, $imo, $iyy, $wday, $yday);
    }
    return $unixtime;
@@ -1253,7 +1376,12 @@ sub get_epoch {
 # get current time in ITM standard timestamp form
 # History log
 
-# 0.50000  : New script derived from sitcache.pl
+# 1.00000  : New script derived from sitcache.pl
+# 1.01000  : Correct two display calculations
+# 1.02000  : Corrections following AIX Analysis on Arrival testing
+#          : Add SEQ 999 tracking, super fast arrival
+#          : Add SEQ 998 tracking, multi-row arrivals
+#          : Add Situation Predicate to reports 001 and 002
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -1341,12 +1469,36 @@ after 3 sampling intervals will have situation auto-closed by TEMS.
 Recovery plan: Review these such cases and resolve any issues.
 --------------------------------------------------------------
 
+EVENTAUDIT1007W
+Text: Extreme Event Status agents[count] in count instances
+
+Meaning: Sequence number 999 observed in local timestamp. This
+can mean the TEMS is overloaded with Situation results. The
+result can be TEMS instability including outages and crashes.
+
+Se related report EVENTREPORT004 for more comentary.
+
+Recovery plan: Rework the situations to produce fewer events.
+--------------------------------------------------------------
+
+EVENTREPORT000
+Text: Summary lines
+
+Sample:
+to be added later
+
+Meaning: One quick note, if negative numbers are seen, there
+are likely a lot of event status seen with the same time stamp.
+
+Recovery plan:  Use for a quick summary of condition.
+----------------------------------------------------------------
+
 EVENTREPORT001
 Text: Event Summary sorted by Event Status Count
 
 Sample:
 Event Summary sorted by Event Status Samples
-Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour
+Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour,PDT
 bnc_hakapps_xvaw_viosgr,48,1.09%,0.11,41,7,14008,15.67%,33.08,0,0.00%,0.00,6,32,44,6.24,
 bnc_adskprc_xvaw_viosgr,146,2.00%,0.34,75,71,8686,9.72%,20.51,0,0.00%,0.00,43,9,95,13.46,
 
@@ -1373,6 +1525,7 @@ Atomize      : Number of different Atomize values
 Nodes        : Number of reporting nodes [agents]
 Transitions  : Transitions from one open/close to another
 Tr/hour      : Rate of transitions per hour
+PDT          : Situation Formula [predicate]
 
 There are savings to be had be reducing the number of situations event statuses.
 The benefit is both at the remote TEMS and the hub TEMS.
@@ -1398,7 +1551,7 @@ only counts Open [Y] and Close [Y] status and ignores others such as Start [S]
 and Stop [S] because those are not associated with specific agents.
 
 
-Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour
+Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour,PDT
 
 Situation    : Situation Name. This can be the name index in case TNAME Fullname is used
 Count        : Number of situation results
@@ -1416,6 +1569,7 @@ Atomize      : Number of different Atomize values
 Nodes        : Number of reporting nodes [agents]
 Transitions  : Transitions from one open/close to another
 Tr/hour      : Rate of transitions per hour
+PDT          : Situation Formula [predicate]
 
 There are major savings to be had be reducing the number of incoming
 situation results at a remote TEMS. The benefit is mostly at the
@@ -1451,4 +1605,58 @@ Atomize      : Value of atomize if any for this
 This report is mainly to help understand the summary reports.
 
 Recovery plan:  Use report to help understand the summary reports.
+----------------------------------------------------------------
+
+EVENTREPORT004
+Text: Extreme event arrival report SEQ999
+
+Sample:
+Situation,Count,Nodes,Times
+CIB_UNIX_Disk_RW_Pct_H,2325,132,1171221040312999[35] 1171221035712999[33] ...
+CIB_UNIX_Page_Scan_Pct_H,2215,307,1171221032108999[47] 1171221031908999[44] ...
+
+Situation    : Situation Name. This can be the name index in case TNAME Fullname is used
+Count        : Number of extreme arrival events
+Nodes        : Number of nodes where extreme arrival observed
+Times        : Time [local time at agent when data filtered] and count of how many seen
+
+Meaning: TEMS creates a time stamp for arriving situation event statuses.
+CYYMMDDHHMMSSTTT The last three characters are a sequence number. When more than
+1000 situation events arive in a single second, the fixed number 999 is used.
+
+This is sometimes normal such as during a TEMS startup. However if the
+condition is frequent, it usually means the TEMS is being overwhelmed with
+situation result data and may become unstable. Situations should report on
+rare events and not common conditions.
+
+For example the second situation CIB_UNIX_Page_Scan_Pct_H formula was
+
+*IF *VALUE Unix_Memory.Page_Scan *GE 30
+
+At this site, the condition was so common at 307 agents that situation events were
+constantly opening and closing. This caused excessive workload at the TEMS and
+was one factor that caused TEMS instability.
+
+Recovery plan: Redesign the situation to avoid these extreme cases.
+----------------------------------------------------------------
+
+EVENTREPORT005
+Text: Segmented arrival report SEQ998
+
+Sample:
+[add later]
+
+Situation    : Situation Name. This can be the name index in case TNAME Fullname is used
+Count        : Number of extreme arrival events
+Nodes        : Number of nodes where extreme arrival observed
+Times        : Time [local time at agent when data filtered] and count of how many seen
+
+Meaning: TEMS creates a time stamp for arriving situation event statuses.
+CYYMMDDHHMMSSTTT The last three characters are a sequence number.
+
+There are rare cases where situation result data has to be segmented into multiple rows.
+In this case the last sequence number is 998. This condition is not well understood and
+is also pretty rare. Thus a report section was added to aid studying issue.
+
+Recovery plan: Work to understand why segmented arrival is occurring.
 ----------------------------------------------------------------
