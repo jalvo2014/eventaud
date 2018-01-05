@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.02000";
+my $gVersion = "1.03000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -1010,9 +1010,9 @@ sub init_all {
          $isitinfo = substr($oneline,33,128);
          $ireevdays = substr($oneline,162,3);
          $ireevdays =~ s/\s+$//;   #trim trailing whitespace
-         $ireevtime = substr($oneline,172,6);
+         $ireevtime = substr($oneline,166,6);
          $ireevtime =~ s/\s+$//;   #trim trailing whitespace
-         $ipdt = substr($oneline,182);
+         $ipdt = substr($oneline,175);
          $ipdt =~ s/\s+$//;   #trim trailing whitespace
       } else {
          next if substr($oneline,0,10) eq "KCIIN0187I";      # A Linux/Unix first line
@@ -1057,8 +1057,8 @@ sub init_all {
          $inode =~ s/\s+$//;   #trim trailing whitespace
          $iatomize = substr($oneline,126,128);
          $iatomize =~ s/\s+$//;   #trim trailing whitespace
-         next if ($ideltastat ne 'Y') and ($ideltastat ne 'N');
       } else {
+         next if substr($oneline,0,1) ne "[";                    # Look for starting point
          ($isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$inode,$iatomize) = parse_lst(6,$oneline);
          $isitname =~ s/\s+$//;   #trim trailing whitespace
          $ideltastat =~ s/\s+$//;   #trim trailing whitespace
@@ -1382,6 +1382,7 @@ sub get_epoch {
 #          : Add SEQ 999 tracking, super fast arrival
 #          : Add SEQ 998 tracking, multi-row arrivals
 #          : Add Situation Predicate to reports 001 and 002
+# 1.03000  : Handle -tlim 0 to TSITDESC to get full PDT
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
