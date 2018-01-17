@@ -151,6 +151,7 @@ my %advcx = (
               "EVENTAUDIT1005W" => "70",
               "EVENTAUDIT1006W" => "70",
               "EVENTAUDIT1007W" => "80",
+              "EVENTAUDIT1008E" => "100",
            );
 
 my $advi = -1;                  # capture advisories
@@ -310,6 +311,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
          my %situationxref = (
                                 count => 0,
                                 open => 0,
+                                bad => 0,
                                 sampled_ct => 0,
                                 pure_ct => 0,
                                 close => 0,
@@ -333,6 +335,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
       $situationx_ref->{count} += $situation_ref->{count};
       $situationx_ref->{open} += $situation_ref->{open};
       $situationx_ref->{close} += $situation_ref->{close};
+      $situationx_ref->{bad} += $situation_ref->{bad};
       $situationx_ref->{sampled_ct} += $situation_ref->{sampled_ct};
       $situationx_ref->{pure_ct} += $situation_ref->{pure_ct};
       $situationx_ref->{nn} += $situation_ref->{nn};
@@ -603,7 +606,7 @@ $rptkey = "EVENTREPORT005";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $outline = "$rptkey: Segmented arrival report SEQ998";
 $cnt++;$oline[$cnt]="$outline\n";
-$outline = "Situation,Count,Nodes,Times";
+$outline = "Situation,Count,Nodes,Times,";
 $cnt++;$oline[$cnt]="$outline\n";
 foreach $g ( sort { $situationx{$b}->{ct998} <=> $situationx{$a}->{ct998}}  keys %situationx) {
    my $situation_ref = $situationx{$g};
@@ -618,6 +621,30 @@ foreach $g ( sort { $situationx{$b}->{ct998} <=> $situationx{$a}->{ct998}}  keys
    }
    $outline .= $tp . ",";
    $cnt++;$oline[$cnt]="$outline\n";
+}
+
+$rptkey = "EVENTREPORT006";$advrptx{$rptkey} = 1;         # record report key
+$cnt++;$oline[$cnt]="\n";
+$outline = "$rptkey: Deltastat X report";
+$cnt++;$oline[$cnt]="$outline\n";
+$outline = "Situation,Count,";
+$cnt++;$oline[$cnt]="$outline\n";
+my $bad_ct = 0;
+my $bad_total = 0;
+foreach $g ( sort { $situationx{$b}->{ct998} <=> $situationx{$a}->{ct998}}  keys %situationx) {
+   my $situation_ref = $situationx{$g};
+   next if $situation_ref->{bad} == 0;
+   $bad_ct += 1;
+   $bad_total +=  $situation_ref->{bad};
+   $outline = $g . ",";
+   $outline .= $situation_ref->{bad} . ",";
+   $cnt++;$oline[$cnt]="$outline\n";
+}
+if ($bad_ct > 0) {
+   $advi++;$advonline[$advi] = "Situations [$bad_ct] had lodge failures [$bad_total] - See report $rptkey";
+   $advcode[$advi] = "EVENTAUDIT1008E";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
 }
 
 if ($opt_all == 1) {
@@ -792,6 +819,7 @@ sub newstsh {
                             sampled_ct => 0,
                             pure_ct => 0,
                             close => 0,
+                            bad => 0,
                             open_time => 0,
                             atomize => {},
                             reeval => 0,
@@ -813,12 +841,14 @@ sub newstsh {
    $situation_ref->{count} += 1;
    $situation_ref->{open} += 1 if $ideltastat eq "Y";
    $situation_ref->{close} += 1 if $ideltastat eq "N";
+   $situation_ref->{bad} += 1 if $ideltastat eq "X";
    my $atomize_ref = $situation_ref->{atomize}{$iatomize};
    if (!defined $atomize_ref) {
       my %atomizeref = (
                           count => 0,
                           open => 0,
                           close => 0,
+                          bad => 0,
                           open_time => 0,
                           sampled_ct => 0,
                           pure_ct => 0,
@@ -842,6 +872,7 @@ sub newstsh {
    $atomize_ref->{count} += 1;
    $atomize_ref->{open} += 1 if $ideltastat eq "Y";
    $atomize_ref->{close} += 1 if $ideltastat eq "N";
+   $atomize_ref->{bad} += 1 if $ideltastat eq "X";
 
    my %event_details = (
                           time => $ilcltmstmp,
@@ -1067,7 +1098,7 @@ sub init_all {
          $inode =~ s/\s+$//;   #trim trailing whitespace
          $iatomize =~ s/\s+$//;   #trim trailing whitespace
       }
-      next if ($ideltastat ne 'Y') and ($ideltastat ne 'N');
+      next if ($ideltastat ne 'Y') and ($ideltastat ne 'N') and ($ideltastat ne 'X');
       newstsh($ll,$isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$inode,$iatomize);
    }
 
@@ -1477,9 +1508,22 @@ Meaning: Sequence number 999 observed in local timestamp. This
 can mean the TEMS is overloaded with Situation results. The
 result can be TEMS instability including outages and crashes.
 
-Se related report EVENTREPORT004 for more comentary.
+See related report EVENTREPORT004 for more comentary.
 
 Recovery plan: Rework the situations to produce fewer events.
+--------------------------------------------------------------
+
+EVENTAUDIT1008E
+Text: Situations [count] had lodge failures [count]
+
+Meaning: Some situation could not be started cause they
+had a severe error such as an unknown attribute or a
+test value that exceeded the allowed length.
+
+See related report EVENTREPORT0076 for more details.
+
+Recovery plan: Correct the situations. Also review the
+agent development process to make sure they are tested.
 --------------------------------------------------------------
 
 EVENTREPORT000
@@ -1660,4 +1704,18 @@ In this case the last sequence number is 998. This condition is not well underst
 is also pretty rare. Thus a report section was added to aid studying issue.
 
 Recovery plan: Work to understand why segmented arrival is occurring.
+----------------------------------------------------------------
+
+EVENTREPORT006
+Text: Deltastat X report
+
+Sample:
+Situation,Count,Nodes,Times
+ddb_fss_xuxc_ws,3,
+
+Meaning: This Situation had some serious error can could not run.
+TEMS assigns a status of X and does not run it.
+
+Recovery plan: Correct the situaton so it works. The diagnostic log
+will contain details about the error.
 ----------------------------------------------------------------
