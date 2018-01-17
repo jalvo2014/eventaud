@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.03000";
+my $gVersion = "1.04000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -152,6 +152,7 @@ my %advcx = (
               "EVENTAUDIT1006W" => "70",
               "EVENTAUDIT1007W" => "80",
               "EVENTAUDIT1008E" => "100",
+              "EVENTAUDIT1009W" => "50",
            );
 
 my $advi = -1;                  # capture advisories
@@ -221,6 +222,13 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
    foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
       my $situation_ref = $node_ref->{situations}{$g};
       my $sx = $sitx{$g};
+      my $sitatom = 0;
+      my $sitatomnull = 0;
+      if (defined $sx) {
+         if ($sit_reeval[$sx] > 0 ) {
+            $sitatom = 1 if index($sit_sitinfo[$sx],"ATOM=") != -1;
+         }
+      }
       if (!defined $sx) {
          $advi++;$advonline[$advi] = "Situation Status on unknown situation $g on node $f";
          $advcode[$advi] = "EVENTAUDIT1001W";
@@ -244,6 +252,9 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                   $advsit[$advi] = "TEMS";
                }
             }
+         }
+         if ($sitatom == 1) {
+            $sitatomnull += 1 if $h eq "";
          }
          my $detail_state = 1;   # wait for initial Y record
          my $detail_start;
@@ -295,6 +306,12 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                $situation_ref->{sampled_ct} = int($situation_ref->{open_time}/$situation_ref->{reeval});
             }
          }
+      }
+      if ($sitatomnull > 0) {
+         $advi++;$advonline[$advi] = "DisplayItem [$sit_sitinfo[$sx]] with null atomize values situation $g node $f";
+         $advcode[$advi] = "EVENTAUDIT1009W";
+         $advimpact[$advi] = $advcx{$advcode[$advi]};
+         $advsit[$advi] = "TEMS";
       }
    }
 }
@@ -758,6 +775,7 @@ sub newnam {
 }
 sub newsit {
       my ($isitname,$isitinfo,$ireev_days,$ireev_time,$ipdt) = @_;
+      $isitinfo =~ s/\s+$//;   #trim trailing whitespace
       $siti += 1;
       $sit[$siti] = $isitname;
       $sitx{$isitname} = $siti;
@@ -1414,6 +1432,7 @@ sub get_epoch {
 #          : Add SEQ 998 tracking, multi-row arrivals
 #          : Add Situation Predicate to reports 001 and 002
 # 1.03000  : Handle -tlim 0 to TSITDESC to get full PDT
+# 1.04000  : Advisory on null Atomize when DisplayItem is present
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -1524,6 +1543,28 @@ See related report EVENTREPORT0076 for more details.
 
 Recovery plan: Correct the situations. Also review the
 agent development process to make sure they are tested.
+--------------------------------------------------------------
+
+EVENTAUDIT1009W
+Text: DisplayItem [sitinfo] with null atomize values situation [sitname] node [agent]
+
+Meaning: DisplayItems are defined to allow the TEMS
+to create multiple events for a single evaluation.
+In this case a situation with DisplayItem was defined
+however a null atomize value was seen. This means that
+some events were likely not produced.
+
+That could be a monitoring failure.
+
+On the other hand, if the attribute group involved
+could never return multiple results, there is no
+bad effect. It is just a little confusing to set a
+DisplayItem which is null.
+
+Recovery plan: If this is a multi-row situation than
+set a DisplayItem for the situation which will allow distinguishing
+multiple events. If it is not a multi-row attribute group
+than review if the DisplayItem is needed.
 --------------------------------------------------------------
 
 EVENTREPORT000
