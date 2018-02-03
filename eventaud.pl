@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.04000";
+my $gVersion = "1.05000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -153,6 +153,9 @@ my %advcx = (
               "EVENTAUDIT1007W" => "80",
               "EVENTAUDIT1008E" => "100",
               "EVENTAUDIT1009W" => "50",
+              "EVENTAUDIT1010W" => "25",
+              "EVENTAUDIT1011W" => "50",
+              "EVENTAUDIT1012W" => "65",
            );
 
 my $advi = -1;                  # capture advisories
@@ -222,21 +225,57 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
    foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
       my $situation_ref = $node_ref->{situations}{$g};
       my $sx = $sitx{$g};
-      my $sitatom = 0;
       my $sitatomnull = 0;
-      if (defined $sx) {
-         if ($sit_reeval[$sx] > 0 ) {
-            $sitatom = 1 if index($sit_sitinfo[$sx],"ATOM=") != -1;
-         }
-      }
       if (!defined $sx) {
          $advi++;$advonline[$advi] = "Situation Status on unknown situation $g on node $f";
          $advcode[$advi] = "EVENTAUDIT1001W";
          $advimpact[$advi] = $advcx{$advcode[$advi]};
          $advsit[$advi] = "TEMS";
       }
-      foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atomize}}) {
-         my $atomize_ref = $situation_ref->{atomize}{$h};
+      # following logic scans observed atomize values in each second for agent/situation
+      # Here are anomolies identified
+      # DisplayItem set, but null values seen
+      # DisplayItem set, but multiple identical atomize values seen
+      # DisplayItem not set, but multiple results in same second
+      foreach my $h ( sort {$a <=> $b} keys %{$situation_ref->{secs}}) {
+         my  $multires_ct = 0;
+         # check for multiple identical results in same second
+         foreach my $i ( sort {$a cmp $b} keys %{$situation_ref->{secs}{$h}}) {
+            # note the case where DisplayItem is set but null values seen
+            if ($i eq "") {
+               if ($situation_ref->{reeval} != 0) {
+                  $sitatomnull += 1 if $situation_ref->{atomize} ne "";
+               }
+            }
+            $multires_ct += $situation_ref->{secs}{$h}{$i};
+            next if $situation_ref->{secs}{$h}{$i} == 1; # ignore single results
+            if ($situation_ref->{atomize} ne "") {
+               my $nt = $situation_ref->{secs}{$h}{$i};
+               # observed multiple identical results in single second
+               if ($situation_ref->{reeval} == 0) { # pure situation
+                  $advi++;$advonline[$advi] = "Pure situation [$g] node [$f] duplicate atomize [$i] DisplayItem [$sit_atomize[$sx]] $nt times at same second $h";
+                  $advcode[$advi] = "EVENTAUDIT1010W";
+                  $advimpact[$advi] = $advcx{$advcode[$advi]};
+                  $advsit[$advi] = "TEMS";
+               } else {                             # sampled situation
+                  $advi++;$advonline[$advi] = "Sampled situation [$g] node [$f] duplicate atomize [$i] DisplayItem [$sit_atomize[$sx]] $nt times at same second $h";
+                  $advcode[$advi] = "EVENTAUDIT1011W";
+                  $advimpact[$advi] = $advcx{$advcode[$advi]};
+                  $advsit[$advi] = "TEMS";
+               }
+            }
+         }
+         if ($multires_ct > 1){
+            if ($situation_ref->{atomize} eq "") {
+               $advi++;$advonline[$advi] = "Situation [$g] node [$f] multiple results [$multires_ct] in same second $h but no DisplayItem set";
+               $advcode[$advi] = "EVENTAUDIT1012W";
+               $advimpact[$advi] = $advcx{$advcode[$advi]};
+               $advsit[$advi] = "TEMS";
+            }
+         }
+      }
+      foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
+         my $atomize_ref = $situation_ref->{atoms}{$h};
          if ($h eq "") {
             if ($situation_ref->{reeval} != 0) {
                my $displayitem_prob = 1;
@@ -252,9 +291,6 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                   $advsit[$advi] = "TEMS";
                }
             }
-         }
-         if ($sitatom == 1) {
-            $sitatomnull += 1 if $h eq "";
          }
          my $detail_state = 1;   # wait for initial Y record
          my $detail_start;
@@ -308,7 +344,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
          }
       }
       if ($sitatomnull > 0) {
-         $advi++;$advonline[$advi] = "DisplayItem [$sit_sitinfo[$sx]] with null atomize values situation $g node $f";
+         $advi++;$advonline[$advi] = "DisplayItem [$sit_atomize[$sx]] with null atomize values situation [$g] node [$f]";
          $advcode[$advi] = "EVENTAUDIT1009W";
          $advimpact[$advi] = $advcx{$advcode[$advi]};
          $advsit[$advi] = "TEMS";
@@ -332,7 +368,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                                 sampled_ct => 0,
                                 pure_ct => 0,
                                 close => 0,
-                                atomize => {},
+                                atoms => {},
                                 reeval => $situation_ref->{reeval},
                                 transitions => 0,
                                 tfwd => 0,
@@ -345,6 +381,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                                 ct998 => 0,
                                 node999 => {},
                                 node998 => {},
+                                atomize => "",
                              );
           $situationx_ref = \%situationxref;
           $situationx{$g} = \%situationxref;
@@ -359,9 +396,10 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
       $situationx_ref->{yy} += $situation_ref->{yy};
       $situationx_ref->{transitions} += $situation_ref->{transitions};
       $situationx_ref->{tfwd} = $situation_ref->{tfwd};
+      $situationx_ref->{atomize} = $situation_ref->{atomize};
       $situationx_ref->{nodes}{$f} += 1;
-      foreach my $h (keys %{$situation_ref->{atomize}}) {
-         $situationx_ref->{atomize}{$h} += 1;
+      foreach my $h (keys %{$situation_ref->{atoms}}) {
+         $situationx_ref->{atoms}{$h} += 1;
       }
       foreach my $h (keys %{$situation_ref->{time999}}) {
          $situationx_ref->{time999}{$h} += 1;
@@ -485,7 +523,7 @@ foreach $g ( sort { $situationx{$b}->{count} <=>  $situationx{$a}->{count} }  ke
    $res_rate = ($situationx_ref->{pure_ct}*60)/$event_dur if $event_dur > 0;
    $ppc = sprintf '%.2f', $res_rate;
    $outline .= $ppc . ",";
-   my $ct = scalar keys %{$situationx_ref->{atomize}};
+   my $ct = scalar keys %{$situationx_ref->{atoms}};
    $outline .= $ct . ",";
    my $node_ct = scalar keys %{$situationx_ref->{nodes}};
    $outline .= $node_ct . ",";
@@ -570,7 +608,7 @@ foreach $g ( sort { $situationx{$b}->{sampled_ct} <=>  $situationx{$a}->{sampled
    $res_rate = ($situationx_ref->{pure_ct}*60)/$event_dur if $event_dur > 0;
    $ppc = sprintf '%.2f', $res_rate;
    $outline .= $ppc . ",";
-   my $ct = scalar keys %{$situationx_ref->{atomize}};
+   my $ct = scalar keys %{$situationx_ref->{atoms}};
    $outline .= $ct . ",";
    $ct = scalar keys %{$situationx_ref->{nodes}};
    $outline .= $ct . ",";
@@ -673,8 +711,8 @@ if ($opt_all == 1) {
       my $node_ref = $nodex{$f};
       foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
          my $situation_ref = $node_ref->{situations}{$g};
-         foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atomize}}) {
-         my $atomize_ref = $situation_ref->{atomize}{$h};
+         foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
+         my $atomize_ref = $situation_ref->{atoms}{$h};
             foreach my $i (sort {$atomize_ref->{details}{$a} cmp $atomize_ref->{details}{$b}} keys %{$atomize_ref->{details}}) {
                my $detail_ref = $atomize_ref->{details}{$i};
                $outline = $f . "," . $g . "," . $detail_ref->{time} . "," . $detail_ref->{deltastat} . "," . $situation_ref->{reeval} . "," . $h . ",";
@@ -781,7 +819,7 @@ sub newsit {
       $sitx{$isitname} = $siti;
       $sit_sitinfo[$siti] = $isitinfo;
       $sit_statuscache[$siti] = 0;
-      $sit_atomize[$siti] = 0;
+      $sit_atomize[$siti] = "";
       $sit_fullname[$siti] = "";
       $sit_fullname[$siti] = $sitfullx{$isitname} if defined $sitfullx{$isitname};
       $sit_psit[$siti] = $isitname;
@@ -807,6 +845,15 @@ sub newsit {
             $reev_time_ss = substr($ireev_time,4,2);
          }
          $sit_reeval[$siti] = $ireev_days*86400 + $reev_time_hh*3600 + $reev_time_mm*60 + $reev_time_ss;   # sampling interval in seconds
+      }
+      if (index($sit_sitinfo[$siti],"ATOM=") != -1) {
+         $sit_sitinfo[$siti] =~ /ATOM=(.*?)[;~]/;
+         if (defined $1) {
+            $sit_atomize[$siti] = $1;
+         } else {
+            $sit_sitinfo[$siti] =~ /ATOM=(.*?)$/;
+            $sit_atomize[$siti] = $1 if defined $1;
+         }
       }
 }
 sub newstsh {
@@ -839,7 +886,7 @@ sub newstsh {
                             close => 0,
                             bad => 0,
                             open_time => 0,
-                            atomize => {},
+                            atoms => {},
                             reeval => 0,
                             transitions => 0,
                             tfwd => 0,
@@ -849,18 +896,21 @@ sub newstsh {
                             time998 => {},
                             node999 => {},
                             node998 => {},
+                            atomize => "",
+                            secs => {},
                          );
       $situation_ref = \%situationref;
       $node_ref->{situations}{$isitname} = \%situationref;
       my $sx = $sitx{$isitname};
       $situation_ref->{reeval} = $sit_reeval[$sx] if defined $sx;
       $situation_ref->{tfwd} = $sit_tfwd[$sx] if defined $sx;
+      $situation_ref->{atomize} = $sit_atomize[$sx] if defined $sx;
    }
    $situation_ref->{count} += 1;
    $situation_ref->{open} += 1 if $ideltastat eq "Y";
    $situation_ref->{close} += 1 if $ideltastat eq "N";
    $situation_ref->{bad} += 1 if $ideltastat eq "X";
-   my $atomize_ref = $situation_ref->{atomize}{$iatomize};
+   my $atomize_ref = $situation_ref->{atoms}{$iatomize};
    if (!defined $atomize_ref) {
       my %atomizeref = (
                           count => 0,
@@ -879,7 +929,7 @@ sub newstsh {
                           yy => 0,
                        );
       $atomize_ref = \%atomizeref;
-      $situation_ref->{atomize}{$iatomize} = \%atomizeref;
+      $situation_ref->{atoms}{$iatomize} = \%atomizeref;
    }
    if ($atomize_ref->{time_min} eq "") {
       $atomize_ref->{time_min} = $ilcltmstmp;
@@ -905,6 +955,7 @@ sub newstsh {
    $event_details{epoch} = get_epoch($ilcltmstmp);
    $atomize_ref->{secs}{$event_details{epoch}} += 1;
    $atomize_ref->{details}{$ill} = \%event_details;
+   $situation_ref->{secs}{$event_details{epoch}}{$iatomize} += 1;
    if (substr($ilcltmstmp,-3,3) eq "999") {
       $situation_ref->{time999}{$ilcltmstmp} += 1;
       $situation_ref->{node999}{$ioriginnode} += 1;
@@ -1433,6 +1484,7 @@ sub get_epoch {
 #          : Add Situation Predicate to reports 001 and 002
 # 1.03000  : Handle -tlim 0 to TSITDESC to get full PDT
 # 1.04000  : Advisory on null Atomize when DisplayItem is present
+# 1.05000  : Advisories on DisplayItem present or absent issues.
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -1561,10 +1613,86 @@ could never return multiple results, there is no
 bad effect. It is just a little confusing to set a
 DisplayItem which is null.
 
+On rare occasions this could related to a X Problem
+status in a failed situation startup. See EVENTREPORT006
+to cross-check.
+
 Recovery plan: If this is a multi-row situation than
 set a DisplayItem for the situation which will allow distinguishing
 multiple events. If it is not a multi-row attribute group
 than review if the DisplayItem is needed.
+--------------------------------------------------------------
+
+EVENTAUDIT1010W
+Text: Pure situation [sitname] node [agent] duplicate atomize [atomize] DisplayItem [displaytime] at same second count
+
+Meaning: In this circumstance only a single Situation Event
+will be created, even though multiple results are present.
+Often this is just fine and the extra situation events can
+be ignored with no business value.
+
+If you want separate situation events the TEMSes that
+agents connect to, there is a TEMS configuration to
+force one event per result and is documented in this
+document:
+
+ITM Pure Situation events and Event Merging Logic
+http://www.ibm.com/support/docview.wss?uid=swg21445309
+
+Recovery plan: If needed, configure the TEMS to force one
+situation per result
+--------------------------------------------------------------
+
+EVENTAUDIT1011W
+Text: Sampled situation [sitname] node [agent] duplicate atomize [atomize] DisplayItem [displaytime] at same second count
+
+Meaning: The situation has a DisplayItem set. By design
+the DisplayItem must be a different value for each returned
+result. If that is violated you will get only a single event
+where multiple events would normally be expected.
+
+In some cases this is an agent logic issue. Agents should
+only present DisplayItems that give that uniqueness
+guarantee. If that is not true, you may have to select
+another DisplayItem setting.
+
+In some unusual cases, the Sampled Situation Open [Y] and the
+Close [N] record is recorded at the same second. That isn't a
+DisplayItem issue but instead a potential workload issue of too
+much work arriving too fast.
+
+Recovery plan: Change the DisplayItem to an attribute that satisfies
+the uniqueness requirement. You may want to contact IBM and see
+about problems with a given agent and presenting a DisplayItem that
+does not distinquish between result rows in all cases.
+--------------------------------------------------------------
+
+EVENTAUDIT1012W
+Text: Situation [sitname] node [agent] multiple results [count] in same second $h but no DisplayItem set
+
+Meaning: Situation can return multiple result rows.
+
+In Pure situations that occurs when results are returned
+rapidly.
+
+In Situations that means cases where a situation evaluation
+[like disks with less than N% free] returns multiple results.
+
+In this case, no DisplayItem has been set, even though multiple
+results have been seen in the same second. That means that not
+all potential situation events will be created.
+
+In some unusual cases, the Sampled Situation Open [Y] and the
+Close [N] record is recorded at the same second. That isn't a
+DisplayItem issue but instead a potential workload issue of too
+much work arriving too fast.
+
+Incidentally, a DisplayItem is the [up to] first 128 bytes of
+another attribute.
+
+Recovery plan: Add proper DisplayItem to situation definition
+[Advanced button, DisplayItem in Situation Editor] to specify
+a distinguishing attribute.
 --------------------------------------------------------------
 
 EVENTREPORT000
