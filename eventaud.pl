@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.05000";
+my $gVersion = "1.06000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -250,8 +250,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
             $multires_ct += $situation_ref->{secs}{$h}{$i};
             next if $situation_ref->{secs}{$h}{$i} == 1; # ignore single results
             if ($situation_ref->{atomize} ne "") {
-               my $nt = $situation_ref->{secs}{$h}{$i};
                # observed multiple identical results in single second
+               my $nt = $situation_ref->{secs}{$h}{$i};
                if ($situation_ref->{reeval} == 0) { # pure situation
                   $advi++;$advonline[$advi] = "Pure situation [$g] node [$f] duplicate atomize [$i] DisplayItem [$sit_atomize[$sx]] $nt times at same second $h";
                   $advcode[$advi] = "EVENTAUDIT1010W";
@@ -279,13 +279,16 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
          if ($h eq "") {
             if ($situation_ref->{reeval} != 0) {
                my $displayitem_prob = 1;
+               my $displayitem_sec = 1;
                foreach my $i (keys %{$atomize_ref->{secs}}) {
                   next if $atomize_ref->{secs}{$i} == 1;
                   $displayitem_prob = $atomize_ref->{secs}{$i};
+                  $displayitem_sec  = $i;
                   last;
                }
                if ($displayitem_prob > 1) {
-                  $advi++;$advonline[$advi] = "Situation $g on node $f showing $displayitem_prob events at same second - missing DisplayItem";
+                  my $pi = $displayitem_sec;
+                  $advi++;$advonline[$advi] = "Situation $g on node $f showing $displayitem_prob events at same second $pi - missing DisplayItem";
                   $advcode[$advi] = "EVENTAUDIT1002E";
                   $advimpact[$advi] = $advcx{$advcode[$advi]};
                   $advsit[$advi] = "TEMS";
@@ -953,9 +956,9 @@ sub newstsh {
                           yy => 0,
                        );
    $event_details{epoch} = get_epoch($ilcltmstmp);
-   $atomize_ref->{secs}{$event_details{epoch}} += 1;
+   $atomize_ref->{secs}{$ilcltmstmp} += 1;
    $atomize_ref->{details}{$ill} = \%event_details;
-   $situation_ref->{secs}{$event_details{epoch}}{$iatomize} += 1;
+   $situation_ref->{secs}{$ilcltmstmp}{$iatomize} += 1;
    if (substr($ilcltmstmp,-3,3) eq "999") {
       $situation_ref->{time999}{$ilcltmstmp} += 1;
       $situation_ref->{node999}{$ioriginnode} += 1;
@@ -1485,6 +1488,7 @@ sub get_epoch {
 # 1.03000  : Handle -tlim 0 to TSITDESC to get full PDT
 # 1.04000  : Advisory on null Atomize when DisplayItem is present
 # 1.05000  : Advisories on DisplayItem present or absent issues.
+# 1.06000  : Handle time references better in report, allow easy cross reference to same data.
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
