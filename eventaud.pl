@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.06000";
+my $gVersion = "1.07000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -36,6 +36,8 @@ use Data::Dumper;               # debug only
 
 my $args_start = join(" ",@ARGV);      # capture arguments for later processing
 my $run_status = 0;                    # A count of pending runtime errors - used to allow multiple error detection before stopping process
+
+my $traceon = 0;
 
 # some common variables
 
@@ -87,7 +89,7 @@ my @sit = ();                              # array of situations
 my %sitx = ();                             # Index from situation name to index
 my @sit_pdt = ();                          # array of predicates or situation formula
 my @sit_fullname = ();                     # array of fullname
-my @sit_psit = ();                         # array of printable situaton names
+my @sit_psit = ();                         # array of printable situation names
 my @sit_sitinfo = ();                      # array of SITINFO columns
 my @sit_autostart = ();                    # array of AUTOSTART columns
 my @sit_sum = ();                          # count of *SUM
@@ -128,12 +130,14 @@ my $opt_debuglevel;             # Debug level
 my $opt_debug;                  # Debug level
 my $opt_v;                      # verbose flag
 my $opt_o;                      # output file
+my $opt_tsitstsh;               # name of TSITSTSH file
 my $opt_odir;                   # Directory for output file
 my $opt_workpath;               # Directory to store output files
 my $opt_syntax;                 # syntax tracing
 my $opt_all;                    # dump all details
 my $opt_sum;                    # When 1 create summary file
 my $opt_nohdr;                  # skip printing header
+my $opt_results;                # when 1 add in results to each all line report
 
 # produce output report
 my @oline = ();
@@ -146,8 +150,8 @@ my @hdr = ();                                #
 my %advcx = (
               "EVENTAUDIT1001W" => "75",
               "EVENTAUDIT1002E" => "100",
-              "EVENTAUDIT1003W" => "80",
-              "EVENTAUDIT1004W" => "75",
+              "EVENTAUDIT1003W" => "20",
+              "EVENTAUDIT1004W" => "25",
               "EVENTAUDIT1005W" => "70",
               "EVENTAUDIT1006W" => "70",
               "EVENTAUDIT1007W" => "80",
@@ -156,6 +160,8 @@ my %advcx = (
               "EVENTAUDIT1010W" => "25",
               "EVENTAUDIT1011W" => "50",
               "EVENTAUDIT1012W" => "65",
+              "EVENTAUDIT1013W" => "50",
+              "EVENTAUDIT1014W" => "65",
            );
 
 my $advi = -1;                  # capture advisories
@@ -205,6 +211,12 @@ open FH, ">>$opt_log" or die "can't open $opt_log: $!";
 
 logit(0,"EVENTAUDIT000I - ITM_Situation_Information $gVersion $args_start");
 
+#my $xtest = "*PREDICATE=INODESTS.O4ONLINE = 'N' AND INODESTS.ONLINE <> 'FA' AND INODESTS.PRODUCT <> 'T3' AND INODESTS.PRODUCT <> 'D9';INODESTS.GBLTMSTMP=1171221134132638;INODESTS.HOSTADDR=ip.spipe:#10.171.73.14[39456]<NM>alz_fre211ash004213</NM>;INODESTS.HOSTINFO=AIX~~7.1;INODESTS.NOCOL= ;INODESTS.NODE=AA2-s:alz_fre211ash004213:mySAP;INODESTS.NODETYPE=V;INODESTS.O4ONLINE=N;INODESTS.ONLINE= ;INODESTS.ORIGINNODE=AA2-s:alz_fre211ash004213:mySAP;INODESTS.PRODUCT=SA;INODESTS.THRUNODE=REMOTE_fre2rtm021ccpr1;INODESTS.VERSION=07.10.02~";
+#my $xtest_ct = $xtest =~ s/(?<!~)~(?!~)//g;
+#my @segres = split("(?<!~)~(?!~)",$xtest);
+#my $x = 1;
+
+
 
 my $arg_start = join(" ",@ARGV);
 
@@ -220,8 +232,14 @@ $event_dur = $event_max - $event_min;
 
 
 my $outline;
+
+# Analysis and summary of event information. Mostly the is summarized and
+# rolled into the situation_ref hashes.
+# first by node or agent name
 foreach my $f (sort { $a cmp $b } keys %nodex ) {
    my $node_ref = $nodex{$f};
+
+   # second by situation name
    foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
       my $situation_ref = $node_ref->{situations}{$g};
       my $sx = $sitx{$g};
@@ -232,125 +250,252 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
          $advimpact[$advi] = $advcx{$advcode[$advi]};
          $advsit[$advi] = "TEMS";
       }
-      # following logic scans observed atomize values in each second for agent/situation
+
+      # Next by atomize value - which might be null
+      foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
+         my $atomize_ref = $situation_ref->{atoms}{$h};
+
+          # Next by detail within atomize value. key is the global time stamp concatenated
+          # with the input line number from the file to create a reliable ordering while
+          # managing the possibility of duplicate global 999 stamps
+          #
+          # This is logically done twice, once for the agent point of view and second
+          # by the TEMS point of view. We are particularly looking for evidence of
+          # merged events which can be trouble.
+
+          # Following walks through the agent side of the retrieval
+          # With these we can figure out
+          # DisplayItem set, but null values seen
+          # DisplayItem set, but multiple identical atomize values seen
+          # DisplayItem not set, but multiple results in same second
+
+          foreach my $i (sort {$a <=> $b  }   keys %{$atomize_ref->{adetails}} ) {
+             my $adetail_ref = $atomize_ref->{adetails}{$i};
+#if ($f eq "D4:107c052e:PRDGSB-TX-G2G02") {
+#if ($g eq "Fault_610") {
+#if ($h eq "0659bef7e009d41ffd2ac16ba2203351") {
+#}
+#}
+#}
+
+             my $asecs = $adetail_ref->{aseconds};               # agent side in whole seconds
+             my $akey = $adetail_ref->{aseconds} . "|" . $h;
+             my $asum_ref = $situation_ref->{asecs}{$akey};   # situation summary
+             if (!defined $asum_ref) {
+                my %asumref = (
+                                    atom => $h,
+                                    aseconds => $adetail_ref->{aseconds},
+                                    results => 0,
+                                    count => 0,
+                                    debug => [],
+                                 );
+                $asum_ref = \%asumref;
+                $situation_ref->{asecs}{$akey} = \%asumref;
+             }
+             my @debugi = [__LINE__,$adetail_ref->{results},$h,$i,$adetail_ref->{l}];
+             push @{$asum_ref->{debug}},\@debugi;
+#if ($f eq "BNC000BDA756:06") {
+#if ($g eq "CONVENIO_TIEMPO_RESPUESTA") {
+#if ($asum_ref->{atom} eq "CATALOGO ESTILOS") {
+#if ($asum_ref->{aseconds} == 1180216103517000) {
+#$DB::single=2;
+#}
+#}
+#}
+#}
+             $asum_ref->{results} += $adetail_ref->{results};
+             $asum_ref->{count} += 1;
+          }
+
+          # walk through the TEMS side of the retrieval
+          foreach my $i ( sort {$a <=> $b} keys %{$atomize_ref->{tdetails}}) {
+             my $tdetail_ref = $atomize_ref->{tdetails}{$i};
+             my $tsecs = $tdetail_ref->{tseconds};
+             my $tkey = $tdetail_ref->{tseconds} . "|" . $h;
+             my $tsum_ref = $situation_ref->{tsecs}{$tkey};  # situation summary
+             if (!defined $tsum_ref) {
+                my %tsumref = (
+                                    atom => $h,
+                                    tseconds => $tdetail_ref->{tseconds},
+                                    results => 0,
+                                    count => 0,
+                                    gbltmstmp => $tdetail_ref->{gbltmstmp},
+                                    debug => [],
+                                 );
+                $tsum_ref = \%tsumref;
+                $situation_ref->{tsecs}{$tkey} = \%tsumref;
+             }
+             $tsum_ref->{results} += $tdetail_ref->{results};
+             $tsum_ref->{count} += 1;
+             my @debugi = [__LINE__,$tdetail_ref->{results},$h,$i,$tdetail_ref->{l}];
+             push @{$tsum_ref->{debug}},\@debugi;
+          }
+
+      }
+      # finish walking through all the agent and tems side data
+
+      # following logic scans summarized
+      # observed atomize values in each second for agent/situation
+
+      # first detection is for times recorded at the agent, the LCLTMSTMP value where
+      # times associated with DisplayItem anomolies are easiest to detect.
       # Here are anomolies identified
       # DisplayItem set, but null values seen
       # DisplayItem set, but multiple identical atomize values seen
       # DisplayItem not set, but multiple results in same second
-      foreach my $h ( sort {$a <=> $b} keys %{$situation_ref->{secs}}) {
-         my  $multires_ct = 0;
-         # check for multiple identical results in same second
-         foreach my $i ( sort {$a cmp $b} keys %{$situation_ref->{secs}{$h}}) {
-            # note the case where DisplayItem is set but null values seen
-            if ($i eq "") {
-               if ($situation_ref->{reeval} != 0) {
-                  $sitatomnull += 1 if $situation_ref->{atomize} ne "";
-               }
-            }
-            $multires_ct += $situation_ref->{secs}{$h}{$i};
-            next if $situation_ref->{secs}{$h}{$i} == 1; # ignore single results
-            if ($situation_ref->{atomize} ne "") {
-               # observed multiple identical results in single second
-               my $nt = $situation_ref->{secs}{$h}{$i};
-               if ($situation_ref->{reeval} == 0) { # pure situation
-                  $advi++;$advonline[$advi] = "Pure situation [$g] node [$f] duplicate atomize [$i] DisplayItem [$sit_atomize[$sx]] $nt times at same second $h";
-                  $advcode[$advi] = "EVENTAUDIT1010W";
-                  $advimpact[$advi] = $advcx{$advcode[$advi]};
-                  $advsit[$advi] = "TEMS";
-               } else {                             # sampled situation
-                  $advi++;$advonline[$advi] = "Sampled situation [$g] node [$f] duplicate atomize [$i] DisplayItem [$sit_atomize[$sx]] $nt times at same second $h";
-                  $advcode[$advi] = "EVENTAUDIT1011W";
-                  $advimpact[$advi] = $advcx{$advcode[$advi]};
-                  $advsit[$advi] = "TEMS";
-               }
+
+
+      foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{asecs}}) {
+         my $asum_ref = $situation_ref->{asecs}{$h};
+         # note the case where DisplayItem is set but null values seen
+         if ($asum_ref->{atom} eq "") {
+            $sitatomnull += 1 if $situation_ref->{atomize} ne "";
+         }
+         next if $asum_ref->{results} <= 1; # ignore single results
+#if ($f eq "BNC000BDA756:06") {
+#if ($g eq "CONVENIO_TIEMPO_RESPUESTA") {
+#if ($asum_ref->{atom} eq "CATALOGO ESTILOS") {
+#if ($asum_ref->{aseconds} == 1180216103517000) {
+#$DB::single=2;
+#}
+#}
+#}
+#}
+         if ($situation_ref->{atomize} ne "") {
+            # observed multiple results with same DisplayItem in single second
+            my $nt = $asum_ref->{results};
+            if ($situation_ref->{reeval} == 0) { # pure situation
+               $advi++;$advonline[$advi] = "Pure situation [$g] node [$f] duplicate atomize [$asum_ref->{atom}] DisplayItem [$situation_ref->{atomize}] $nt times at local second $h";
+               $advcode[$advi] = "EVENTAUDIT1010W";
+               $advimpact[$advi] = $advcx{$advcode[$advi]};
+               $advsit[$advi] = "TEMS";
+            } else {                             # sampled situation
+               $advi++;$advonline[$advi] = "Sampled situation [$g] node [$f] duplicate atomize [$asum_ref->{atom}] DisplayItem [$situation_ref->{atomize}] $nt times at local second $h";
+               $advcode[$advi] = "EVENTAUDIT1011W";
+               $advimpact[$advi] = $advcx{$advcode[$advi]};
+               $advsit[$advi] = "TEMS";
             }
          }
-         if ($multires_ct > 1){
-            if ($situation_ref->{atomize} eq "") {
-               $advi++;$advonline[$advi] = "Situation [$g] node [$f] multiple results [$multires_ct] in same second $h but no DisplayItem set";
-               $advcode[$advi] = "EVENTAUDIT1012W";
+         if ($situation_ref->{atomize} eq "") {
+            $advi++;$advonline[$advi] = "Situation [$g] node [$f] multiple results [$asum_ref->{results}] at local second $h - but no DisplayItem set";
+            $advcode[$advi] = "EVENTAUDIT1012W";
+            $advimpact[$advi] = $advcx{$advcode[$advi]};
+            $advsit[$advi] = "TEMS";
+         }
+      }
+
+      # Now check for multiple events as recorded at TEMS in same second
+      foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{tsecs}}) {
+         my $tsum_ref = $situation_ref->{tsecs}{$h};
+         next if $tsum_ref->{results} <= 1; # ignore single results
+         if ($situation_ref->{atomize} ne "") {
+            # observed multiple identical results in single second
+            my $nt = $tsum_ref->{results};
+            my $ii = $tsum_ref->{tseconds};
+            my $pi = $tsum_ref->{gbltmstmp};
+            if ($situation_ref->{reeval} == 0) { # pure situation
+               $advi++;$advonline[$advi] = "Pure situation [$g] node [$f] duplicate atomize [$tsum_ref->{atom}] DisplayItem [$situation_ref->{atomize}] $nt times at same TEMS second $ii [$pi]";
+               $advcode[$advi] = "EVENTAUDIT1013W";
                $advimpact[$advi] = $advcx{$advcode[$advi]};
                $advsit[$advi] = "TEMS";
             }
          }
       }
+
       foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
          my $atomize_ref = $situation_ref->{atoms}{$h};
          if ($h eq "") {
             if ($situation_ref->{reeval} != 0) {
                my $displayitem_prob = 1;
                my $displayitem_sec = 1;
-               foreach my $i (keys %{$atomize_ref->{secs}}) {
-                  next if $atomize_ref->{secs}{$i} == 1;
-                  $displayitem_prob = $atomize_ref->{secs}{$i};
-                  $displayitem_sec  = $i;
-                  last;
+               my $tems_sec = 1;
+               foreach my $i (keys %{$atomize_ref->{adetails}}) {
+                  my $adetail_ref = $atomize_ref->{adetails}{$i};
+                  next if $adetail_ref->{deltastat} ne "Y";
+                  next if $adetail_ref->{results} <= 1;
+                  # If there is a multi-row and a single attribute in the formula,
+                  # both attributes will be returned. Do not complain about a duplicate
+                  # result unless the attribute groups are the same.
+                  my @aresult1 = split("[;]",$adetail_ref->{result}[0]);
+                  $aresult1[1] =~ /(\S+)=(.*)/;
+                  my $test1 = $1;
+                  $aresult1[2] =~ /(\S+)=(.*)/;
+                  my $test2 = $1;
+                  if ($test1 eq $test2) {
+                     $displayitem_prob = $adetail_ref->{results};
+                     $displayitem_sec  = $i;
+                     last;
+                  }
                }
                if ($displayitem_prob > 1) {
                   my $pi = $displayitem_sec;
-                  $advi++;$advonline[$advi] = "Situation $g on node $f showing $displayitem_prob events at same second $pi - missing DisplayItem";
+                  $advi++;$advonline[$advi] = "Situation $g on node $f showing $displayitem_prob events at same local second $pi - missing DisplayItem";
                   $advcode[$advi] = "EVENTAUDIT1002E";
                   $advimpact[$advi] = $advcx{$advcode[$advi]};
                   $advsit[$advi] = "TEMS";
                }
             }
          }
-         my $detail_state = 1;   # wait for initial Y record
-         my $detail_start;
-         my $detail_end;
-         my $detail_last = "";
-         my $detail_ref;
-         foreach my $i (sort {$atomize_ref->{details}{$a} cmp $atomize_ref->{details}{$b}} keys %{$atomize_ref->{details}}) {
-            $detail_ref = $atomize_ref->{details}{$i};
-            if ($situation_ref->{reeval} == 0) {
-               $atomize_ref->{pure_ct} += 1;
-               $situation_ref->{pure_ct} += 1;
-            }
-            # calculate open versus close for sampled events and thus calculate open time
-            if ($situation_ref->{reeval} > 0) {
-               if ($detail_state == 1) {   # waiting for Y record
-                  if ($detail_ref->{deltastat} eq "Y") {
-                     $detail_start = $detail_ref->{epoch};
-                     $atomize_ref->{sampled_ct} += 1;
-                     $situation_ref->{sampled_ct} += 1;
-                     $situation_ref->{transitions} += 1;
-                     $detail_state = 2;
-                 } elsif ($detail_last eq "N") {
-                     $detail_ref->{nn} += 1;          # record N followed by N
-                     $atomize_ref->{nn} += 1;
-                     $situation_ref->{nn} += 1;
+         # now run through the second details and track Y and N's
+         # but only for sampled situations
+         if ($situation_ref->{reeval} == 0) {  #pure situation
+            $atomize_ref->{pure_ct} += 1;
+            $situation_ref->{pure_ct} += 1;
+         } else {  # sampled situation
+            my $detail_state = 1;   # wait for initial Y record
+            my $detail_start;
+            my $detail_end;
+            my $detail_last = "";
+            foreach my $i (sort {$a cmp $b} keys %{$atomize_ref->{tdetails}}) {
+               my $tdetail_ref = $atomize_ref->{tdetails}{$i};
+               # calculate open versus close for sampled events and thus calculate open time
+               if ($situation_ref->{reeval} > 0) {
+                  if ($detail_state == 1) {   # waiting for Y record
+                     if ($tdetail_ref->{deltastat} eq "Y") {
+                        $detail_start = $tdetail_ref->{epoch};
+                        $atomize_ref->{sampled_ct} += 1;
+                        $situation_ref->{sampled_ct} += 1;
+                        $situation_ref->{transitions} += 1;
+                        $detail_state = 2;
+                    } elsif ($detail_last eq "N") {
+                        $tdetail_ref->{nn} += 1;          # record N followed by N
+                        $atomize_ref->{nn} += 1;
+                        $situation_ref->{nn} += 1;
+                     }
+                  } elsif ($detail_state == 2) {    # waiting for N record
+                     if ($tdetail_ref->{deltastat} eq "N") {
+                        $detail_end = $tdetail_ref->{epoch};
+                        $tdetail_ref->{open_time} += $detail_end - $detail_start;
+                        $atomize_ref->{open_time} += $detail_end - $detail_start;
+                        $situation_ref->{open_time} += $detail_end - $detail_start;
+                        $situation_ref->{transitions} += 1;
+                        $detail_state = 1;
+                     } elsif ($detail_last eq "Y") {
+                        $tdetail_ref->{yy} += 1;          # record Y followed by Y
+                        $atomize_ref->{yy} += 1;
+                        $situation_ref->{yy} += 1;
+                     }
                   }
-               } elsif ($detail_state == 2) {    # waiting for N record
-                  if ($detail_ref->{deltastat} eq "N") {
-                     $detail_end = $detail_ref->{epoch};
-                     $detail_ref->{open_time} += $detail_end - $detail_start;
-                     $atomize_ref->{open_time} += $detail_end - $detail_start;
-                     $situation_ref->{open_time} += $detail_end - $detail_start;
-                     $situation_ref->{transitions} += 1;
-                     $detail_state = 1;
-                  } elsif ($detail_last eq "Y") {
-                     $detail_ref->{yy} += 1;          # record Y followed by Y
-                     $atomize_ref->{yy} += 1;
-                     $situation_ref->{yy} += 1;
-                  }
+                  $detail_last = $tdetail_ref->{deltastat};
                }
-               $detail_last = $detail_ref->{deltastat};
             }
-         }
-         if ($situation_ref->{reeval} > 0) {
-            if ($detail_last eq "Y") {
-               $atomize_ref->{open_time} += $event_max - $detail_start;
-               $situation_ref->{open_time} += $event_max - $detail_start;
-               $atomize_ref->{sampled_ct} = int($atomize_ref->{open_time}/$situation_ref->{reeval});
-               $situation_ref->{sampled_ct} = int($situation_ref->{open_time}/$situation_ref->{reeval});
+            if ($situation_ref->{reeval} > 0) {
+               if ($detail_last eq "Y") {
+                  $atomize_ref->{open_time} += $event_max - $detail_start;
+                  $situation_ref->{open_time} += $event_max - $detail_start;
+                  $atomize_ref->{sampled_ct} = int($atomize_ref->{open_time}/$situation_ref->{reeval});
+                  $situation_ref->{sampled_ct} = int($situation_ref->{open_time}/$situation_ref->{reeval});
+               }
             }
          }
       }
       if ($sitatomnull > 0) {
-         $advi++;$advonline[$advi] = "DisplayItem [$sit_atomize[$sx]] with null atomize values situation [$g] node [$f]";
-         $advcode[$advi] = "EVENTAUDIT1009W";
-         $advimpact[$advi] = $advcx{$advcode[$advi]};
-         $advsit[$advi] = "TEMS";
+         if ($situation_ref->{atomize} ne "") {
+            $advi++;$advonline[$advi] = "DisplayItem [$situation_ref->{atomize}] with null atomize values situation [$g] node [$f]";
+            $advcode[$advi] = "EVENTAUDIT1009W";
+            $advimpact[$advi] = $advcx{$advcode[$advi]};
+            $advsit[$advi] = "TEMS";
+         }
       }
    }
 }
@@ -371,6 +516,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                                 sampled_ct => 0,
                                 pure_ct => 0,
                                 close => 0,
+                                atomize => $situation_ref->{atomize},
                                 atoms => {},
                                 reeval => $situation_ref->{reeval},
                                 transitions => 0,
@@ -483,12 +629,14 @@ $res_rate = ($total_pure*60)/$event_dur if $event_dur > 0;
 $ppc = sprintf '%.2f', $res_rate;
 $hdri++;$hdr[$hdri]="Event Result History pure $total_pure $ppc/min";
 
+my $ppc_pure_rate = $ppc;
+
 
 $rptkey = "EVENTREPORT001";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $outline = "$rptkey: Event Summary sorted by Event Status Count";
 $cnt++;$oline[$cnt]="$outline\n";
-$outline = "Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour,PDT";
+$outline = "Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Atoms,Nodes,Transitions,Tr/hour,PDT";
 $cnt++;$oline[$cnt]="$outline\n";
 my $res_pc;
 foreach $g ( sort { $situationx{$b}->{count} <=>  $situationx{$a}->{count} }  keys %situationx) {
@@ -526,6 +674,7 @@ foreach $g ( sort { $situationx{$b}->{count} <=>  $situationx{$a}->{count} }  ke
    $res_rate = ($situationx_ref->{pure_ct}*60)/$event_dur if $event_dur > 0;
    $ppc = sprintf '%.2f', $res_rate;
    $outline .= $ppc . ",";
+   $outline .= $situationx_ref->{atomize} . ",";
    my $ct = scalar keys %{$situationx_ref->{atoms}};
    $outline .= $ct . ",";
    my $node_ct = scalar keys %{$situationx_ref->{nodes}};
@@ -550,10 +699,12 @@ foreach $g ( sort { $situationx{$b}->{count} <=>  $situationx{$a}->{count} }  ke
    }
    if ($situationx_ref->{tfwd} == 0) {   # is this event forwarded
       if ($sit_forwarded > 0) {          # are any events forwarded
-         $advi++;$advonline[$advi] = "Situation $g showing $situationx_ref->{count} event statuses over $node_ct agents - but event not forwarded";
-         $advcode[$advi] = "EVENTAUDIT1004W";
-         $advimpact[$advi] = $advcx{$advcode[$advi]};
-         $advsit[$advi] = "TEMS";
+         if (substr($g,0,8) ne "UADVISOR") {
+            $advi++;$advonline[$advi] = "Situation $g showing $situationx_ref->{count} event statuses over $node_ct agents - but event not forwarded";
+            $advcode[$advi] = "EVENTAUDIT1004W";
+            $advimpact[$advi] = $advcx{$advcode[$advi]};
+            $advsit[$advi] = "TEMS";
+         }
       }
    }
    if ($situationx_ref->{yy} > 0) {
@@ -574,7 +725,7 @@ $rptkey = "EVENTREPORT002";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $outline = "$rptkey: Event Summary sorted by Event Status Samples";
 $cnt++;$oline[$cnt]="$outline\n";
-$outline = "Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour,PDT";
+$outline = "Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Atoms,Nodes,Transitions,Tr/hour,PDT";
 $cnt++;$oline[$cnt]="$outline\n";
 foreach $g ( sort { $situationx{$b}->{sampled_ct} <=>  $situationx{$a}->{sampled_ct} }  keys %situationx) {
    my $situationx_ref = $situationx{$g};
@@ -611,6 +762,7 @@ foreach $g ( sort { $situationx{$b}->{sampled_ct} <=>  $situationx{$a}->{sampled
    $res_rate = ($situationx_ref->{pure_ct}*60)/$event_dur if $event_dur > 0;
    $ppc = sprintf '%.2f', $res_rate;
    $outline .= $ppc . ",";
+   $outline .= $situationx_ref->{atomize} . ",";
    my $ct = scalar keys %{$situationx_ref->{atoms}};
    $outline .= $ct . ",";
    $ct = scalar keys %{$situationx_ref->{nodes}};
@@ -683,7 +835,7 @@ foreach $g ( sort { $situationx{$b}->{ct998} <=> $situationx{$a}->{ct998}}  keys
 
 $rptkey = "EVENTREPORT006";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
-$outline = "$rptkey: Deltastat X report";
+$outline = "$rptkey: Deltastat X (Problem) Report";
 $cnt++;$oline[$cnt]="$outline\n";
 $outline = "Situation,Count,";
 $cnt++;$oline[$cnt]="$outline\n";
@@ -698,6 +850,7 @@ foreach $g ( sort { $situationx{$b}->{ct998} <=> $situationx{$a}->{ct998}}  keys
    $outline .= $situation_ref->{bad} . ",";
    $cnt++;$oline[$cnt]="$outline\n";
 }
+
 if ($bad_ct > 0) {
    $advi++;$advonline[$advi] = "Situations [$bad_ct] had lodge failures [$bad_total] - See report $rptkey";
    $advcode[$advi] = "EVENTAUDIT1008E";
@@ -705,21 +858,110 @@ if ($bad_ct > 0) {
    $advsit[$advi] = "TEMS";
 }
 
+my %donesit;
+$rptkey = "EVENTREPORT007";$advrptx{$rptkey} = 1;         # record report key
+$cnt++;$oline[$cnt]="\n";
+$cnt++;$oline[$cnt]="$rptkey: Detailed Attribute differences on first two merged results";
+$cnt++;$oline[$cnt]="Situation,Node,Agent_Time,Reeval,Results,Atom,Atomize,Attribute_Differences\n";
+foreach my $f (sort { $a cmp $b } keys %nodex ) {
+   my $node_ref = $nodex{$f};
+   foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
+      my $situation_ref = $node_ref->{situations}{$g};
+      foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
+      my $atomize_ref = $situation_ref->{atoms}{$h};
+         foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{adetails}}) {
+            my $adetail_ref = $atomize_ref->{adetails}{$i};
+if ($f eq "Primary:P1IWFMFT01N02:NT") {
+if ($g eq "EG_NT_Check_Cluster") {
+if ($h eq "") {
+if ($i eq "1180219091256999") {
+}
+}
+}
+}
+            next if $adetail_ref->{rndx} < 2;
+            $donesit{$g} += 1;
+            next if $donesit{$g} > 1;
+            my %attr1;
+            my @aresult1 = split("[;]",$adetail_ref->{result}[0]);
+            foreach my $r (@aresult1) {
+               $r =~ /(\S+)=(.*)/;
+               my $iattr = $1;
+               my $ivalue = $2;
+               $attr1{$iattr} = $ivalue;
+            }
+
+            my %attr2;
+            my @aresult2 = split("[;]",$adetail_ref->{result}[1]);
+            foreach my $r (@aresult2) {
+               $r =~ /(\S+)=(.*)/;
+               my $iattr = $1;
+               my $ivalue = $2;
+               $attr2{$iattr} = $ivalue;
+            }
+            my $pdiff = "";
+            foreach my $r ( sort {$a cmp $b} keys %attr1) {
+               next if $r eq "*PREDICATE";
+               next if !defined $attr2{$r};
+               next if !defined $attr1{$r};
+               next if $attr2{$r} eq $attr1{$r};
+               $pdiff .= $r . " 1[" . $attr1{$r} . "] 2[" . $attr2{$r} . "],";
+            }
+            next if $pdiff eq "";
+            $outline = $g . ",";
+            $outline .= $f . ",";
+            $outline .= $i . ",";
+            $outline .= $situation_ref->{reeval} . ",";
+            $outline .= $adetail_ref->{results} . ",";
+            $outline .= $situation_ref->{atomize} . ",";
+            $outline .= $h . ",";
+            $outline .= $pdiff . ",";
+            $cnt++;$oline[$cnt]="$outline\n";
+         }
+      }
+   }
+}
+
 if ($opt_all == 1) {
    $rptkey = "EVENTREPORT003";$advrptx{$rptkey} = 1;         # record report key
    $cnt++;$oline[$cnt]="\n";
-   $outline = "$rptkey: Full report sorted by Node/Situation/Time";
-   $cnt++;$oline[$cnt]="Node,Situation,Time,Deltastat,Reeval,Atomize,\n";
+   $cnt++;$oline[$cnt]="$rptkey: Full report sorted by Node/Situation/Time\n";
+   $cnt++;$oline[$cnt]="Situation,Node,Thrunode,Agent_Time,TEMS_Time,Deltastat,Reeval,Results,Atomize,DisplayItem\n";
    foreach my $f (sort { $a cmp $b } keys %nodex ) {
       my $node_ref = $nodex{$f};
       foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
          my $situation_ref = $node_ref->{situations}{$g};
          foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
          my $atomize_ref = $situation_ref->{atoms}{$h};
-            foreach my $i (sort {$atomize_ref->{details}{$a} cmp $atomize_ref->{details}{$b}} keys %{$atomize_ref->{details}}) {
-               my $detail_ref = $atomize_ref->{details}{$i};
-               $outline = $f . "," . $g . "," . $detail_ref->{time} . "," . $detail_ref->{deltastat} . "," . $situation_ref->{reeval} . "," . $h . ",";
+            foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{tdetails}}) {
+               my $tdetail_ref = $atomize_ref->{tdetails}{$i};
+               $outline = $g . ",";
+               $outline .= $f . ",";
+               $outline .= $tdetail_ref->{thrunode} . ",";
+               $outline .= $tdetail_ref->{lcltmstmp} . ",";
+               $outline .= $tdetail_ref->{gbltmstmp} . ",";
+               $outline .= $tdetail_ref->{deltastat} . ",";
+               $outline .= $situation_ref->{reeval} . ",";
+               $outline .= $tdetail_ref->{results} . ",";
+               $outline .= $situation_ref->{atomize} . ",";
+               $outline .= $h . ",";
                $cnt++;$oline[$cnt]="$outline\n";
+#if ($g eq "BN_NT_Netscaler") {
+#if ($f eq "NetScaler:BNC000BDA419:02") {
+#if ($tdetail_ref->{lcltmstmp} == 1180216125945999) {
+#$DB::single=2;
+#}
+#}
+#}
+               my @rarry = @{$tdetail_ref->{allresults}};
+               if (($#rarry > 0) or  ($opt_results == 1)){
+                  for (my $ri=0;$ri<= $#rarry;$ri++) {
+                     my $rc = $ri + 1;
+                     $outline = ",,,,,,," . $rc . ",";
+                     $outline .= $rarry[$ri] . ",";
+                     $cnt++;$oline[$cnt]="$outline\n";
+                  }
+               }
             }
          }
       }
@@ -801,7 +1043,8 @@ if ($opt_sum != 0) {
    $sumline .= $padvi . " ";
    $sumline .= $event_dur . " seconds ";
    $sumline .= $total_count . " events" . "[$ppc_event_rate/min] ";
-   $sumline .= $total_sampled . " results" . "[$ppc_sample_rate/min] ";
+   $sumline .= $total_sampled . " sampled results" . "[$ppc_sample_rate/min] ";
+   $sumline .= $total_pure . " pure results" . "[$ppc_pure_rate/min] ";
    my $sumfn = $opt_odir . "eventaud.txt";
    open SUM, ">$sumfn" or die "Unable to open summary file $sumfn\n";
    print SUM "$sumline\n";
@@ -860,10 +1103,26 @@ sub newsit {
       }
 }
 sub newstsh {
-   my ($ill,$isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$inode,$iatomize) = @_;
+   my ($ill,$isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$igbltmstmp,$inode,$iatomize,$iresults) = @_;
+#if ($isitname eq "WAS_RESTART_TEST") {
+#}
+   # ignore some puzzling cases where on open event Y had a single tilda ~ or was null
+   if ($ideltastat eq "Y") {
+      return if ($iresults eq "~") or ($iresults eq "");
+   }
 
-   my $node_ref = $nodex{$ioriginnode};
+   # MS_Offline type situations use fake ORIGINNODEs [managed systems] and thus do not relate to
+   # true situation and so don't affect agnent related situation processing.
+   $sx = $sitx{$isitname};
+   if (defined $sx) {
+      return if index($sit_pdt[$sx],"ManagedSystem.Status") != -1;
+   }
 
+
+   my $a_seconds = substr($ilcltmstmp,0,13) . "000";   # agent timestamp
+   my $t_seconds = substr($igbltmstmp,0,13) . "000";   # tems  timestamp
+
+   my $node_ref = $nodex{$ioriginnode};                # create a map by Agent name
    if (!defined $node_ref) {
       my %noderef = (
                        count => 0,
@@ -884,23 +1143,24 @@ sub newstsh {
       my %situationref = (
                             count => 0,
                             open => 0,
-                            sampled_ct => 0,
-                            pure_ct => 0,
                             close => 0,
                             bad => 0,
+                            sampled_ct => 0,
+                            pure_ct => 0,
                             open_time => 0,
-                            atoms => {},
+                            atomize => "",
                             reeval => 0,
-                            transitions => 0,
                             tfwd => 0,
+                            transitions => 0,
                             nn => 0,
                             yy => 0,
                             time999 => {},
                             time998 => {},
                             node999 => {},
                             node998 => {},
-                            atomize => "",
-                            secs => {},
+                            asecs => {},
+                            tsecs => {},
+                            atoms => {},
                          );
       $situation_ref = \%situationref;
       $node_ref->{situations}{$isitname} = \%situationref;
@@ -921,59 +1181,139 @@ sub newstsh {
                           close => 0,
                           bad => 0,
                           open_time => 0,
+                          reeval => 0,
                           sampled_ct => 0,
                           pure_ct => 0,
-                          details => {},
-                          time_min => "",
-                          time_max => "",
-                          reeval => 0,
-                          secs => {},
+                          adetails => {},
+                          tdetails => {},
+                          asecs => {},
+                          atime_min => "",
+                          atime_max => "",
+                          tsecs => {},
+                          ttime_min => "",
+                          ttime_max => "",
                           nn => 0,
                           yy => 0,
                        );
       $atomize_ref = \%atomizeref;
       $situation_ref->{atoms}{$iatomize} = \%atomizeref;
    }
-   if ($atomize_ref->{time_min} eq "") {
-      $atomize_ref->{time_min} = $ilcltmstmp;
-      $atomize_ref->{time_max} = $ilcltmstmp;
+
+   if ($atomize_ref->{atime_min} eq "") {
+      $atomize_ref->{atime_min} = $a_seconds;
+      $atomize_ref->{atime_max} = $a_seconds;
    }
-   $atomize_ref->{time_min} = $ilcltmstmp if $ilcltmstmp lt $atomize_ref->{time_min};
-   $atomize_ref->{time_max} = $ilcltmstmp if $ilcltmstmp gt $atomize_ref->{time_max};
+   $atomize_ref->{atime_min} = $a_seconds if $a_seconds lt $atomize_ref->{atime_min};
+   $atomize_ref->{atime_max} = $a_seconds if $a_seconds gt $atomize_ref->{atime_max};
+
+   if ($atomize_ref->{ttime_min} eq "") {
+      $atomize_ref->{ttime_min} = $t_seconds;
+      $atomize_ref->{ttime_max} = $t_seconds;
+   }
+   $atomize_ref->{ttime_min} = $t_seconds if $t_seconds lt $atomize_ref->{ttime_min};
+   $atomize_ref->{ttime_max} = $t_seconds if $t_seconds gt $atomize_ref->{ttime_max};
+
    $atomize_ref->{count} += 1;
    $atomize_ref->{open} += 1 if $ideltastat eq "Y";
    $atomize_ref->{close} += 1 if $ideltastat eq "N";
    $atomize_ref->{bad} += 1 if $ideltastat eq "X";
 
-   my %event_details = (
-                          time => $ilcltmstmp,
-                          epoch => 0,
-                          deltastat => $ideltastat,
-                          open_time => 0,
-                          sampled_ct => 0,
-                          pure_ct => 0,
-                          nn => 0,
-                          yy => 0,
-                       );
-   $event_details{epoch} = get_epoch($ilcltmstmp);
-   $atomize_ref->{secs}{$ilcltmstmp} += 1;
-   $atomize_ref->{details}{$ill} = \%event_details;
-   $situation_ref->{secs}{$ilcltmstmp}{$iatomize} += 1;
-   if (substr($ilcltmstmp,-3,3) eq "999") {
-      $situation_ref->{time999}{$ilcltmstmp} += 1;
-      $situation_ref->{node999}{$ioriginnode} += 1;
-   } elsif (substr($ilcltmstmp,-3,3) eq "998") {
-      $situation_ref->{time998}{$ilcltmstmp} += 1;
-      $situation_ref->{node998}{$ioriginnode} += 1;
+   # first section captures activity on the Agent. Agents know nothing
+   # about events going open/closed so only work with the open status records
+   if ($ideltastat eq "Y") {
+      my $dkey = $ilcltmstmp;
+      my $adetail_ref = $atomize_ref->{adetails}{$dkey};
+      if (!defined $adetail_ref) {
+         my %adetailref = (
+                            deltastat => $ideltastat,
+                            gbltmstmp => $igbltmstmp,
+                            aseconds => $a_seconds,
+                            tseconds => $t_seconds,
+                            l => $ill,
+                            rndx => 0,
+                            result1 => "",
+                            result => [],
+                            results => 0,
+                            eventh => 0,
+                         );
+         $adetail_ref = \%adetailref;
+         $atomize_ref->{adetails}{$dkey} = \%adetailref;
+      }
+      $adetail_ref->{result1} = substr($iresults,0,1);
+      $adetail_ref->{eventh} += 1 if $adetail_ref->{result1} eq "*";
+      my @segres = split("(?<!~)~(?!~)",$iresults); # split string by single ~ and not several ~ characters in a row
+      $adetail_ref->{results} += $#segres + 1;
+      # In simple cases, there is just one result segment.
+      # for cases with multiple result segments, capture the first two for comparison
+      if ($adetail_ref->{rndx} < 2) {
+         foreach my $r (@segres) {
+            push @{$adetail_ref->{result}},$r;
+            $adetail_ref->{rndx} += 1;
+            last if $adetail_ref->{rndx} > 1;
+         }
+      }
    }
 
-   # track global start/stop time
-   if ($event_min == 0) {
-      $event_min = $event_details{epoch};
-      $event_max = $event_details{epoch};
+   # second section captures activity at the TEMS, where Open and Close [Y/N] are determined
+   if (($ideltastat eq "N")  or                                     # Handle event sitaution close
+       (($ideltastat eq "Y") and (substr($iresults,0,1) eq "*"))) {  # Handle initial event situation open
+
+      my $tkey = $t_seconds;
+      my $tdetail_ref = $atomize_ref->{tdetails}{$tkey};
+      if (!defined $tdetail_ref) {
+         my %tdetailref = (
+                             deltastat => $ideltastat,
+                             gbltmstmp => $igbltmstmp,
+                             lcltmstmp => $ilcltmstmp,
+                             thrunode => $inode,
+                             tseconds => $t_seconds,
+                             epoch => 0,
+                             l => $ill,
+                             rndx => 0,
+                             result1 => "",
+                             result => [],
+                             results => 0,
+                             eventh => 0,
+                             count => 0,
+                             yy => 0,
+                             nn => 0,
+                             allresults => [],
+                          );
+         $tdetail_ref = \%tdetailref;
+         $atomize_ref->{tdetails}{$tkey} = \%tdetailref;
+      }
+      $tdetail_ref->{count} += 1;
+      $tdetail_ref->{epoch} = get_epoch($igbltmstmp);
+      $tdetail_ref->{result1} = substr($iresults,0,1);
+      $tdetail_ref->{eventh} += 1 if $tdetail_ref->{result1} eq "*";
+      my @segres = split("(?<!~)~(?!~)",$iresults); # split string by single ~ and not several ~ characters in a row
+      $tdetail_ref->{results} += $#segres + 1;
+      # In simple cases, there is just one result segment.
+      # for cases with multiple result segments, capture the first two for comparison
+      if ($ideltastat eq "Y") {
+         if ($tdetail_ref->{rndx} < 2) {
+            foreach my $r (@segres) {
+               push @{$tdetail_ref->{result}},$r;
+               $tdetail_ref->{rndx} += 1;
+               last if $tdetail_ref->{rndx} > 1;
+            }
+         }
+      }
+      # Collect all results if needed later
+      if ($ideltastat eq "Y") {
+         foreach my $r (@segres) {
+            push @{$tdetail_ref->{allresults}},$r;
+         }
+      }
+
+      # track global start/stop time
+      if ($event_min == 0) {
+         $event_min = $tdetail_ref->{epoch};
+         $event_max = $tdetail_ref->{epoch};
+      }
+      $event_min = $tdetail_ref->{epoch} if $tdetail_ref->{epoch} < $event_min;
+      $event_max = $tdetail_ref->{epoch} if $tdetail_ref->{epoch} > $event_max;
    }
-   $event_min = $event_details{epoch} if $event_details{epoch} < $event_min;
-   $event_max = $event_details{epoch} if $event_details{epoch} > $event_max;
 }
 
 # There may be a better way to do this, but this was clear and worked.
@@ -1050,8 +1390,10 @@ sub init_all {
    my $ideltastat;
    my $ioriginnode;
    my $ilcltmstmp;
+   my $igbltmstmp;
    my $inode;
    my $iatomize;
+   my $iresults;
 
    my $read_fn;
 
@@ -1147,22 +1489,27 @@ sub init_all {
       next if $ll < 5;
       chop $oneline;
       $oneline .= " " x 200;
+#print STDERR "working on $ll\n";
       if ($opt_txt == 1) {
          $isitname = substr($oneline,0,32);
          $isitname =~ s/\s+$//;   #trim trailing whitespace
          $ideltastat = substr($oneline,33,1);
          $ideltastat =~ s/\s+$//;   #trim trailing whitespace
-         $ioriginnode = substr($oneline,43,32);
+         $ioriginnode = substr($oneline,35,32);
          $ioriginnode =~ s/\s+$//;   #trim trailing whitespace
-         $ilcltmstmp = substr($oneline,76,16);
+         $ilcltmstmp = substr($oneline,68,16);
          $ilcltmstmp =~ s/\s+$//;   #trim trailing whitespace
-         $inode = substr($oneline,93,32);
+         $igbltmstmp = substr($oneline,85,16);
+         $igbltmstmp =~ s/\s+$//;   #trim trailing whitespace
+         $inode = substr($oneline,102,32);
          $inode =~ s/\s+$//;   #trim trailing whitespace
-         $iatomize = substr($oneline,126,128);
+         $iatomize = substr($oneline,135,128);
          $iatomize =~ s/\s+$//;   #trim trailing whitespace
+         $iresults = substr($oneline,264);
+         $iresults =~ s/\s+$//;   #trim trailing whitespace
       } else {
          next if substr($oneline,0,1) ne "[";                    # Look for starting point
-         ($isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$inode,$iatomize) = parse_lst(6,$oneline);
+         ($isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$igbltmstmp,$inode,$iatomize,$iresults) = parse_lst(6,$oneline);
          $isitname =~ s/\s+$//;   #trim trailing whitespace
          $ideltastat =~ s/\s+$//;   #trim trailing whitespace
          $ioriginnode =~ s/\s+$//;   #trim trailing whitespace
@@ -1171,7 +1518,7 @@ sub init_all {
          $iatomize =~ s/\s+$//;   #trim trailing whitespace
       }
       next if ($ideltastat ne 'Y') and ($ideltastat ne 'N') and ($ideltastat ne 'X');
-      newstsh($ll,$isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$inode,$iatomize);
+      newstsh($ll,$isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$igbltmstmp,$inode,$iatomize,$iresults);
    }
 
 }
@@ -1199,6 +1546,9 @@ sub init {
       } elsif ($ARGV[0] eq "-all") {
          $opt_all = 1;
          shift(@ARGV);
+      } elsif ($ARGV[0] eq "-results") {
+         $opt_results = 1;
+         shift(@ARGV);
       } elsif ($ARGV[0] eq "-sum") {
          $opt_sum = 1;
          shift(@ARGV);
@@ -1224,6 +1574,11 @@ sub init {
          shift(@ARGV);
          $opt_o = shift(@ARGV);
          die "-o output specified but no file found\n" if !defined $opt_o;
+      } elsif ($ARGV[0] eq "-tsitstsh") {
+         shift(@ARGV);
+         $opt_tsitstsh = shift(@ARGV);
+         die "-tsitstsh output specified but no file found\n" if !defined $opt_tsitstsh;
+         die "-tsitstsh output specified file missing\n" if !-e $opt_tsitstsh;
       } elsif ($ARGV[0] eq "-odir") {
          shift(@ARGV);
          $opt_odir = shift(@ARGV);
@@ -1267,16 +1622,21 @@ sub init {
    if (!defined $opt_debuglevel) {$opt_debuglevel=90;}         # debug logging level - low number means fewer messages
    if (!defined $opt_debug) {$opt_debug=0;}                    # debug - turn on rare error cases
    if (!defined $opt_all) {$opt_all=1;}                       # initial testing show all details
+   if (!defined $opt_results) {$opt_results=0;}               # initial testing show all results
+
    if (defined $opt_txt) {
       $opt_txt_tsitdesc = "QA1CSITF.DB.TXT";
       $opt_txt_tsitstsh = "QA1CSTSH.DB.TXT";
+      $opt_txt_tsitstsh = $opt_tsitstsh if defined $opt_tsitstsh;
       $opt_txt_tname = "QA1DNAME.DB.TXT";
    }
    if (defined $opt_lst) {
       $opt_lst_tsitdesc = "QA1CSITF.DB.LST";
       $opt_lst_tsitstsh = "QA1CSTSH.DB.LST";
+      $opt_lst_tsitstsh = $opt_tsitstsh if defined $opt_tsitstsh;
       $opt_lst_tname = "QA1DNAME.DB.LST";
    }
+
 
    # ini control file may be present
 
@@ -1489,6 +1849,7 @@ sub get_epoch {
 # 1.04000  : Advisory on null Atomize when DisplayItem is present
 # 1.05000  : Advisories on DisplayItem present or absent issues.
 # 1.06000  : Handle time references better in report, allow easy cross reference to same data.
+# 1.07000  : rework logic to closer match more complex reality;
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -1560,6 +1921,7 @@ Meaning: Normal transitions are open->close->open. Some causes:
 1) Missing DisplayItem
 2) Duplicate Agent name cases
 3) Agent recycled after a crash.
+4) TEMS recycled and Y is from an earlier startup
 
 Recovery plan: Review these such cases and resolve any issues.
 --------------------------------------------------------------
@@ -1572,6 +1934,7 @@ Meaning: Normal transitions are open->close->open. Some causes:
 after 3 sampling intervals will have situation auto-closed by TEMS.
 2) Duplicate Agent name cases
 3) Agent recycled after a crash.
+4) TEMS recycled and Y is from an earlier startup
 
 Recovery plan: Review these such cases and resolve any issues.
 --------------------------------------------------------------
@@ -1595,7 +1958,7 @@ Meaning: Some situation could not be started cause they
 had a severe error such as an unknown attribute or a
 test value that exceeded the allowed length.
 
-See related report EVENTREPORT0076 for more details.
+See related report EVENTREPORT007 for more details.
 
 Recovery plan: Correct the situations. Also review the
 agent development process to make sure they are tested.
@@ -1628,7 +1991,7 @@ than review if the DisplayItem is needed.
 --------------------------------------------------------------
 
 EVENTAUDIT1010W
-Text: Pure situation [sitname] node [agent] duplicate atomize [atomize] DisplayItem [displaytime] at same second count
+Text: Pure situation [sitname] node [agent] duplicate atomize [atomize] DisplayItem [displaytime] at same local second count
 
 Meaning: In this circumstance only a single Situation Event
 will be created, even though multiple results are present.
@@ -1648,7 +2011,7 @@ situation per result
 --------------------------------------------------------------
 
 EVENTAUDIT1011W
-Text: Sampled situation [sitname] node [agent] duplicate atomize [atomize] DisplayItem [displaytime] at same second count
+Text: Sampled situation [sitname] node [agent] duplicate atomize [atomize] DisplayItem [displaytime] at same local second count
 
 Meaning: The situation has a DisplayItem set. By design
 the DisplayItem must be a different value for each returned
@@ -1672,7 +2035,7 @@ does not distinquish between result rows in all cases.
 --------------------------------------------------------------
 
 EVENTAUDIT1012W
-Text: Situation [sitname] node [agent] multiple results [count] in same second $h but no DisplayItem set
+Text: Situation [sitname] node [agent] multiple results [count] in same local second $h but no DisplayItem set
 
 Meaning: Situation can return multiple result rows.
 
@@ -1693,6 +2056,68 @@ much work arriving too fast.
 
 Incidentally, a DisplayItem is the [up to] first 128 bytes of
 another attribute.
+
+Recovery plan: Add proper DisplayItem to situation definition
+[Advanced button, DisplayItem in Situation Editor] to specify
+a distinguishing attribute.
+--------------------------------------------------------------
+                  $advi++;$advonline[$advi] = "Pure situation [$g] node [$f] duplicate atomize [$i] DisplayItem [$sit_atomize[$sx]] $nt times at same TEMS second $h";
+                  $advcode[$advi] = "EVENTAUDIT1013W";
+                  $advimpact[$advi] = $advcx{$advcode[$advi]};
+                  $advsit[$advi] = "TEMS";
+               } else {                             # sampled situation
+                  $advi++;$advonline[$advi] = "Sampled situation [$g] node [$f] duplicate atomize [$i] DisplayItem [$sit_atomize[$sx]] $nt times at TEMS same second $h";
+                  $ad
+
+
+
+EVENTAUDIT1013W
+Text: Pure situation [sitname] node [agent] duplicate atomize [value] DisplayItem [atomize] count times at same TEMS second $h
+
+Meaning: Situation can return multiple result rows.
+
+In Pure situations that occurs when results are returned
+rapidly and they the same atomize value. In default configuration
+this will cause the TEMS to apparently suppress all but one of
+the situation events. The effect is that fewer situation events
+will be created than expected.
+
+Creating so many events is sort of a violation of ITM philosophy
+that events should be rare and exceptional. If they are flooding in
+at more than one per second they can hardly considered rare. This
+will cause substantial workload at the agent, the remote TEMS,
+the hub TEMS, the TEPS and the event receiver. One way to approach
+a resolution is to change the formula so events are rare.
+
+In some such cases, a different DisplayItem may be chosen to enforce
+separate events. Please know that may create a TEMS process storage
+issue and requires a periodic TEMS recycle to clear.
+
+As a good alternative, here a technote which will enforce
+one result = one event logic in such cases. Each TEMS that receives
+such events will need that configuration. It apples to all results
+coming from a specific attribute table.
+
+ITM Pure Situation events and Event Merging Logic
+http://www.ibm.com/support/docview.wss?uid=swg21445309
+
+Recovery plan: If desired, configure the TEMS is to enforce
+one result = one row logic.
+--------------------------------------------------------------
+
+EVENTAUDIT1014W
+
+Text: Sampled situation [sitname] node [agent] duplicate atomize [value] DisplayItem [atomize] count times at same TEMS second $h
+
+Meaning: Situation can return multiple result rows.
+
+This is most often seen seen if a DisplayItem is chosen which
+does not distingish between multiple events returned.
+
+Beyond that, sampled situations, it is rare to experience his since
+sampled situations have a minimum sampling time of 30 seconds.
+However it has been seen when multiple situations running at an
+agent have a *SIT in the formula with the same situaton.
 
 Recovery plan: Add proper DisplayItem to situation definition
 [Advanced button, DisplayItem in Situation Editor] to specify
@@ -1891,4 +2316,19 @@ TEMS assigns a status of X and does not run it.
 
 Recovery plan: Correct the situaton so it works. The diagnostic log
 will contain details about the error.
+----------------------------------------------------------------
+
+EVENTREPORT007
+Text: Detailed Attribute differences on first two merged results
+
+Sample:
+Situation,Count,Nodes,Times
+ddb_fss_xuxc_ws,3,
+
+Meaning: When you see an advisory on merged results, this report
+will show what attributes were different for the first two result
+instances.
+
+Recovery plan: Correct the situaton so results transform into
+individual situation events with proper use of DisplayItem.
 ----------------------------------------------------------------
