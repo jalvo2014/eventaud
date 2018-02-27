@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.07000";
+my $gVersion = "1.08000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -151,8 +151,8 @@ my %advcx = (
               "EVENTAUDIT1001W" => "75",
               "EVENTAUDIT1002E" => "100",
               "EVENTAUDIT1003W" => "20",
-              "EVENTAUDIT1004W" => "25",
-              "EVENTAUDIT1005W" => "70",
+              "EVENTAUDIT1004W" => "70",
+              "EVENTAUDIT1005W" => "10",
               "EVENTAUDIT1006W" => "70",
               "EVENTAUDIT1007W" => "80",
               "EVENTAUDIT1008E" => "100",
@@ -332,7 +332,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
           }
 
       }
-      # finish walking through all the agent and tems side data
+      # finished walking through all the agent and tems side data
 
       # following logic scans summarized
       # observed atomize values in each second for agent/situation
@@ -437,134 +437,133 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
             }
          }
          # now run through the second details and track Y and N's
-         # but only for sampled situations
-         if ($situation_ref->{reeval} == 0) {  #pure situation
-            $atomize_ref->{pure_ct} += 1;
-            $situation_ref->{pure_ct} += 1;
-         } else {  # sampled situation
-            my $detail_state = 1;   # wait for initial Y record
-            my $detail_start;
-            my $detail_end;
-            my $detail_last = "";
-            foreach my $i (sort {$a cmp $b} keys %{$atomize_ref->{tdetails}}) {
-               my $tdetail_ref = $atomize_ref->{tdetails}{$i};
-               # calculate open versus close for sampled events and thus calculate open time
-               if ($situation_ref->{reeval} > 0) {
-                  if ($detail_state == 1) {   # waiting for Y record
-                     if ($tdetail_ref->{deltastat} eq "Y") {
-                        $detail_start = $tdetail_ref->{epoch};
-                        $atomize_ref->{sampled_ct} += 1;
-                        $situation_ref->{sampled_ct} += 1;
-                        $situation_ref->{transitions} += 1;
-                        $detail_state = 2;
-                    } elsif ($detail_last eq "N") {
-                        $tdetail_ref->{nn} += 1;          # record N followed by N
-                        $atomize_ref->{nn} += 1;
-                        $situation_ref->{nn} += 1;
-                     }
-                  } elsif ($detail_state == 2) {    # waiting for N record
-                     if ($tdetail_ref->{deltastat} eq "N") {
-                        $detail_end = $tdetail_ref->{epoch};
-                        $tdetail_ref->{open_time} += $detail_end - $detail_start;
-                        $atomize_ref->{open_time} += $detail_end - $detail_start;
-                        $situation_ref->{open_time} += $detail_end - $detail_start;
-                        $situation_ref->{transitions} += 1;
-                        $detail_state = 1;
-                     } elsif ($detail_last eq "Y") {
-                        $tdetail_ref->{yy} += 1;          # record Y followed by Y
-                        $atomize_ref->{yy} += 1;
-                        $situation_ref->{yy} += 1;
-                     }
-                  }
-                  $detail_last = $tdetail_ref->{deltastat};
-               }
-            }
+         my $detail_state = 1;   # wait for initial Y record
+         my $detail_start;
+         my $detail_end;
+         my $detail_last = "";
+         foreach my $i (sort {$a cmp $b} keys %{$atomize_ref->{tdetails}}) {
+            my $tdetail_ref = $atomize_ref->{tdetails}{$i};
+            # calculate open versus close for sampled events and thus calculate open time
+            if ($situation_ref->{reeval} == 0) {                #pure situation
+               $atomize_ref->{pure_ct} += 1;
+               $situation_ref->{pure_ct} += 1;
+            } else {                                            # sampled situation
             if ($situation_ref->{reeval} > 0) {
-               if ($detail_last eq "Y") {
-                  $atomize_ref->{open_time} += $event_max - $detail_start;
-                  $situation_ref->{open_time} += $event_max - $detail_start;
-                  $atomize_ref->{sampled_ct} = int($atomize_ref->{open_time}/$situation_ref->{reeval});
-                  $situation_ref->{sampled_ct} = int($situation_ref->{open_time}/$situation_ref->{reeval});
+               if ($detail_state == 1) {   # waiting for Y record
+                  if ($tdetail_ref->{deltastat} eq "Y") {
+                     $detail_start = $tdetail_ref->{epoch};
+                     $atomize_ref->{sampled_ct} += 1;
+                     $situation_ref->{sampled_ct} += 1;
+                     $situation_ref->{transitions} += 1;
+                     $detail_state = 2;
+                 } elsif ($detail_last eq "N") {
+                     $tdetail_ref->{nn} += 1;          # record N followed by N
+                     $atomize_ref->{nn} += 1;
+                     $situation_ref->{nn} += 1;
+                  }
+               } elsif ($detail_state == 2) {    # waiting for N record
+                  if ($tdetail_ref->{deltastat} eq "N") {
+                     $detail_end = $tdetail_ref->{epoch};
+                     $tdetail_ref->{open_time} += $detail_end - $detail_start;
+                     $atomize_ref->{open_time} += $detail_end - $detail_start;
+                     $situation_ref->{open_time} += $detail_end - $detail_start;
+                     $situation_ref->{transitions} += 1;
+                     $detail_state = 1;
+                  } elsif ($detail_last eq "Y") {
+                     $tdetail_ref->{yy} += 1;          # record Y followed by Y
+                     $atomize_ref->{yy} += 1;
+                     $situation_ref->{yy} += 1;
+                  }
                }
+               $detail_last = $tdetail_ref->{deltastat};
             }
          }
-      }
-      if ($sitatomnull > 0) {
-         if ($situation_ref->{atomize} ne "") {
-            $advi++;$advonline[$advi] = "DisplayItem [$situation_ref->{atomize}] with null atomize values situation [$g] node [$f]";
-            $advcode[$advi] = "EVENTAUDIT1009W";
-            $advimpact[$advi] = $advcx{$advcode[$advi]};
-            $advsit[$advi] = "TEMS";
+         if ($situation_ref->{reeval} > 0) {
+            if ($detail_last eq "Y") {
+               $atomize_ref->{open_time} += $event_max - $detail_start;
+               $situation_ref->{open_time} += $event_max - $detail_start;
+               $atomize_ref->{sampled_ct} = int($atomize_ref->{open_time}/$situation_ref->{reeval});
+               $situation_ref->{sampled_ct} = int($situation_ref->{open_time}/$situation_ref->{reeval});
+            }
          }
       }
    }
+   if ($sitatomnull > 0) {
+      if ($situation_ref->{atomize} ne "") {
+         $advi++;$advonline[$advi] = "DisplayItem [$situation_ref->{atomize}] with null atomize values situation [$g] node [$f]";
+         $advcode[$advi] = "EVENTAUDIT1009W";
+         $advimpact[$advi] = $advcx{$advcode[$advi]};
+         $advsit[$advi] = "TEMS";
+      }
+   }
+}
 }
 
 my %situationx;
 
 # now summarize by situation instead of node
 foreach my $f (sort { $a cmp $b } keys %nodex ) {
-   my $node_ref = $nodex{$f};
-   foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
-      my $situation_ref = $node_ref->{situations}{$g};
-      my $situationx_ref = $situationx{$g};
-      if (!defined $situationx_ref) {
-         my %situationxref = (
-                                count => 0,
-                                open => 0,
-                                bad => 0,
-                                sampled_ct => 0,
-                                pure_ct => 0,
-                                close => 0,
-                                atomize => $situation_ref->{atomize},
-                                atoms => {},
-                                reeval => $situation_ref->{reeval},
-                                transitions => 0,
-                                tfwd => 0,
-                                nodes => {},
-                                nn => 0,
-                                yy => 0,
-                                time999 => {},
-                                time998 => {},
-                                ct999 => 0,
-                                ct998 => 0,
-                                node999 => {},
-                                node998 => {},
-                                atomize => "",
-                             );
-          $situationx_ref = \%situationxref;
-          $situationx{$g} = \%situationxref;
-      }
-      $situationx_ref->{count} += $situation_ref->{count};
-      $situationx_ref->{open} += $situation_ref->{open};
-      $situationx_ref->{close} += $situation_ref->{close};
-      $situationx_ref->{bad} += $situation_ref->{bad};
-      $situationx_ref->{sampled_ct} += $situation_ref->{sampled_ct};
-      $situationx_ref->{pure_ct} += $situation_ref->{pure_ct};
-      $situationx_ref->{nn} += $situation_ref->{nn};
-      $situationx_ref->{yy} += $situation_ref->{yy};
-      $situationx_ref->{transitions} += $situation_ref->{transitions};
-      $situationx_ref->{tfwd} = $situation_ref->{tfwd};
-      $situationx_ref->{atomize} = $situation_ref->{atomize};
-      $situationx_ref->{nodes}{$f} += 1;
-      foreach my $h (keys %{$situation_ref->{atoms}}) {
-         $situationx_ref->{atoms}{$h} += 1;
-      }
-      foreach my $h (keys %{$situation_ref->{time999}}) {
-         $situationx_ref->{time999}{$h} += 1;
-         $situationx_ref->{ct999} += 1;
-      }
-      foreach my $h (keys %{$situation_ref->{time998}}) {
-         $situationx_ref->{time998}{$h} += 1;
-         $situationx_ref->{ct998} += 1;
-      }
-      foreach my $h (keys %{$situation_ref->{node999}}) {
-         $situationx_ref->{node999}{$h} += 1;
-      }
-      foreach my $h (keys %{$situation_ref->{node998}}) {
-         $situationx_ref->{node998}{$h} += 1;
-      }
+my $node_ref = $nodex{$f};
+foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
+   my $situation_ref = $node_ref->{situations}{$g};
+   my $situationx_ref = $situationx{$g};
+   if (!defined $situationx_ref) {
+      my %situationxref = (
+                             count => 0,
+                             open => 0,
+                             bad => 0,
+                             sampled_ct => 0,
+                             pure_ct => 0,
+                             close => 0,
+                             atomize => $situation_ref->{atomize},
+                             atoms => {},
+                             reeval => $situation_ref->{reeval},
+                             transitions => 0,
+                             tfwd => 0,
+                             nodes => {},
+                             nn => 0,
+                             yy => 0,
+                             time999 => {},
+                             time998 => {},
+                             ct999 => 0,
+                             ct998 => 0,
+                             node999 => {},
+                             node998 => {},
+                             atomize => "",
+                          );
+       $situationx_ref = \%situationxref;
+       $situationx{$g} = \%situationxref;
    }
+   $situationx_ref->{count} += $situation_ref->{count};
+   $situationx_ref->{open} += $situation_ref->{open};
+   $situationx_ref->{close} += $situation_ref->{close};
+   $situationx_ref->{bad} += $situation_ref->{bad};
+   $situationx_ref->{sampled_ct} += $situation_ref->{sampled_ct};
+   $situationx_ref->{pure_ct} += $situation_ref->{pure_ct};
+   $situationx_ref->{nn} += $situation_ref->{nn};
+   $situationx_ref->{yy} += $situation_ref->{yy};
+   $situationx_ref->{transitions} += $situation_ref->{transitions};
+   $situationx_ref->{tfwd} = $situation_ref->{tfwd};
+   $situationx_ref->{atomize} = $situation_ref->{atomize};
+   $situationx_ref->{nodes}{$f} += 1;
+   foreach my $h (keys %{$situation_ref->{atoms}}) {
+      $situationx_ref->{atoms}{$h} += 1;
+   }
+   foreach my $h (keys %{$situation_ref->{time999}}) {
+      $situationx_ref->{time999}{$h} += 1;
+      $situationx_ref->{ct999} += 1;
+   }
+   foreach my $h (keys %{$situation_ref->{time998}}) {
+      $situationx_ref->{time998}{$h} += 1;
+      $situationx_ref->{ct998} += 1;
+   }
+   foreach my $h (keys %{$situation_ref->{node999}}) {
+      $situationx_ref->{node999}{$h} += 1;
+   }
+   foreach my $h (keys %{$situation_ref->{node998}}) {
+      $situationx_ref->{node998}{$h} += 1;
+   }
+}
 }
 
 my $total_count = 0;
@@ -579,11 +578,11 @@ my $res_rate;
 my $ppc;
 
 foreach $g (keys %situationx) {
-   my $situationx_ref = $situationx{$g};
-   $total_count += $situationx_ref->{count};
-   $total_open += $situationx_ref->{open};
-   $total_close += $situationx_ref->{close};
-   $total_sampled += $situationx_ref->{sampled_ct};
+my $situationx_ref = $situationx{$g};
+$total_count += $situationx_ref->{count};
+$total_open += $situationx_ref->{open};
+$total_close += $situationx_ref->{close};
+$total_sampled += $situationx_ref->{sampled_ct};
    $total_pure += $situationx_ref->{pure_ct};
    $total_transitions += $situationx_ref->{transitions};
    $total_yy += $situationx_ref->{yy};
@@ -1016,7 +1015,7 @@ if ($advi != -1) {
       next if substr($f,0,10) ne "EVENTAUDIT";
       print OH "Advisory code: " . $f  . "\n";
       print OH "Impact:" . $advgotx{$f}  . "\n";
-#     print STDERR "$f missing\n" if !defined $advtextx{$f};
+      print STDERR "$f missing\n" if !defined $advtextx{$f};
       print OH $advtextx{$f};
    }
 }
@@ -1850,6 +1849,7 @@ sub get_epoch {
 # 1.05000  : Advisories on DisplayItem present or absent issues.
 # 1.06000  : Handle time references better in report, allow easy cross reference to same data.
 # 1.07000  : rework logic to closer match more complex reality;
+# 1.08000  : Correct Pure event counting logic, reduce 1005W impact to 10
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -1917,11 +1917,13 @@ needed. If not, stop them and probably delete them.
 EVENTAUDIT1005W
 Text: Situation <situation> showing <count> open->open transitions over <count> agents
 
-Meaning: Normal transitions are open->close->open. Some causes:
+Meaning: Normal transitions are open->close->open. Most of
+the time is is left-over events from before the TEMS was
+most recently recycled. Here are some additional causes
+
 1) Missing DisplayItem
 2) Duplicate Agent name cases
 3) Agent recycled after a crash.
-4) TEMS recycled and Y is from an earlier startup
 
 Recovery plan: Review these such cases and resolve any issues.
 --------------------------------------------------------------
