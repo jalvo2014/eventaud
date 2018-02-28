@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.08000";
+my $gVersion = "1.09000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -50,6 +50,8 @@ my $f;
 my $g;
 my $h;
 
+my %sitsx;                      # track most recent situation start time
+
 my %nodex;
 
 my $event_min = 0;
@@ -70,8 +72,6 @@ sub get_time;                             # get time
 sub get_epoch;                            # get epoch from ITM stamp
 sub init_all;                            # input from txt or lst files
 sub newsit;                              # create new situation entry
-sub newagt;                              # create new agemt entry
-sub newlst;                              # create new TNODELST MSL entry
 sub parse_lst;                           # parse the KfwSQLClient output
 sub sec2time;
 
@@ -92,22 +92,13 @@ my @sit_fullname = ();                     # array of fullname
 my @sit_psit = ();                         # array of printable situation names
 my @sit_sitinfo = ();                      # array of SITINFO columns
 my @sit_autostart = ();                    # array of AUTOSTART columns
-my @sit_sum = ();                          # count of *SUM
-my @sit_agents = ();                       # Agents where this situation should run
-my @sit_agenth = ();                       # hash of agent distribution
-my @sit_cmd = ();                          # 1 if CMD is present
-my @sit_dist = ();                         # When 1, distributed
-my @sit_dist_objaccl = ();                 # Situation Distributions in TOBJACCL and TGROUP/TGROUPI
-my @sit_process = ();                      # Process type attribute group
 my @sit_reeval = ();                       # Sampling interval in seconds
 my @sit_tfwd = ();                         # when 1, event forwarding enabled
 my $sit_forwarded = 0;                     # when >0 some event forwarding is taking place
 
-my @sit_statuscache = ();
 my @sit_atomize = ();
 my $sit_time_min = "";
 my $sit_time_max =  "";
-my $sit_total_statuscache = 0;
 
 # option and ini file variables variables
 
@@ -115,11 +106,6 @@ my $opt_txt;                    # input from .txt files
 my $opt_txt_tsitdesc;           # TSITDESC txt file
 my $opt_txt_tsitstsh;           # TSITSTSH txt file
 my $opt_txt_tname;              # TNAME txt file
-my $opt_txt_tobjaccl;           # TOBJACCL txt file
-my $opt_txt_tgroup;             # TGROUP txt file
-my $opt_txt_tgroupi;            # TGROUPI txt file
-my $opt_txt_tnodesav;           # TNODESAV txt file
-my $opt_txt_tnodelst;           # TNODELST txt file
 my $opt_lst;                    # input from .lst files
 my $opt_lst_tsitdesc;           # TSITDESC lst file
 my $opt_lst_tsitstsh;           # TSITDESH lst file
@@ -137,7 +123,7 @@ my $opt_syntax;                 # syntax tracing
 my $opt_all;                    # dump all details
 my $opt_sum;                    # When 1 create summary file
 my $opt_nohdr;                  # skip printing header
-my $opt_results;                # when 1 add in results to each all line report
+my $opt_results;                # when 1 add in all results to each all line report
 
 # produce output report
 my @oline = ();
@@ -162,6 +148,7 @@ my %advcx = (
               "EVENTAUDIT1012W" => "65",
               "EVENTAUDIT1013W" => "50",
               "EVENTAUDIT1014W" => "65",
+              "EVENTAUDIT1015W" => "65",
            );
 
 my $advi = -1;                  # capture advisories
@@ -211,36 +198,29 @@ open FH, ">>$opt_log" or die "can't open $opt_log: $!";
 
 logit(0,"EVENTAUDIT000I - ITM_Situation_Information $gVersion $args_start");
 
-#my $xtest = "*PREDICATE=INODESTS.O4ONLINE = 'N' AND INODESTS.ONLINE <> 'FA' AND INODESTS.PRODUCT <> 'T3' AND INODESTS.PRODUCT <> 'D9';INODESTS.GBLTMSTMP=1171221134132638;INODESTS.HOSTADDR=ip.spipe:#10.171.73.14[39456]<NM>alz_fre211ash004213</NM>;INODESTS.HOSTINFO=AIX~~7.1;INODESTS.NOCOL= ;INODESTS.NODE=AA2-s:alz_fre211ash004213:mySAP;INODESTS.NODETYPE=V;INODESTS.O4ONLINE=N;INODESTS.ONLINE= ;INODESTS.ORIGINNODE=AA2-s:alz_fre211ash004213:mySAP;INODESTS.PRODUCT=SA;INODESTS.THRUNODE=REMOTE_fre2rtm021ccpr1;INODESTS.VERSION=07.10.02~";
-#my $xtest_ct = $xtest =~ s/(?<!~)~(?!~)//g;
-#my @segres = split("(?<!~)~(?!~)",$xtest);
-#my $x = 1;
-
-
-
 my $arg_start = join(" ",@ARGV);
 
 $hdri++;$hdr[$hdri]="Situation Status History Audit Report $gVersion\n";
 $hdri++;$hdr[$hdri] = "Runtime parameters: $arg_start";
 $hdri++;$hdr[$hdri]="\n";
 
-# process two different sources of situation event status data
+# process two sources of situation event status data
+# much of the setup work is performed there
 
 $rc = init_all();
+
 
 $event_dur = $event_max - $event_min;
 
 
 my $outline;
 
-# Analysis and summary of event information. Mostly the is summarized and
+# Analysis and summary of event information. Mostly the data is summarized and
 # rolled into the situation_ref hashes.
-# first by node or agent name
-foreach my $f (sort { $a cmp $b } keys %nodex ) {
+foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Managed System Names
    my $node_ref = $nodex{$f};
 
-   # second by situation name
-   foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
+   foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) { # second by situation name
       my $situation_ref = $node_ref->{situations}{$g};
       my $sx = $sitx{$g};
       my $sitatomnull = 0;
@@ -251,8 +231,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
          $advsit[$advi] = "TEMS";
       }
 
-      # Next by atomize value - which might be null
-      foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
+      foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) { # Next by atomize value - which might be null
          my $atomize_ref = $situation_ref->{atoms}{$h};
 
           # Next by detail within atomize value. key is the global time stamp concatenated
@@ -269,7 +248,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
           # DisplayItem set, but multiple identical atomize values seen
           # DisplayItem not set, but multiple results in same second
 
-          foreach my $i (sort {$a <=> $b  }   keys %{$atomize_ref->{adetails}} ) {
+          foreach my $i (sort {$a <=> $b  }   keys %{$atomize_ref->{adetails}} ) { # by Agent Time/atomize
              my $adetail_ref = $atomize_ref->{adetails}{$i};
 #if ($f eq "D4:107c052e:PRDGSB-TX-G2G02") {
 #if ($g eq "Fault_610") {
@@ -312,6 +291,9 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
           # walk through the TEMS side of the retrieval
           foreach my $i ( sort {$a <=> $b} keys %{$atomize_ref->{tdetails}}) {
              my $tdetail_ref = $atomize_ref->{tdetails}{$i};
+             if (defined $sitsx{$tdetail_ref->{thrunode}}{$g}) {
+                next if $tdetail_ref->{gbltmstmp} < $sitsx{$tdetail_ref->{thrunode}}{$g};
+             }
              my $tsecs = $tdetail_ref->{tseconds};
              my $tkey = $tdetail_ref->{tseconds} . "|" . $h;
              my $tsum_ref = $situation_ref->{tsecs}{$tkey};  # situation summary
@@ -386,10 +368,17 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                }
             }
             if ($situation_ref->{atomize} eq "") {
-               $advi++;$advonline[$advi] = "Situation [$g] node [$f] multiple results [$asum_ref->{results}] at local second $h - but no DisplayItem set";
-               $advcode[$advi] = "EVENTAUDIT1012W";
-               $advimpact[$advi] = $advcx{$advcode[$advi]};
-               $advsit[$advi] = "TEMS";
+               if ($situation_ref->{reeval} == 0) { # pure situation
+                  $advi++;$advonline[$advi] = "Pure Situation [$g] node [$f] multiple results [$asum_ref->{results}] at local second $h - but no DisplayItem set";
+                  $advcode[$advi] = "EVENTAUDIT1012W";
+                  $advimpact[$advi] = $advcx{$advcode[$advi]};
+                  $advsit[$advi] = "TEMS";
+               } else {                             # sampled situation
+                  $advi++;$advonline[$advi] = "Sampled Situation [$g] node [$f] multiple results [$asum_ref->{results}] at local second $h - but no DisplayItem set";
+                  $advcode[$advi] = "EVENTAUDIT1015W";
+                  $advimpact[$advi] = $advcx{$advcode[$advi]};
+                  $advsit[$advi] = "TEMS";
+               }
             }
          }
       }
@@ -870,7 +859,7 @@ if ($bad_ct > 0) {
 my %donesit;
 $rptkey = "EVENTREPORT007";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
-$cnt++;$oline[$cnt]="$rptkey: Detailed Attribute differences on first two merged results";
+$cnt++;$oline[$cnt]="$rptkey: Detailed Attribute differences on first two merged results\n";
 $cnt++;$oline[$cnt]="Situation,Node,Agent_Time,Reeval,Results,Atom,Atomize,Attribute_Differences\n";
 foreach my $f (sort { $a cmp $b } keys %nodex ) {
    my $node_ref = $nodex{$f};
@@ -1073,7 +1062,6 @@ sub newsit {
       $sit[$siti] = $isitname;
       $sitx{$isitname} = $siti;
       $sit_sitinfo[$siti] = $isitinfo;
-      $sit_statuscache[$siti] = 0;
       $sit_atomize[$siti] = "";
       $sit_fullname[$siti] = "";
       $sit_fullname[$siti] = $sitfullx{$isitname} if defined $sitfullx{$isitname};
@@ -1127,6 +1115,13 @@ sub newstsh {
       return if index($sit_pdt[$sx],"ManagedSystem.Status") != -1;
    }
 
+   # track when situation was last started
+   if ($ideltastat eq "S") {
+      $sitsx{$inode}{$isitname} = $igbltmstmp if !defined $sitsx{$inode}{$isitname};
+      $sitsx{$inode}{$isitname} = $igbltmstmp if $igbltmstmp > $sitsx{$inode}{$isitname};
+      return;
+   }
+
 
    my $a_seconds = substr($ilcltmstmp,0,13) . "000";   # agent timestamp
    my $t_seconds = substr($igbltmstmp,0,13) . "000";   # tems  timestamp
@@ -1178,6 +1173,8 @@ sub newstsh {
       $situation_ref->{tfwd} = $sit_tfwd[$sx] if defined $sx;
       $situation_ref->{atomize} = $sit_atomize[$sx] if defined $sx;
    }
+   # create a hash of last start time observed for this situation
+   # we will ignore events recorded before that time at the TEMS.
    $situation_ref->{count} += 1;
    $situation_ref->{open} += 1 if $ideltastat eq "Y";
    $situation_ref->{close} += 1 if $ideltastat eq "N";
@@ -1548,7 +1545,7 @@ sub init_all {
          $inode =~ s/\s+$//;   #trim trailing whitespace
          $iatomize =~ s/\s+$//;   #trim trailing whitespace
       }
-      next if ($ideltastat ne 'Y') and ($ideltastat ne 'N') and ($ideltastat ne 'X');
+      next if ($ideltastat ne 'Y') and ($ideltastat ne 'N') and ($ideltastat ne 'X') and ($ideltastat ne 'S');
       newstsh($ll,$isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$igbltmstmp,$inode,$iatomize,$iresults);
    }
 
@@ -1883,6 +1880,9 @@ sub get_epoch {
 # 1.07000  : rework logic to closer match more complex reality;
 # 1.08000  : Correct Pure event counting logic, reduce 1005W impact to 10
 #          : on 1010/1011/1012 - only emit advisory if multiple results on one attribute group
+# 1.09000  : Split 1012 into 1012/1015 Pure/Sampled
+#          : Ignore event history prior to most recent situation start per thrunode
+#          : Update Report explanations
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -2063,6 +2063,10 @@ Close [N] record is recorded at the same second. That isn't a
 DisplayItem issue but instead a potential workload issue of too
 much work arriving too fast.
 
+You sometimes see quite large numbers, like thousands. At the TEMS
+these cannot be processed so fast and in the REPORT003 log you will
+only see quite a smaller number processed per TEMS second.
+
 Recovery plan: Change the DisplayItem to an attribute that satisfies
 the uniqueness requirement. You may want to contact IBM and see
 about problems with a given agent and presenting a DisplayItem that
@@ -2070,41 +2074,33 @@ does not distinquish between result rows in all cases.
 --------------------------------------------------------------
 
 EVENTAUDIT1012W
-Text: Situation [sitname] node [agent] multiple results [count] in same local second $h but no DisplayItem set
+Text: Pure Situation [sitname] node [agent] multiple results [count] in same local second $h but no DisplayItem set
 
 Meaning: Situation can return multiple result rows.
 
-In Pure situations that occurs when results are returned
-rapidly.
-
-In Situations that means cases where a situation evaluation
-[like disks with less than N% free] returns multiple results.
+This occurs when occurs when results are returned rapidly.
 
 In this case, no DisplayItem has been set, even though multiple
 results have been seen in the same second. That means that not
 all potential situation events will be created.
-
-In some unusual cases, the Sampled Situation Open [Y] and the
-Close [N] record is recorded at the same second. That isn't a
-DisplayItem issue but instead a potential workload issue of too
-much work arriving too fast.
 
 Incidentally, a DisplayItem is the [up to] first 128 bytes of
 another attribute.
 
 Recovery plan: Add proper DisplayItem to situation definition
 [Advanced button, DisplayItem in Situation Editor] to specify
-a distinguishing attribute.
+a distinguishing attribute. Make sure the DisplayItem is not
+constantly changing - as when it contains a date/time stamp.
+In such cases the TEMS process size can grow forever and the
+TEMS become unstable.
+
+Another option is a TEMS configuration to force pure event one row
+for specific attribute tables:
+
+ITM Pure Situation events and Event Merging Logic
+http://www.ibm.com/support/docview.wss?uid=swg21445309
+
 --------------------------------------------------------------
-                  $advi++;$advonline[$advi] = "Pure situation [$g] node [$f] duplicate atomize [$i] DisplayItem [$sit_atomize[$sx]] $nt times at same TEMS second $h";
-                  $advcode[$advi] = "EVENTAUDIT1013W";
-                  $advimpact[$advi] = $advcx{$advcode[$advi]};
-                  $advsit[$advi] = "TEMS";
-               } else {                             # sampled situation
-                  $advi++;$advonline[$advi] = "Sampled situation [$g] node [$f] duplicate atomize [$i] DisplayItem [$sit_atomize[$sx]] $nt times at TEMS same second $h";
-                  $ad
-
-
 
 EVENTAUDIT1013W
 Text: Pure situation [sitname] node [agent] duplicate atomize [value] DisplayItem [atomize] count times at same TEMS second $h
@@ -2159,11 +2155,46 @@ Recovery plan: Add proper DisplayItem to situation definition
 a distinguishing attribute.
 --------------------------------------------------------------
 
+EVENTAUDIT1015W
+Text: Sampled Situation [sitname] node [agent] multiple results [count] in same local second $h but no DisplayItem set
+
+Meaning: Situation can return multiple result rows.
+
+This means cases where a situation evaluation [like disks with
+less than N% free] returns multiple results.
+
+In this case, no DisplayItem has been set, even though multiple
+results have been seen in the same second. That means that not
+all potential situation events will be created.
+
+In some unusual cases, the Sampled Situation Open [Y] and the
+Close [N] record is recorded at the same second. That isn't a
+DisplayItem issue but instead a potential workload issue of too
+much work arriving too fast.
+
+Incidentally, a DisplayItem is the [up to] first 128 bytes of
+another attribute.
+
+Recovery plan: Add proper DisplayItem to situation definition
+[Advanced button, DisplayItem in Situation Editor] to specify
+a distinguishing attribute. Sampled situations can not take
+advantage of the Pure Event One Row configuration like pure situations.
+--------------------------------------------------------------
+
 EVENTREPORT000
 Text: Summary lines
 
 Sample:
-to be added later
+EVENTREPORT000: Summary report
+Duration 4813 seconds
+Event Status History count 7361 91.76/min
+Event Status History open 6442 80.31/min
+Event Status History close 919 11.46/min
+Event Status History transitions 1197 14.92/min
+Event Status History Open->Open transitions 0
+Event Status History Close->Close transitions 0
+Event Result History sampled 22075 275.19/min
+Event Result History pure 182 2.27/min
 
 Meaning: One quick note, if negative numbers are seen, there
 are likely a lot of event status seen with the same time stamp.
@@ -2175,31 +2206,31 @@ EVENTREPORT001
 Text: Event Summary sorted by Event Status Count
 
 Sample:
-Event Summary sorted by Event Status Samples
-Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour,PDT
-bnc_hakapps_xvaw_viosgr,48,1.09%,0.11,41,7,14008,15.67%,33.08,0,0.00%,0.00,6,32,44,6.24,
-bnc_adskprc_xvaw_viosgr,146,2.00%,0.34,75,71,8686,9.72%,20.51,0,0.00%,0.00,43,9,95,13.46,
+Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Atoms,Nodes,Transitions,Tr/hour,PDT
+boi_logscrp_g06c_win,5549,75.17%,69.18,5533,16,145,0.66%,1.81,0,0.00%,0.00,,1,14,31,23.19,*IF *VALUE K06_LOGFILEMONITOR_SCRIPT.RC *NE '17' *UNTIL ( *TTL 0:00:05:00 ),
+boi_prcmis_xuxc_ctrlmsprc,222,1.47%,2.77,108,114,4816,21.82%,60.04,0,0.00%,0.00,UNIXPS.UCOMMAND,6,2,216,161.56,*IF *MISSING Process.Process_Command_U *EQ ('*p_ctmsu*','*p_ctmrt*','*p_ctmns*','*p_ctmtr*','*p_ctmwd*','*p_ctmca*') *UNTIL ( *TTL 0:00:05:00 ),
 
-Meaning: Report what situation created the most situation results
+Meaning: Report what situation created the most situation events
 
+Sorted in reverse number by the number of event status observed. This report
+only counts Open [Y] and Close [Y] status and ignores others such as Start [S]
+and Stop [P] because those are not associated with specific agents.
 Sorted in reverse number by the number of event results observed. This report
-is different from EVENTREPORT001 by estimating incoming results. A single
-situation open event will result in multiple results since the agent periodically
-resends result rows in order to "confirm" the condition is still true.
 
 Situation    : Situation Name. This can be the name index in case TNAME Fullname is used
-Count        : Number of situation status events
-Count%       : Per Cent of total situation status events
-Count/min    : Rate per minute of situation status events
+Count        : Number of situation results
+Count%       : Per Cent of total situation results
+Count/min    : Rate per minute of situation results
 Open         : Number of Open events
 Close        : Number of Close events
-Sampled      : Number of sampled situation events
-Sampled%     : Per Cent of sampled situation events
-Sampled/min  : Rare of sampled situation events
-Pure         : Number of pure situation events
-Pure%        : Per Cent of pure situation events
-Pure/min     : Rate of pure situation events
+Sampled      : Number of sampled results
+Sampled%     : Per Cent of sampled results
+Sampled/min  : Rare of sampled results
+Pure         : Number of pure results
+Pure%        : Per Cent of pure results
+Pure/min     : Rate of pure result
 Atomize      : Number of different Atomize values
+Atoms        : Count of different atomize values
 Nodes        : Number of reporting nodes [agents]
 Transitions  : Transitions from one open/close to another
 Tr/hour      : Rate of transitions per hour
@@ -2216,17 +2247,16 @@ EVENTREPORT002
 Text: Event Summary sorted by Event Status Samples
 
 Sample:
-Event Summary sorted by Event Status Count
-Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour
-bnc_svrdsfr_gvmm_vmvigr,576,10.25%,1.36,384,192,3381,3.78%,7.99,0,0.00%,0.00,65,54,399,56.54,
-bnc_undosp_grzm_oraclev10gr,557,14.66%,1.32,549,8,2696,3.02%,6.37,0,0.00%,0.00,1,35,47,6.66,
+Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Atoms,Nodes,Transitions,Tr/hour,PDT
+boi_prcmis_xuxc_ctrlmsprc,222,1.47%,2.77,108,114,4816,21.82%,60.04,0,0.00%,0.00,UNIXPS.UCOMMAND,6,2,216,161.56,*IF *MISSING Process.Process_Command_U *EQ ('*p_ctmsu*','*p_ctmrt*','*p_ctmns*','*p_ctmtr*','*p_ctmwd*','*p_ctmca*') *UNTIL ( *TTL 0:00:05:00 ),
+boi_heartbeat_gemi_tivmon,107,0.73%,1.33,54,53,4354,19.72%,54.28,0,0.00%,0.00,,1,1,107,80.03,*IF *VALUE Universal_Time.Seconds *GE 0 *UNTIL ( *TTL 0:00:00:30 ),
 
 
 Meaning: Report what situation created the most situation event statuses.
 
-Sorted in reverse number by the number of event status observed. This report
-only counts Open [Y] and Close [Y] status and ignores others such as Start [S]
-and Stop [S] because those are not associated with specific agents.
+is different from EVENTREPORT002 by estimating incoming results. A single
+situation open event will result in multiple results since the agent periodically
+resends result rows in order to "confirm" the condition is still true.
 
 
 Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour,PDT
@@ -2244,6 +2274,7 @@ Pure         : Number of pure results
 Pure%        : Per Cent of pure results
 Pure/min     : Rate of pure result
 Atomize      : Number of different Atomize values
+Atoms        : Count of different atomize values
 Nodes        : Number of reporting nodes [agents]
 Transitions  : Transitions from one open/close to another
 Tr/hour      : Rate of transitions per hour
@@ -2261,26 +2292,33 @@ EVENTREPORT003
 Text: Full report sorted by Node/Situation/Time
 
 Sample:
-Node,Situation,Reeval,Time,Deltastat,Atomize,
-BN:BNCSP-03VA-DATAPW01b:DPS,bnc_noresponse_gbnp_datapower,1171210023655998,Y,120,,
-BN:BNCSP-03VA-DATAPW01b:DPS,bnc_noresponse_gbnp_datapower,1171210023655001,Y,120,,
+Situation,Node,Thrunode,Agent_Time,TEMS_Time,Deltastat,Reeval,Results,Atomize,DisplayItem
+boi_lstnr_grzw_oraext,ASM1:boi_bsswpda1:RZ,REMOTE_t02rt12px,1180219083739999,1180219084057044,N,300,0,KRZAGTLSNR.LSNRNAME,LISTENER_SCAN1,
+boi_lstnr_grzw_oraext,ASM1:boi_bsswpda1:RZ,REMOTE_t02rt12px,1180219084239999,1180219084239001,Y,300,2,KRZAGTLSNR.LSNRNAME,LISTENER_SCAN1,
+,,,,,,,1,*PREDICATE=KRZAGTLSNR.STATUS = 2 ;KRZAGTLSNR.ADDRESS=(PROTOCOL=TCPS)(HOST=10.71.73.106)(PORT=1924);KRZAGTLSNR.CONNERRMSG=TNS-12560: TNS:protocol adapter error\n;KRZAGTLSNR.CONNERROR=12560;KRZAGTLSNR.HOSTNAME=10.71.73.106;KRZAGTLSNR.LSNRFILE=/u01/app/12.1.0/grid/network/admin/listener.ora;KRZAGTLSNR.LSNRNAME=LISTENER_SCAN1;KRZAGTLSNR.ORIGINNODE=ASM1:boi_bsswpda1:RZ;KRZAGTLSNR.PIPENAME= ;KRZAGTLSNR.PORT=1924;KRZAGTLSNR.PROTOCOL=TCPS;KRZAGTLSNR.SERVICEKEY= ;KRZAGTLSNR.STATUS=2;KRZAGTLSNR.TESTTIME=1180219083635000;KRZAGTLSNR.TIMESTAMP=1180219084112000,
+,,,,,,,2,KRZAGTLSNR.ADDRESS=(PROTOCOL=IPC)(KEY=LISTENER_SCAN1);KRZAGTLSNR.CONNERRMSG=TNS-12541: TNS:no listener\n;KRZAGTLSNR.CONNERROR=12541;KRZAGTLSNR.HOSTNAME= ;KRZAGTLSNR.LSNRFILE=/u01/app/12.1.0/grid/network/admin/listener.ora;KRZAGTLSNR.LSNRNAME=LISTENER_SCAN1;KRZAGTLSNR.ORIGINNODE=ASM1:boi_bsswpda1:RZ;KRZAGTLSNR.PIPENAME= ;KRZAGTLSNR.PORT=-1;KRZAGTLSNR.PROTOCOL=IPC;KRZAGTLSNR.SERVICEKEY=LISTENER_SCAN1;KRZAGTLSNR.STATUS=2;KRZAGTLSNR.TESTTIME=1180219083636000;KRZAGTLSNR.TIMESTAMP=1180219084112000,
 
 Meaning: Report what situation created the most situation event statuses.
 
-Sorted in Node then Situation then Time order. This section can be used to
-understand exactly what conditions were observed.
+Sorted in Node then Situation then TEMS Time order. This section can be used to
+understand exactly what conditions were observed. The sorting time is the TEMS
+time, not the agent time.
+
+If multiple results are present in the situation event history, you will see the
+details of each result segment is presented. A row may start with *PREDICATE
+which is a summary of the situation formula.
 
 
-Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour
-
-Node         : Agent name
 Situation    : Situation Name. This can be the name index in case TNAME Fullname is used
-Time         : Time when situation status was observed in ITM time format CYYMMDDHHMMSSXXX
+Node         : Agent name
+Thrunode     : Which system received and processed the results, usually a hub or remote TEMS
+Agent_Time   : Time when situation status was observed at the agent in ITM time format CYYMMDDHHMMSSXXX
+TEMS_Time    : Time when situation status was observed at the TEMS in ITM time format CYYMMDDHHMMSSXXX
 Deltastat    : Y for Open and N for Close
 Reeval       : Situation Samplinging interval - zero means a pure situation
+Results      : The number of observed result segments in this TEMS second
 Atomize      : Value of atomize if any for this
-
-This report is mainly to help understand the summary reports.
+DisplayItem  : The attribute used for atomize in attribute_group_table.attribute_column form
 
 Recovery plan:  Use report to help understand the summary reports.
 ----------------------------------------------------------------
@@ -2357,12 +2395,15 @@ EVENTREPORT007
 Text: Detailed Attribute differences on first two merged results
 
 Sample:
-Situation,Count,Nodes,Times
-ddb_fss_xuxc_ws,3,
+Situation,Node,Agent_Time,Reeval,Results,Atom,Atomize,Attribute_Differences
+boi_lstnr_grzw_oraext,ASM1:boi_bsswpda1:RZ,1180219084239999,300,2,KRZAGTLSNR.LSNRNAME,LISTENER_SCAN1,KRZAGTLSNR.CONNERRMSG 1[TNS-12560: TNS:protocol adapter error\n] 2[TNS-12541: TNS:no listener\n],KRZAGTLSNR.CONNERROR 1[12560] 2[12541],KRZAGTLSNR.HOSTNAME 1[10.71.73.106] 2[ ],KRZAGTLSNR.PORT 1[1924] 2[-1],KRZAGTLSNR.PROTOCOL 1[TCPS] 2[IPC],KRZAGTLSNR.SERVICEKEY 1[ ] 2[LISTENER_SCAN1],KRZAGTLSNR.TESTTIME 1[1180219083635000] 2[1180219083636000],,
+boi_serresp_gynw_boiwas9,AppSrv01SOA:boi_vm000000467:KYNS,1180219091622999,90,2,KYNSERVLT.SERVER_NAM,SOAServer1,KYNSERVLT.APPL_NAME 1[projections-webservices-ear] 2[BIL Quotes NBQ UI EAR],KYNSERVLT.AVG_RT 1[936000] 2[1030000],KYNSERVLT.SVLT_NAME 1[webservices] 2[NBQ_SPRING_SERVLET],KYNSERVLT.WAR_NAME 1[projections-webservices-1.0.war] 2[projections-nbq-1.0.war],,
 
 Meaning: When you see an advisory on merged results, this report
 will show what attributes were different for the first two result
-instances.
+instances. Only a single case of situation/agent is shown although
+multiple cases are usually involved. In some cases this will let you
+decide what the DisplayItem should be.
 
 Recovery plan: Correct the situaton so results transform into
 individual situation events with proper use of DisplayItem.
