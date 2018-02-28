@@ -153,7 +153,7 @@ my %advcx = (
               "EVENTAUDIT1003W" => "20",
               "EVENTAUDIT1004W" => "70",
               "EVENTAUDIT1005W" => "10",
-              "EVENTAUDIT1006W" => "70",
+              "EVENTAUDIT1006W" => "10",
               "EVENTAUDIT1007W" => "80",
               "EVENTAUDIT1008E" => "100",
               "EVENTAUDIT1009W" => "50",
@@ -288,9 +288,11 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                                     results => 0,
                                     count => 0,
                                     debug => [],
+                                    attrgct => 0,
                                  );
                 $asum_ref = \%asumref;
                 $situation_ref->{asecs}{$akey} = \%asumref;
+                $asum_ref->{attrgct} = scalar keys %{$adetail_ref->{attrgs}};
              }
              my @debugi = [__LINE__,$adetail_ref->{results},$h,$i,$adetail_ref->{l}];
              push @{$asum_ref->{debug}},\@debugi;
@@ -321,9 +323,11 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                                     count => 0,
                                     gbltmstmp => $tdetail_ref->{gbltmstmp},
                                     debug => [],
+                                    attrgct => 0,
                                  );
                 $tsum_ref = \%tsumref;
                 $situation_ref->{tsecs}{$tkey} = \%tsumref;
+                $tsum_ref->{attrgct} = scalar keys %{$tdetail_ref->{attrgs}};
              }
              $tsum_ref->{results} += $tdetail_ref->{results};
              $tsum_ref->{count} += 1;
@@ -361,26 +365,32 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
 #}
 #}
 #}
-         if ($situation_ref->{atomize} ne "") {
-            # observed multiple results with same DisplayItem in single second
-            my $nt = $asum_ref->{results};
-            if ($situation_ref->{reeval} == 0) { # pure situation
-               $advi++;$advonline[$advi] = "Pure situation [$g] node [$f] duplicate atomize [$asum_ref->{atom}] DisplayItem [$situation_ref->{atomize}] $nt times at local second $h";
-               $advcode[$advi] = "EVENTAUDIT1010W";
-               $advimpact[$advi] = $advcx{$advcode[$advi]};
-               $advsit[$advi] = "TEMS";
-            } else {                             # sampled situation
-               $advi++;$advonline[$advi] = "Sampled situation [$g] node [$f] duplicate atomize [$asum_ref->{atom}] DisplayItem [$situation_ref->{atomize}] $nt times at local second $h";
-               $advcode[$advi] = "EVENTAUDIT1011W";
+         # following logic emits warning on multiple results only if
+         # the results respresent a single attribute group. When a
+         # situation formula is from a multi-row and a single row attribute group
+         # the results will be bundled. Count is two but not a problem condition.
+         if ($asum_ref->{attrgct} == 1) {
+            if ($situation_ref->{atomize} ne "") {
+               # observed multiple results with same DisplayItem in single second
+               my $nt = $asum_ref->{results};
+               if ($situation_ref->{reeval} == 0) { # pure situation
+                  $advi++;$advonline[$advi] = "Pure situation [$g] node [$f] duplicate atomize [$asum_ref->{atom}] DisplayItem [$situation_ref->{atomize}] $nt times at local second $h";
+                  $advcode[$advi] = "EVENTAUDIT1010W";
+                  $advimpact[$advi] = $advcx{$advcode[$advi]};
+                  $advsit[$advi] = "TEMS";
+               } else {                             # sampled situation
+                  $advi++;$advonline[$advi] = "Sampled situation [$g] node [$f] duplicate atomize [$asum_ref->{atom}] DisplayItem [$situation_ref->{atomize}] $nt times at local second $h";
+                  $advcode[$advi] = "EVENTAUDIT1011W";
+                  $advimpact[$advi] = $advcx{$advcode[$advi]};
+                  $advsit[$advi] = "TEMS";
+               }
+            }
+            if ($situation_ref->{atomize} eq "") {
+               $advi++;$advonline[$advi] = "Situation [$g] node [$f] multiple results [$asum_ref->{results}] at local second $h - but no DisplayItem set";
+               $advcode[$advi] = "EVENTAUDIT1012W";
                $advimpact[$advi] = $advcx{$advcode[$advi]};
                $advsit[$advi] = "TEMS";
             }
-         }
-         if ($situation_ref->{atomize} eq "") {
-            $advi++;$advonline[$advi] = "Situation [$g] node [$f] multiple results [$asum_ref->{results}] at local second $h - but no DisplayItem set";
-            $advcode[$advi] = "EVENTAUDIT1012W";
-            $advimpact[$advi] = $advcx{$advcode[$advi]};
-            $advsit[$advi] = "TEMS";
          }
       }
 
@@ -1234,6 +1244,7 @@ sub newstsh {
                             result => [],
                             results => 0,
                             eventh => 0,
+                            attrgs => {},
                          );
          $adetail_ref = \%adetailref;
          $atomize_ref->{adetails}{$dkey} = \%adetailref;
@@ -1248,6 +1259,16 @@ sub newstsh {
          foreach my $r (@segres) {
             push @{$adetail_ref->{result}},$r;
             $adetail_ref->{rndx} += 1;
+            # record the attribute group table name
+            # needed to handle when multiples are present
+            my @aresult1 = split("[;]",$r);
+            foreach my $s (@aresult1) {
+               next if substr($s,0,1) eq "*";
+               $s =~ /(\S+)\.(\S+)=(.*)/;
+               my $iattrg = $1;
+               $adetail_ref->{attrgs}{$iattrg} = 1 if defined $iattrg;
+               last;
+            }
             last if $adetail_ref->{rndx} > 1;
          }
       }
@@ -1277,6 +1298,7 @@ sub newstsh {
                              yy => 0,
                              nn => 0,
                              allresults => [],
+                             allattrg => {},
                           );
          $tdetail_ref = \%tdetailref;
          $atomize_ref->{tdetails}{$tkey} = \%tdetailref;
@@ -1302,6 +1324,16 @@ sub newstsh {
       if ($ideltastat eq "Y") {
          foreach my $r (@segres) {
             push @{$tdetail_ref->{allresults}},$r;
+            # record the attribute group table name
+            # needed to handle when multiples are present
+            my @tresult1 = split("[;]",$r);
+            foreach my $s (@tresult1) {
+               next if substr($s,0,1) eq "*";
+               $s =~ /(\S+)\.(\S+)=(.*)/;
+               my $iattrg = $1;
+               $tdetail_ref->{attrgs}{$iattrg} = 1 if defined $iattrg;
+               last;
+            }
          }
       }
 
@@ -1850,6 +1882,7 @@ sub get_epoch {
 # 1.06000  : Handle time references better in report, allow easy cross reference to same data.
 # 1.07000  : rework logic to closer match more complex reality;
 # 1.08000  : Correct Pure event counting logic, reduce 1005W impact to 10
+#          : on 1010/1011/1012 - only emit advisory if multiple results on one attribute group
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
