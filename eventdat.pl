@@ -7,13 +7,13 @@
 
 #  perl inodests_sum.pl
 #
-#  Identify possible duplicate agent name cases
+#  Capture data needed for Event Audit
 #
-#  john alvord, IBM Corporation, 15 March 2016
+#  john alvord, IBM Corporation, 8 March 2018
 #  jalvord@us.ibm.com
 #
-# tested on Windows Activestate 5.20.2
-# Should work on Linux/Unix but not yet tested
+# tested on z/Linux and AIX
+# Should work on Windows but not yet tested
 #
 #    # remember debug breakpoint
 # $DB::single=2;   # remember debug breakpoint
@@ -201,6 +201,14 @@ for (my $i=0;$i<=$nsavei;$i++) {
    $temsx{$nsave[$i]} = $temsi;
 }
 
+my $dofn_sh = "run_eventaud.sh";
+my $dofn_cmd = "run_eventaud.cmd";
+# perl eventaud.pl -lst <tems> -o <tems>.eventaud.csv
+open CMD, ">$dofn_cmd" or die "can't open CMD $dofn_cmd: $!";
+open SH, ">$dofn_sh" or die "can't open SH $dofn_sh: $!";
+binmode(SH);
+
+
 # Get the TSITDESC and TNAME data from the hub TEMS
 
 $sqlfile = $opt_work . $delim . "tsitdesc.sql";
@@ -221,21 +229,25 @@ print STDERR "Got TNAME from hub $tems_hub\n" if $opt_v == 1;
 $sqlfile = $opt_work . $delim . "tsitstsh.sql";
 $sSQL ="SELECT SITNAME,DELTASTAT,ORIGINNODE,LCLTMSTMP,GBLTMSTMP,NODE,ATOMIZE,RESULTS FROM O4SRV.TSITSTSH";
 
+my $cmd_line;
 for (my $t=0;$t<=$temsi;$t++){
    if ($wtemsi > 0) {
       next if !defined $wtems{$tems[$t]};
    }
-$DB::single=2;
    if ($tems[$t] eq $tems_hub) {
       get_data($sSQL,"tsitstsh");
+      $cmd_line = "perl eventaud.pl -lst HUB -o HUB.eventaud.csv\n";
 print STDERR "Got TSITSTSH from hub TEMS $tems_hub\n" if $opt_v == 1;
    } else {
       get_data($sSQL,"tsitstsh",$tems[$t]);
+      $cmd_line = "perl eventaud.pl -lst " . $tems[$t] . " -o " . $tems[$t] . ".eventaud.csv\n";
 print STDERR "Got TSITSTSH from remote TEMS $tems[$t]\n" if $opt_v == 1;
    }
+   print CMD $cmd_line;
+   print SH $cmd_line;
 }
-$DB::single=2;
-my $x = 1;
+close(CMD);
+close(SH);
 
 print STDERR "Finished\n" if $opt_v == 1;
 
