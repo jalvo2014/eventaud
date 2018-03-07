@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.09000";
+my $gVersion = "1.10000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -62,18 +62,25 @@ my %seq999;
 
 my %seq998;
 
+my %timex;                               #hash to hold time based records at different levels
+
+my $local_diff = 0;
+
+
 
 # forward declarations of subroutines
 
 sub init;                                # read command line and ini file
 sub logit;                               # queue one record to survey log
 sub datadumperlog;                       # dump a variable using Dump::Data if installed
-sub get_time;                             # get time
-sub get_epoch;                            # get epoch from ITM stamp
+sub get_time;                            # get time
+sub get_epoch;                           # get epoch from ITM stamp
 sub init_all;                            # input from txt or lst files
 sub newsit;                              # create new situation entry
 sub parse_lst;                           # parse the KfwSQLClient output
 sub sec2time;
+sub setload;                             # account for workload by time
+
 
 my $full_logfn;
 my $logfn;
@@ -110,6 +117,7 @@ my $opt_lst;                    # input from .lst files
 my $opt_lst_tsitdesc;           # TSITDESC lst file
 my $opt_lst_tsitstsh;           # TSITDESH lst file
 my $opt_lst_tname;              # TNAME lst file
+my $opt_lst_tems = "";
 my $opt_log;                    # name of log file
 my $opt_ini;                    # name of ini file
 my $opt_debuglevel;             # Debug level
@@ -124,6 +132,8 @@ my $opt_all;                    # dump all details
 my $opt_sum;                    # When 1 create summary file
 my $opt_nohdr;                  # skip printing header
 my $opt_results;                # when 1 add in all results to each all line report
+my $opt_time;                   # when 1 add in all results to each all line report
+my $opt_days;                   # How many days to look backward, default 2 days
 
 # produce output report
 my @oline = ();
@@ -150,6 +160,3748 @@ my %advcx = (
               "EVENTAUDIT1014W" => "65",
               "EVENTAUDIT1015W" => "65",
            );
+
+# Following table can be used to calculate result
+# row sizes. This was adopted from a terrific
+# historical data estimator workspace.
+# It doesn't have every table, especially not ones
+# created by Agent Builder or Universal Agent, but
+# it is a good resource.
+
+my %htabsize = (
+   'KPX.RNODESTS'      => '220',
+   'OMUNX.UNIXAMS'     => '212',
+   'OMUNX.UNIXDUSERS'  => '1668',
+   'OMUNX.UNIXDEVIC'   => '560',
+   'OMUNX.UNIXLVOLUM'  => '1240',
+   'OMUNX.UNIXLPAR'    => '1556',
+   'OMUNX.FILEINFO'    => '4184',                     # missing from load projections
+   'OMUNX.AIXPAGMEM'   => '208',
+   'OMUNX.AIXMPIOATR'  => '560',
+   'OMUNX.AIXMPIOSTS'  => '560',
+   'OMUNX.AIXNETADPT'  => '1592',
+   'OMUNX.UNIXPVOLUM'  => '552',
+   'OMUNX.AIXSYSIO'    => '144',
+   'OMUNX.UNIXVOLGRP'  => '336',
+   'OMUNX.UNIXWPARCP'  => '432',
+   'OMUNX.UNIXWPARFS'  => '1616',
+   'OMUNX.UNIXWPARIN'  => '5504',
+   'OMUNX.UNIXWPARNE'  => '1360',
+   'OMUNX.UNIXWPARPM'  => '400',
+   'OMUNX.UNIXDCSTAT'  => '184',
+   'OMUNX.UNIXDISK'    => '1364',
+   'OMUNX.UNIXDPERF'   => '832',
+   'OMUNX.KUXPASSTAT'  => '1382',
+   'OMUNX.KUXPASMGMT'  => '510',
+   'OMUNX.KUXPASALRT'  => '484',
+   'OMUNX.KUXPASCAP'   => '3062',
+   'OMUNX.UNIXMACHIN'  => '508',
+   'OMUNX.UNIXNFS'     => '492',
+   'OMUNX.UNIXNET'     => '1600',
+   'OMUNX.UNIXPS'      => '2784',
+   'OMUNX.UNIXCPU'     => '360',
+   'OMUNX.UNIXSOLZON'  => '598',
+   'OMUNX.UNIXOS'      => '1084',
+   'OMUNX.UNIXTOPCPU'  => '1844',
+   'OMUNX.UNIXTOPMEM'  => '1864',
+   'OMUNX.UNIXALLUSR'  => '160',
+   'OMUNX.KUXDEVIC'    => '660',
+   'OMUNX.UNIXGROUP'   => '136',
+   'OMUNX.UNIXIPADDR'  => '546',
+   'OMUNX.UNIXMEM'     => '560',
+   'OMUNX.UNIXPING'    => '868',
+   'OMUNX.UNXPRINTQ'   => '288',
+   'OMUNX.UNIXTCP'     => '104',
+   'OMUNX.UNIXUSER'    => '540',
+   'KNT.ACTSRVPG'    => '376',
+   'KNT.DHCPSRV'     => '272',
+   'KNT.DNSDYNUPD'   => '264',
+   'KNT.DNSMEMORY'   => '240',
+   'KNT.DNSQUERY'    => '288',
+   'KNT.DNSWINS'     => '248',
+   'KNT.DNSZONET'    => '288',
+   'KNT.FTPSTATS'    => '280',
+   'KNT.FTPSVC'      => '216',
+   'KNT.GOPHRSVC'    => '292',
+   'KNT.HTTPCNDX'    => '248',
+   'KNT.HTTPSRVC'    => '328',
+   'KNT.ICMPSTAT'    => '324',
+   'KNT.IISSTATS'    => '272',
+   'KNT.INDEXSVC'    => '588',
+   'KNT.INDEXSVCF'   => '556',
+   'KNT.IPSTATS'     => '288',
+   'KNT.JOBOBJ'      => '644',
+   'KNT.JOBOBJD'     => '672',
+   'KNT.KNTPASSTAT'  => '1390',
+   'KNT.KNTPASMGMT'  => '526',
+   'KNT.KNTPASALRT'  => '484',
+   'KNT.KNTPASCAP'   => '2998',
+   'KNT.NTMNTPT'     => '624',
+   'KNT.MSMQIS'      => '244',
+   'KNT.MSMQQUE'     => '424',
+   'KNT.MSMQSVC'     => '252',
+   'KNT.MSMQSESS'    => '312',
+   'KNT.NETWRKIN'    => '476',
+   'KNT.NETSEGMT'    => '180',
+   'KNT.NNTPCMD'     => '328',
+   'KNT.NNTPSRV'     => '312',
+   'KNT.NTBIOSINFO'  => '656',
+   'KNT.NTCACHE'     => '340',
+   'KNT.NTCOMPINFO'  => '1232',
+   'KNT.NTDEVDEP'    => '668',
+   'KNT.NTDEVICE'    => '1148',
+   'KNT.NTEVTLOG'    => '3132',
+   'KNT.NTIPADDR'    => '614',
+   'KNT.NTJOBOBJD'   => '692',
+   'KNT.WTLOGCLDSK'  => '684',
+   'KNT.WTMEMORY'    => '388',
+   'KNT.NTMEMORY'    => '348',
+   'KNT.NTLOGINFO'   => '1256',
+   'KNT.NTNETWRKIN'  => '992',
+   'KNT.NTNETWPORT'  => '772',
+   'KNT.WTOBJECTS'   => '240',
+   'KNT.NTPAGEFILE'  => '552',
+   'KNT.WTPHYSDSK'   => '320',
+   'KNT.NTPRTJOB'    => '1436',
+   'KNT.NTPRINTER'   => '2424',
+   'KNT.WTPROCESS'   => '1028',
+   'KNT.NTPROCESS'   => '960',
+   'KNT.NTPROCSSR'   => '192',
+   'KNT.NTPROCINFO'  => '452',
+   'KNT.NTPROCRSUM'  => '340',
+   'KNT.NTREDIRECT'  => '476',
+   'KNT.WTSERVER'    => '364',
+   'KNT.WTSERVERQ'   => '220',
+   'KNT.NTSERVERQ'   => '248',
+   'KNT.NTSVCDEP'    => '680',
+   'KNT.NTSERVICE'   => '1468',
+   'KNT.WTSYSTEM'    => '900',
+   'KNT.WTTHREAD'    => '328',
+   'KNT.PRINTQ'      => '576',
+   'KNT.PROCESSIO'   => '704',
+   'KNT.KNTRASPT'    => '220',
+   'KNT.KNTRASTOT'   => '288',
+   'KNT.SMTPSRV'     => '368',
+   'KNT.TCPSTATS'    => '252',
+   'KNT.UDPSTATS'    => '236',
+   'KNT.VMMEMORY'    => '128',
+   'KNT.VMPROCSSR'   => '196',
+   'KNT.WEBSVC'      => '392',
+   'KLZ.KLZPASSTAT'  => '1382',
+   'KLZ.KLZPASMGMT'  => '526',
+   'KLZ.KLZPASALRT'  => '484',
+   'KLZ.KLZPASCAP'   => '3062',
+   'KLZ.KLZCPU'      => '232',
+   'KLZ.KLZCPUAVG'   => '276',
+   'KLZ.KLZDISK'     => '692',
+   'KLZ.KLZDSKIO'    => '216',
+   'KLZ.KLZDU'       => '408',
+   'KLZ.KLZIOEXT'    => '412',
+   'KLZ.KLZLPAR'     => '344',
+   'KLZ.KLZNET'      => '365',
+   'KLZ.KLZNFS'      => '384',
+   'KLZ.KLZPROC'     => '1720',
+   'KLZ.KLZPUSR'     => '1580',
+   'KLZ.KLZRPC'      => '144',
+   'KLZ.KLZSOCKD'    => '296',
+   'KLZ.KLZSOCKS'    => '100',
+   'KLZ.KLZSWPRT'    => '128',
+   'KLZ.KLZSYS'      => '316',
+   'KLZ.KLZTCP'      => '88',
+   'KLZ.KLZLOGIN'    => '488',
+   'KLZ.KLZVM'       => '380',
+   'KLZ.LNXALLUSR'   => '152',
+   'KLZ.LNXCPU'      => '252',
+   'KLZ.LNXCPUAVG'   => '348',
+   'KLZ.LNXCPUCON'   => '312',
+   'KLZ.LNXDISK'     => '488',
+   'KLZ.LNXDSKIO'    => '248',
+   'KLZ.LNXDU'       => '204',
+   'KLZ.LNXGROUP'    => '144',
+   'KLZ.LNXPING'     => '228',
+   'KLZ.LNXIOEXT'    => '440',
+   'KLZ.LNXIPADDR'   => '546',
+   'KLZ.LNXMACHIN'   => '828',
+   'KLZ.LNXNET'      => '317',
+   'KLZ.LNXNFS'      => '324',
+   'KLZ.LNXOSCON'    => '440',
+   'KLZ.LNXPROC'     => '1324',
+   'KLZ.LNXPUSR'     => '1416',
+   'KLZ.LNXRPC'      => '152',
+   'KLZ.LNXSOCKD'    => '312',
+   'KLZ.LNXSOCKS'    => '132',
+   'KLZ.LNXSWPRT'    => '148',
+   'KLZ.LNXSYS'      => '312',
+   'KLZ.LNXLOGIN'    => '524',
+   'KLZ.LNXVM'       => '336',
+   'KUL.ULLOGENT'    => '2864',
+   'KUL.ULMONLOG'    => '1988',
+   'KPX.KPX48WPNET'  => '1328',
+   'KPX.KPX50WPINF'  => '5448',
+   'KA4ASP'      => '172',
+   'KA4CLUMRCS'  => '160',
+   'KA4CLUNODE'  => '224',
+   'KA4CLUCRG'   => '280',
+   'KA4DISKI5'   => '192',
+   'KA4DISTQ'    => '136',
+   'KA4GRPPTF'   => '232',
+   'KA4GPTFDTL'  => '145',
+   'KA4HISTLOG'  => '908',
+   'KA4INACJOB'  => '247',
+   'KA4IFSOBJ'   => '3256',
+   'KA4IOACBAT'  => '216',
+   'KA4JOBLOG'   => '928',
+   'KA4LPP'      => '132',
+   'KA4MGTCNT'   => '1532',
+   'KA4MISC'     => '366',
+   'KA4NETSRVR'  => '140',
+   'KA4NWI'      => '92',
+   'KA4NWS'      => '92',
+   'KA4OUTPUTQ'  => '732',
+   'KA4PTF'      => '144',
+   'KA4SYSSTAT'  => '120',
+   'KA4SVALLOC'  => '100',
+   'KA4SVDATIM'  => '132',
+   'KA4SVEDIT'   => '71',
+   'KA4SVOTHER'  => '164',
+   'KA4SVSEC'    => '4030',
+   'KA4SVSYCT1'  => '2228',
+   'KA4SVSYCT2'  => '240',
+   'KA4TCPHOST'  => '1652',
+   'KA4TCPINT'   => '280',
+   'KA4TCPROUT'  => '346',
+   'KA4TCPSRVC'  => '264',
+   'KA4USRGRP'   => '348',
+   'KA4DTAQ'     => '96',
+   'KA4ACCTJ'    => '194',
+   'KA4ALERT'    => '161',
+   'KA4APPN'     => '149',
+   'KA4ASYNC'    => '124',
+   'KA4BSYNC'    => '140',
+   'KA4ENET'     => '156',
+   'KA4SDLC'     => '188',
+   'KA4TKRNG'    => '156',
+   'KA4X25'      => '120',
+   'KA4CTLD'     => '88',
+   'KA4DBMBR'    => '177',
+   'KA4DEVD'     => '134',
+   'KA4DISK'     => '174',
+   'KA4PFIOP'    => '211',
+   'KA4PFJOB'    => '391',
+   'KA4JOBQ'     => '108',
+   'KA4LIND'     => '88',
+   'KA4MSG'      => '2304',
+   'KA4NETA'     => '532',
+   'KA4OBJ'      => '390',
+   'KA4SJAJ'     => '110',
+   'KA4SJAF'     => '138',
+   'KA4SJCA'     => '142',
+   'KA4SJOW'     => '130',
+   'KA4SJCP'     => '103',
+   'KA4SJJD'     => '112',
+   'KA4SJNA'     => '592',
+   'KA4SJPW'     => '133',
+   'KA4SJPS'     => '121',
+   'KA4SJPA'     => '112',
+   'KA4SJRJ'     => '112',
+   'KA4SJRP'     => '112',
+   'KA4SJSV'     => '592',
+   'KA4POOL'     => '192',
+   'KA4SBS'      => '124',
+   'KA4SYSTS'    => '353',
+   'KA4SVAL'     => '145',
+   'KA4SVACT'    => '385',
+   'KA4SVDEV'    => '94',
+   'KA4SVIPL'    => '82',
+   'KA4SVPRF'    => '147',
+   'KA4SVPRB'    => '88',
+   'KA4SVUSR'    => '587',
+   'KR2WIN32CO'  => '700',
+   'KR2DISK'     => '256',
+   'KR2PROCSR'   => '264',
+   'KR2STORTBL'  => '204',
+   'KR2HRSYSTE'  => '1213',
+   'KR2WIN32PE'  => '204',
+   'KR2MEPS'     => '169',
+   'KR2WDS'      => '169',
+   'KR2HRMEM'    => '256',
+   'KR2NICNAV'   => '427',
+   'KR2WMINNIC'  => '240',
+   'KR2WIN32OP'  => '420',
+   'KR2WIN32PA'  => '324',
+   'KR2PAGINGF'  => '160',
+   'KR2POBJST'   => '360',
+   'KR2WIN32P0'  => '212',
+   'KR2WIN32PH'  => '740',
+   'KR2WMINPLS'  => '264',
+   'KR2PROCLST'  => '272',
+   'KR2PROCESS'  => '172',
+   'KR2WIN32PR'  => '256',
+   'KR2PROCSRT'  => '64',
+   'KR2SYSTEM'   => '116',
+   'KR2TERMINA'  => '68',
+   'KR2TERMIN0'  => '160',
+   'KR2TERMIN1'  => '188',
+   'KR2THPLST'   => '132',
+   'KR2WIN32US'  => '396',
+   'KR2MEMORY'   => '116',
+   'KR2WINPOS'   => '360',
+   'KR2WIN32S0'  => '1868',
+   'KR2ELOGWMI'  => '2418',
+   'KR2WMIPOS'   => '360',
+   'KR3AIXPOS'   => '360',
+   'KR3AIXLV'    => '256',
+   'KR3AIXLOGI'  => '308',
+   'KR3AIXPAGE'  => '264',
+   'KR3AIXPV'    => '232',
+   'KR3AIXUSRT'  => '396',
+   'KR3AIXVG'    => '240',
+   'KR3FILESYS'  => '276',
+   'KR3PROCSR'   => '264',
+   'KR3STORTBL'  => '204',
+   'KR3MEPS'     => '169',
+   'KR3MEMORY'   => '256',
+   'KR3NIFTABL'  => '427',
+   'KR3POBJST'   => '360',
+   'KR3PROCLST'  => '268',
+   'KR3PROCSRT'  => '64',
+   'KR3SYSTEM'   => '1227',
+   'KR3THPLST'   => '132',
+   'KR3VIRTUAL'  => '92',
+   'KR4DISK'     => '256',
+   'KR4STORTBL'  => '204',
+   'KR4LNXPOS'   => '360',
+   'KR4MEPS'     => '169',
+   'KR4MEMORY'   => '252',
+   'KR4NIFTABL'  => '427',
+   'KR4POBJST'   => '360',
+   'KR4PROC'     => '336',
+   'KR4PROCSR'   => '100',
+   'KR4SYSTEM'   => '1215',
+   'KR4THPLST'   => '132',
+   'KR4VIRTUAL'  => '92',
+   'KR5FILESYS'  => '248',
+   'KR5HPPOS'    => '360',
+   'KR5MEPS'     => '169',
+   'KR5MEMORY'   => '252',
+   'KR5IFTABLE'  => '427',
+   'KR5POBJST'   => '360',
+   'KR5PROCLST'  => '132',
+   'KR5PROCSR'   => '100',
+   'KR5SYSTEM'   => '1163',
+   'KR5THPLST'   => '132',
+   'KR6CIMPOS'   => '360',
+   'KR6CIMDISK'  => '412',
+   'KR6STORTBL'  => '204',
+   'KR6HRSYSTE'  => '1212',
+   'KR6MWBEMS'   => '169',
+   'KR6MSSMA'    => '169',
+   'KR6MSNMPS'   => '169',
+   'KR6CIMMEM'   => '180',
+   'KR6CIMNIC'   => '200',
+   'KR6POBJST'   => '360',
+   'KR6CIMPLST'  => '1160',
+   'KR6PROCLST'  => '272',
+   'KR6CIMPROC'  => '120',
+   'KR6DISK'     => '256',
+   'KR6HRMEM'    => '216',
+   'KR6IFTABLE'  => '427',
+   'KR6SMAPOS'   => '360',
+   'KR6PROCSR'   => '100',
+   'KR6SMC0MEM'  => '188',
+   'KR6SMC0NIC'  => '427',
+   'KR6SMCNFS'   => '260',
+   'KR6SMCPOS'   => '360',
+   'KR6SMC0PRO'  => '572',
+   'KR6SMC0CPT'  => '128',
+   'KR6SMC0PRX'  => '340',
+   'KR6SMC0OS'   => '1132',
+   'KR6SMC0DSK'  => '304',
+   'KR6SMCVXFS'  => '280',
+   'KR6CIMSYS'   => '168',
+   'KR6THPLST'   => '132',
+   'KHDCONF'     => '264',
+   'KHDDBINFO'   => '1284',
+   'KHDLASTERR'  => '1579',
+   'KHDLOADST'   => '136',
+   'KHDNODELST'  => '140',
+   'KHDRGADLST'  => '268',
+   'KHDRPCS'     => '92',
+   'KHDTEMSLST'  => '80',
+   'KHDWORKQ'    => '132',
+   'KSYCONNECT'  => '1184',
+   'KSYNODE'     => '1313',
+   'KSYCONFIG'   => '1152',
+   'KSYSUMMSTA'  => '144',
+   'KSYTABLE'    => '288',
+   'AGENE64'     => '328',
+   'LTFGENE64'   => '284',
+   'LTCGENE64'   => '280',
+   'AGENERIC'    => '316',
+   'AGENED32'    => '352',
+   'LTFGENED32'  => '292',
+   'LTCGENED32'  => '280',
+   'AGENED64'    => '352',
+   'LTFGENED64'  => '292',
+   'LTCGENED64'  => '280',
+   'LTFGENERIC'  => '280',
+   'LTCGENERIC'  => '280',
+   'KPAGEND32F'  => '420',
+   'KPAGEND32S'  => '604',
+   'KPAGEND64F'  => '420',
+   'KPAGEND64S'  => '604',
+   'KPAGENI32F'  => '408',
+   'KPAGENI32S'  => '604',
+   'KPAGENI64F'  => '412',
+   'KPAGENI64S'  => '604',
+   'KPAMAGENT'   => '536',
+   'KPAMDB'      => '488',
+   'KPAMSAGENT'  => '360',
+   'KPAMTASK'    => '584',
+   'KLOLOGEVTS'  => '6864',
+   'KLOLOGFRX'   => '814',
+   'KLOLOGFST'   => '660',
+   'KLOPOBJST'   => '360',
+   'KLOTHPLST'   => '132',
+   'KPX55AME'    => '452',
+   'KPX42ACTIV'  => '1680',
+   'KPX53MPOOL'  => '144',
+   'KPX09CPUDE'  => '232',
+   'KPX08CPUSU'  => '420',
+   'KPX41DEFIN'  => '1636',
+   'KPX51DEVIC'  => '528',
+   'KPX26DISKS'  => '564',
+   'KPX30FILES'  => '1028',
+   'KPX36INTER'  => '180',
+   'KPX35INTER'  => '76',
+   'KPX14LOGIC'  => '1156',
+   'KPX29LOGIC'  => '1204',
+   'KPX52MPIOA'  => '528',
+   'KPX51MPIOS'  => '528',
+   'KPX34NETWO'  => '1008',
+   'KPX33NETWO'  => '4008',
+   'KPX32NETWO'  => '1527',
+   'KPX16NIMRE'  => '2256',
+   'KPX13PAGIN'  => '76',
+   'KPXPOBJST'   => '260',
+   'KPX19PHYSI'  => '84',
+   'KPX27PHYSI'  => '396',
+   'KPX17PRINT'  => '1392',
+   'KPX24PROCE'  => '2744',
+   'KPX23PROCE'  => '80',
+   'KPX54QOS'    => '808',
+   'KPX12SYSTE'  => '68',
+   'KPX11SYSTE'  => '80',
+   'KPX56TADDM'  => '152',
+   'KPX37TCP'    => '88',
+   'KPX02TOP50'  => '2472',
+   'KPX03TOP50'  => '2472',
+   'KPX20VIRTU'  => '100',
+   'KPX28VOLUM'  => '276',
+   'KPX15WORKL'  => '904',
+   'KPX46WPARC'  => '336',
+   'KPX49WPFIL'  => '1584',
+   'KPX50WPINF'  => '5448',
+   'KPX48WPNET'  => '1328',
+   'KPX47WPPHM'  => '336',
+   'KPK09AMELP'  => '616',
+   'KPK08MPOOL'  => '192',
+   'KPK05CPUPL'  => '240',
+   'KPKDIRE'     => '118',
+   'KPK02GLOBA'  => '440',
+   'KPK10FAIL'   => '202',
+   'KPK05MONLP'  => '788',
+   'KPK07MUALC'  => '316',
+   'KPK03PERLP'  => '940',
+   'KPKPOBJST'   => '260',
+   'KPK03TADDM'  => '148',
+   'KPH02VERSI'  => '534',
+   'KPH03CPUSU'  => '92',
+   'KPH04PAGIN'  => '72',
+   'KPH05PHYSI'  => '72',
+   'KPH06FILES'  => '552',
+   'KPH07PROCE'  => '832',
+   'KPH08MANAG'  => '412',
+   'KPH09MANAC'  => '576',
+   'KPH10MANAL'  => '716',
+   'KPH11CLPEV'  => '560',
+   'KPHPOBJST'   => '260',
+   'KPHSRVRDAG'  => '169',
+   'KPHSVRCPUP'  => '634',
+   'KPHSVRDETS'  => '544',
+   'KPHSVRLPAR'  => '952',
+   'KPHSVRPOS'   => '260',
+   'KVA50ACTIV'  => '1680',
+   'KVA53MPOOL'  => '144',
+   'KVA08CAPAB'  => '240',
+   'KVA17CPUDE'  => '232',
+   'KVA16CPUSU'  => '420',
+   'KVA49DEFIN'  => '1636',
+   'KVA51DEVIC'  => '528',
+   'KVA34DISKS'  => '564',
+   'KVAFC_STAT'  => '408',
+   'KVA38FILES'  => '1028',
+   'KVA06FIREW'  => '372',
+   'KVA44INTER'  => '180',
+   'KVA43INTER'  => '76',
+   'KVA22LOGIC'  => '1172',
+   'KVA37LOGIC'  => '1204',
+   'KVA52MPIOA'  => '528',
+   'KVA51MPIOS'  => '528',
+   'KVA42NETWO'  => '1008',
+   'KVA41NETWO'  => '4008',
+   'KVA40NETWO'  => '1527',
+   'KVA03NETWO'  => '2288',
+   'KVA24NIMRE'  => '2256',
+   'KVA56NPIVF'  => '152',
+   'KVA55NPIVM'  => '668',
+   'KVA21PAGIN'  => '76',
+   'KVAPOBJST'   => '260',
+   'KVA27PHYSI'  => '84',
+   'KVA35PHYSI'  => '396',
+   'KVA32PROCE'  => '2732',
+   'KVA31PROCE'  => '80',
+   'KVA54QOS'    => '808',
+   'KVA05SECUR'  => '288',
+   'KVA53SEA'    => '608',
+   'KVA02STORA'  => '3044',
+   'KVA20SYSTE'  => '68',
+   'KVA19SYSTE'  => '80',
+   'KVA56TADDM'  => '152',
+   'KVA45TCP'    => '88',
+   'KVA10TOP50'  => '2460',
+   'KVA11TOP50'  => '2460',
+   'KVA28VIRTU'  => '100',
+   'KVA36VOLUM'  => '276',
+   'KVA23WORKL'  => '904',
+   'KUDAPPL00'   => '3862',
+   'KUD2649700'  => '3112',
+   'KUD2649900'  => '3646',
+   'KUDAPPL01'   => '722',
+   'KUD2649800'  => '658',
+   'KUDAPPLYPM'  => '316',
+   'KUDAPPLYSN'  => '414',
+   'KUDBPOOL'    => '1366',
+   'KUD4177600'  => '1498',
+   'KUDDBASE00'  => '1922',
+   'KUD3437500'  => '1858',
+   'KUDDBASE01'  => '1874',
+   'KUD3437600'  => '1658',
+   'KUDDBASE02'  => '842',
+   'KUDDCSDB'    => '290',
+   'KUDDIAGLOG'  => '1675',
+   'KUDIPADDR'   => '166',
+   'KUDLOG'      => '4986',
+   'KUDSYSINFO'  => '1882',
+   'KUD4238000'  => '1598',
+   'KUDSYSRES'   => '696',
+   'KUDTABLE'    => '328',
+   'KUDTBLSPC'   => '1838',
+   'KUDTABSPC'   => '1810',
+   'KUD5214100'  => '1030',
+   'KORPRCAS'    => '964',
+   'KORADVQS'    => '2437',
+   'KORALRTD'    => '708',
+   'KORALRTS'    => '1046',
+   'KORARCDD'    => '2632',
+   'KORCACHE'    => '454',
+   'KORCACHX'    => '568',
+   'KORCONFS'    => '1120',
+   'KORLOCKS'    => '440',
+   'KORDB'       => '377',
+   'KORDISPD'    => '352',
+   'KORDUMPD'    => '2612',
+   'KORFILES'    => '655',
+   'KORFILEX'    => '577',
+   'KORHSAD'     => '685',
+   'KORJOBS'     => '735',
+   'KORLIBCU'    => '323',
+   'KORLIBCX'    => '328',
+   'KORLISTD'    => '352',
+   'KORLCONF'    => '334',
+   'KORLKCS'     => '194',
+   'KORLOGS'     => '282',
+   'KORLOGSX'    => '320',
+   'KORNETS'     => '224',
+   'KORNETSX'    => '236',
+   'KORPROCD'    => '611',
+   'KORPROCS'    => '314',
+   'KORREDOS'    => '275',
+   'KORRBST'     => '401',
+   'KORRBSTX'    => '423',
+   'KORSRVR'     => '2795',
+   'KORSRVRE'    => '468',
+   'KORSRVRD'    => '246',
+   'KORSESSD'    => '2270',
+   'KORSESDX'    => '2238',
+   'KORSESSS'    => '254',
+   'KORSGA'      => '388',
+   'KORSTATD'    => '455',
+   'KORSTATE'    => '572',
+   'KORSTATS'    => '1060',
+   'KORSTASX'    => '1052',
+   'KORTS'       => '556',
+   'KORTSX'      => '566',
+   'KORTBRSW'    => '283',
+   'KORTRANS'    => '1916',
+   'KORUNDOS'    => '256',
+   'KRZAGINF'    => '828',
+   'KRZAGTLSNR'  => '1170',
+   'KRZAGTNETS'  => '1928',
+   'KRZASMLOGS'  => '422',
+   'KRZASMBGPS'  => '60',
+   'KRZASMCLIT'  => '268',
+   'KRZASMDISK'  => '724',
+   'KRZASMDKGP'  => '344',
+   'KRZASMDGIO'  => '344',
+   'KRZASMDKIO'  => '384',
+   'KRZASMFILE'  => '396',
+   'KRZASMINST'  => '284',
+   'KRZASMOPRA'  => '164',
+   'KRZASMPARA'  => '1772',
+   'KRZASMPOS'   => '260',
+   'KRZASMPROS'  => '1176',
+   'KRZASMTMPL'  => '124',
+   'KRZDBINF'    => '178',
+   'KRZDBINFO'   => '724',
+   'KRZDGALOGS'  => '422',
+   'KRZDGARCHD'  => '1900',
+   'KRZDGDSTST'  => '2092',
+   'KRZDGARCHS'  => '1024',
+   'KRZDGARCHG'  => '72',
+   'KRZDGARCHL'  => '816',
+   'KRZDGBGPS'   => '60',
+   'KRZDGCUSQ'   => '1888',
+   'KRZDGCUSS'   => '1304',
+   'KRZDGDBINF'  => '724',
+   'KRZDGDATAF'  => '1340',
+   'KRZDGDKSP'   => '721',
+   'KRZDGLARCH'  => '816',
+   'KRZDGLOG'    => '140',
+   'KRZDGLOGHI'  => '136',
+   'KRZDGLOGHS'  => '256',
+   'KRZDGLOGF'   => '332',
+   'KRZDGSTDPO'  => '388',
+   'KRZDGSTDPS'  => '100',
+   'KRZDGSTDPG'  => '160',
+   'KRZDGLOGST'  => '192',
+   'KRZDGSTDST'  => '228',
+   'KRZDGLOGSS'  => '176',
+   'KRZDGMGSTD'  => '272',
+   'KRZDGMGSTS'  => '88',
+   'KRZDGPARA'   => '876',
+   'KRZDGPOS'    => '260',
+   'KRZDGRECPR'  => '180',
+   'KRZDGSTDLG'  => '208',
+   'KRZDGSTATS'  => '244',
+   'KRZDGSTATU'  => '388',
+   'KRZPOBJST'   => '260',
+   'KRZACTINS'   => '708',
+   'KRZRDBLOGS'  => '422',
+   'KRZARCDEST'  => '624',
+   'KRZARCHIVE'  => '164',
+   'KRZRAMCLIT'  => '268',
+   'KRZRAMDISK'  => '724',
+   'KRZRAMDKGP'  => '344',
+   'KRZRAMDGIO'  => '344',
+   'KRZRAMDKIO'  => '384',
+   'KRZRAMTMPL'  => '124',
+   'KRZRDBBGPS'  => '60',
+   'KRZBUFCADE'  => '220',
+   'KRZBUFCART'  => '96',
+   'KRZCAFURA'   => '104',
+   'KRZDBCABK'   => '232',
+   'KRZDBCLSZ'   => '356',
+   'KRZDBCLUS'   => '512',
+   'KRZRDBCUSQ'  => '1888',
+   'KRZRDBCUSS'  => '1304',
+   'KRZRDBSTAT'  => '500',
+   'KRZDAFCOUT'  => '96',
+   'KRZDAFIO'    => '764',
+   'KRZDAFOVEW'  => '804',
+   'KRZDICCADE'  => '136',
+   'KRZDICCART'  => '88',
+   'KRZRDBDKSP'  => '721',
+   'KRZRDBFRA'   => '96',
+   'KRZRDBFDL'   => '112',
+   'KRZRDBFDLF'  => '625',
+   'KRZGCSBLO'   => '120',
+   'KRZGCSCRL'   => '200',
+   'KRZGCSCRB'   => '200',
+   'KRZGCSMEM'   => '180',
+   'KRZGESENQS'  => '148',
+   'KRZGESLAT'   => '112',
+   'KRZGESLOCK'  => '404',
+   'KRZGESMEM'   => '260',
+   'KRZDBIXAB'   => '232',
+   'KRZDBIXSZ'   => '356',
+   'KRZDBIDXS'   => '1844',
+   'KRZINSTINF'  => '300',
+   'KRZACTINSR'  => '144',
+   'KRZINTCON'   => '276',
+   'KRZRDBLAT'   => '288',
+   'KRZLIBCADE'  => '136',
+   'KRZLIBCART'  => '112',
+   'KRZRDBLSES'  => '308',
+   'KRZRDBLKD'   => '212',
+   'KRZRDBLS'    => '532',
+   'KRZMSGSTAT'  => '304',
+   'KRZRDBOBJS'  => '388',
+   'KRZRDBOPTS'  => '184',
+   'KRZRDBPARA'  => '876',
+   'KRZRDBPOS'   => '260',
+   'KRZRDPGADT'  => '140',
+   'KRZRDPGAOV'  => '704',
+   'KRZRDBPTA'   => '220',
+   'KRZRDBPROD'  => '932',
+   'KRZRDBPROS'  => '176',
+   'KRZRDBRFD'   => '132',
+   'KRZRESLIMN'  => '200',
+   'KRZRDBRSD'   => '248',
+   'KRZRDBRSS'   => '192',
+   'KRZSEGSTAT'  => '304',
+   'KRZSESSDTL'  => '1732',
+   'KRZSESSSMY'  => '168',
+   'KRZSEWARAC'  => '224',
+   'KRZSGADETL'  => '136',
+   'KRZSGAOVEW'  => '440',
+   'KRZSGASIZE'  => '616',
+   'KRZDBSQLT'   => '616',
+   'KRZSMETRIC'  => '256',
+   'KRZSMETGP'   => '428',
+   'KRZSYSSTAT'  => '160',
+   'KRZDBTBNR'   => '224',
+   'KRZDBTBSZ'   => '356',
+   'KRZDBTABLS'  => '748',
+   'KRZTSOVEW'   => '384',
+   'KRZTSNLUE'   => '312',
+   'KRZTSTPUE'   => '224',
+   'KRZTPFOVEW'  => '796',
+   'KRZTOPSQL'   => '932',
+   'KRZTSFMTC'   => '740',
+   'KRZRDBUTS'   => '240',
+   'KRZTACTST'   => '3452',
+   'KRZTHPLST'   => '132',
+   'KIMALARMS'   => '590',
+   'KIMAUDINFO'  => '336',
+   'KIMAUDMASK'  => '160',
+   'KIMAVAIL'    => '3244',
+   'KIMBARALOG'  => '356',
+   'KIMBUFPOOL'  => '416',
+   'KIMCDRRQM'   => '360',
+   'KIMCDRERR'   => '1349',
+   'KIMCDRLAT'   => '376',
+   'KIMCDRPART'  => '1733',
+   'KIMCDRPROG'  => '492',
+   'KIMCDRQ'     => '312',
+   'KIMCDRRCVS'  => '408',
+   'KIMCDRREPL'  => '495',
+   'KIMCDRS'     => '228',
+   'KIMCHKPT'    => '264',
+   'KIMCHFREE'   => '96',
+   'KIMCHUNKS'   => '480',
+   'KIMDATABAS'  => '376',
+   'KIMDBSPACE'  => '396',
+   'KIMSRVENV'   => '688',
+   'KIMSESENV'   => '696',
+   'KIMEXTSPAC'  => '472',
+   'KIMGENERAL'  => '243',
+   'KIMHA_LAT'   => '208',
+   'KIMHANODES'  => '184',
+   'KIMHA_TYPE'  => '180',
+   'KIMHA_WORK'  => '220',
+   'KIMINDEXES'  => '812',
+   'KIMIPL'      => '72',
+   'KIMLATENCY'  => '80',
+   'KIMLLOGBUF'  => '144',
+   'KIMLLOGSUM'  => '152',
+   'KIMLLOGFIL'  => '148',
+   'KIMLOCKS'    => '413',
+   'KIMLRUS'     => '104',
+   'KIMMACHINE'  => '744',
+   'KIMMEMPOOL'  => '104',
+   'KIMMGMGATE'  => '76',
+   'KIMMGMINFO'  => '312',
+   'KIMMGMQURY'  => '130',
+   'KIMNETCLNT'  => '166',
+   'KIMNETGLOB'  => '304',
+   'KIMNETWORK'  => '326',
+   'KIMONCFG'    => '1723',
+   'KIMONLILOG'  => '356',
+   'KIMPOBJST'   => '260',
+   'KIMPLOG'     => '136',
+   'KIMPROF_D'   => '368',
+   'KIMPROF_DT'  => '368',
+   'KIMPROFILE'  => '368',
+   'KIMRSSLOG'   => '248',
+   'KIMSRCRSS'   => '268',
+   'KIMTRGRSS'   => '228',
+   'KIMSRCSDS'   => '328',
+   'KIMTRGSDS'   => '1556',
+   'KIMSHMSEGS'  => '128',
+   'KIMSESSION'  => '1848',
+   'KIMSMX'      => '364',
+   'KIMSMXSES'   => '244',
+   'KIMSQLHOST'  => '583',
+   'KIMSQLTRC'   => '1732',
+   'KIMSQLTRIN'  => '114',
+   'KIMSQLTRIT'  => '116',
+   'KIMTABLES'   => '551',
+   'KIMTHREADS'  => '200',
+   'KIMTRANSAC'  => '251',
+   'KIMVPS'      => '128',
+   'KIMWAITSTA'  => '139',
+   'KOYCACD'     => '754',
+   'KOYCACS'     => '634',
+   'KOYSCFG'     => '445',
+   'KOYDBD'      => '553',
+   'KOYDBS'      => '264',
+   'KOYDEVD'     => '1006',
+   'KOYENGD'     => '677',
+   'KOYENGS'     => '280',
+   'KOYLOCK'     => '380',
+   'KOYLCKD'     => '431',
+   'KOYLCKS'     => '666',
+   'KOYLOCKS'    => '478',
+   'KOYLOGD'     => '282',
+   'KOYLOGS'     => '226',
+   'KOYSDEVD'    => '898',
+   'KOYPROBD'    => '788',
+   'KOYPROBS'    => '248',
+   'KOYPRCD'     => '950',
+   'KOYPRCS'     => '382',
+   'KOYSRVR'     => '256',
+   'KOYSEGD'     => '591',
+   'KOYSRVD'     => '570',
+   'KOYSRVRE'    => '888',
+   'KOYSRVS'     => '308',
+   'KOYSQLD'     => '282',
+   'KOYSTATD'    => '262',
+   'KOYSTATS'    => '340',
+   'KOYTSKD'     => '282',
+   'KOYSQL'      => '568',
+   'KOQBTCHS'    => '328',
+   'KOQSCFG'     => '285',
+   'KOQDBD'      => '2939',
+   'KOQDBMIR'    => '924',
+   'KOQDBS'      => '262',
+   'KOQDEVD'     => '1440',
+   'KOQFGRPD'    => '1012',
+   'KOQJOBD'     => '1096',
+   'KOQJOBS'     => '252',
+   'KOQLOCK'     => '650',
+   'KOQLOCKS'    => '1050',
+   'KOQLRTS'     => '252',
+   'KOQLOKSU'    => '276',
+   'KOQLSDBD'    => '1768',
+   'KOQLSERR'    => '1154',
+   'KOQLSJBD'    => '1414',
+   'KOQMEMGR'    => '416',
+   'KOQPROBD'    => '776',
+   'KOQPROBS'    => '250',
+   'KOQPRCD'     => '930',
+   'KOQPRCS'     => '382',
+   'KOQSRVR'     => '256',
+   'KOQRPOOL'    => '800',
+   'KOQSRVD'     => '660',
+   'KOQSRVS'     => '646',
+   'KOQSRVCD'    => '592',
+   'KOQSTATD'    => '264',
+   'KOQSTATS'    => '398',
+   'KOQTBLD'     => '1400',
+   'KOQWLGS'     => '752',
+   'K3ZNTDSAB'   => '244',
+   'K3ZNTDSCNT'  => '848',
+   'K3ZNTDSDAI'  => '884',
+   'K3ZNTDSDFS'  => '384',
+   'K3ZNTDSDHC'  => '348',
+   'K3ZNTDSDS'   => '304',
+   'K3ZNTDSDNS'  => '584',
+   'K3ZNTDSDCA'  => '1236',
+   'K3ZNTDSDCP'  => '340',
+   'K3ZNTDSXDS'  => '232',
+   'K3ZNTDSFRS'  => '508',
+   'K3ZNTDSFRT'  => '3280',
+   'K3ZNTDSGPO'  => '484',
+   'K3ZNTDSKCC'  => '232',
+   'K3ZNTDSKDC'  => '228',
+   'K3ZNTDSLDP'  => '272',
+   'K3ZNTDSLDA'  => '96',
+   'K3ZNTDSLFO'  => '344',
+   'K3ZNTDSLSA'  => '228',
+   'K3ZNTDSNSP'  => '232',
+   'K3ZNTDSDRA'  => '580',
+   'K3ZNTDSRPL'  => '860',
+   'K3ZNTDSRLT'  => '420',
+   'K3ZNTDSRDS'  => '476',
+   'K3ZNTDSSAM'  => '292',
+   'K3ZNTDSSVC'  => '1340',
+   'K3ZNTDSTRS'  => '552',
+   'K3ZNTDSTTP'  => '640',
+   'FFEXODS'     => '764',
+   'FFEXRTS'     => '764',
+   'FFEXSCHS'    => '764',
+   'FFEXTRNSS'   => '764',
+   'MSMBSCS'     => '480',
+   'MSFSSS'      => '244',
+   'MSEASYNC'    => '500',
+   'MSEADCAH'    => '700',
+   'MSEADACP'    => '896',
+   'MSEASSIT'    => '856',
+   'MSEASSTDB'   => '804',
+   'MSEAF'       => '112',
+   'MSECFA'      => '208',
+   'MSECONFA'    => '184',
+   'MSERBAC'     => '184',
+   'MSEDAG'      => '612',
+   'MSEDB'       => '764',
+   'MSEDBINS'    => '708',
+   'MSEDS'       => '292',
+   'MSEIS'       => '684',
+   'MSEISCLI'    => '232',
+   'MSEISPRI'    => '1064',
+   'MSEISPUB'    => '1028',
+   'MSEISPUR'    => '752',
+   'MSELOTUS'    => '144',
+   'MSEMBXD'     => '1676',
+   'MSEMREPS'    => '116',
+   'MSEMRSPM'    => '740',
+   'MSEMANFA'    => '108',
+   'MSEMCD'      => '212',
+   'MSEMTA'      => '296',
+   'MSEMTAC'     => '552',
+   'MSENLBS'     => '152',
+   'MSEOWA'      => '200',
+   'MSEPAA'      => '124',
+   'MSEPFLDD'    => '1276',
+   'MSEREACH'    => '892',
+   'MSERCACH'    => '488',
+   'MSERFA'      => '128',
+   'MSEREPL'     => '148',
+   'MSERMS'      => '472',
+   'MSERBS'      => '544',
+   'MSRTOPO'     => '480',
+   'MSESFA'      => '128',
+   'MSESIDAG'    => '152',
+   'MSESERVR'    => '167',
+   'MSESRVCD'    => '484',
+   'MSESGRPD'    => '524',
+   'MSESTRDR'    => '808',
+   'MSETRDB'     => '1008',
+   'MSETRDMP'    => '140',
+   'MSETRQUE'    => '636',
+   'MSETRRUL'    => '512',
+   'MSETRSR'     => '432',
+   'MSESMTPR'    => '620',
+   'MSESMTPS'    => '612',
+   'KEXSMTP'     => '668',
+   'KQFASPNET'   => '128',
+   'KQFASPNE64'  => '188',
+   'KQFASPNETA'  => '584',
+   'KQFASPNET6'  => '392',
+   'KQFASPNET2'  => '160',
+   'KQFASPNEF2'  => '184',
+   'KQFASPNETF'  => '520',
+   'KQFASPNET0'  => '468',
+   'KQFASPNAP4'  => '520',
+   'KQFASPNAP2'  => '184',
+   'KQFASPNFI'   => '128',
+   'KQFASPNETV'  => '104',
+   'KQFASPNET4'  => '128',
+   'KQFEVTLOG'   => '2418',
+   'KQFNETCLRE'  => '156',
+   'KQFNETCLRI'  => '124',
+   'KQFNETCLRJ'  => '156',
+   'KQFNETCLRL'  => '240',
+   'KQFNETCLRM'  => '260',
+   'KQFNETCLRN'  => '420',
+   'KQFNETCLRF'  => '420',
+   'KQFNETCLR4'  => '420',
+   'KQFNETCLRR'  => '164',
+   'KQFNETCLRS'  => '144',
+   'KQFNETCLR0'  => '200',
+   'KQFNETVER'   => '198',
+   'KQFDATAPRO'  => '224',
+   'KQFORACLDP'  => '224',
+   'KQFWIN32PE'  => '224',
+   'KQFNETPROC'  => '460',
+   'KQFPOBJST'   => '260',
+   'KQFWIN32S0'  => '636',
+   'KQFSERMODE'  => '636',
+   'KQFSERVICE'  => '636',
+   'KQFWIN32S1'  => '692',
+   'KQFSMOPERA'  => '692',
+   'KQFSMOPER4'  => '692',
+   'KQFWIN32S2'  => '740',
+   'KQFSERMSER'  => '740',
+   'KQFSMSERV4'  => '740',
+   'KQFWIN32S3'  => '220',
+   'KQFSMSVCHO'  => '220',
+   'KQFSMSVCH4'  => '220',
+   'KQFWIN32P4'  => '308',
+   'KQFWIN32P5'  => '308',
+   'KQFWORKFL4'  => '308',
+   'KQBBIZAPP'   => '882',
+   'KQBAVAIL'    => '3244',
+   'KQBMSBTSG0'  => '663',
+   'KQBBAMINTC'  => '180',
+   'KQBHSTGRP'   => '2602',
+   'KQBORADB'    => '156',
+   'KQBORAEBIZ'  => '156',
+   'KQBSAPAD'    => '156',
+   'KQBSIEBELA'  => '156',
+   'KQBSQLAD'    => '156',
+   'KQBDELCHN'   => '864',
+   'KQBDISTRIB'  => '872',
+   'KQBEVTLOG'   => '2212',
+   'KQBEVENPD'   => '884',
+   'KQBEVENTS'   => '864',
+   'KQBFILERCV'  => '284',
+   'KQBFILESND'  => '232',
+   'KQBFTPRECV'  => '232',
+   'KQBFTPSEND'  => '232',
+   'KQBGENERA'   => '916',
+   'KQBHOSTTHR'  => '332',
+   'KQBHTTPRCV'  => '224',
+   'KQBHTTPSND'  => '192',
+   'KQBHUMANWO'  => '68',
+   'KQBMSBTSG1'  => '663',
+   'KQBMSGBOXG'  => '188',
+   'KQBMSGBOXH'  => '164',
+   'KQBMSBTSMS'  => '588',
+   'KQBMESSAG1'  => '308',
+   'KQBMESSLAT'  => '212',
+   'KQBMSMQRCV'  => '232',
+   'KQBMSMQSND'  => '232',
+   'KQBNOTIFI'   => '920',
+   'KQBMSBTSOS'  => '1062',
+   'KQBORCHEST'  => '444',
+   'KQBPOBJST'   => '360',
+   'KQBPOP3RCV'  => '216',
+   'KQBMSBTRLS'  => '822',
+   'KQBMSBTSG2'  => '663',
+   'KQBMSBTSPS'  => '822',
+   'KQBMSBTSIS'  => '4202',
+   'KQBSSODB'    => '1038',
+   'KQBSMTPSND'  => '168',
+   'KQBSOAPRCV'  => '168',
+   'KQBSOAPSND'  => '168',
+   'KQBSQLRECV'  => '168',
+   'KQBSQLSEND'  => '168',
+   'KQBSUBSCR'   => '872',
+   'KQBSUBSCRP'  => '868',
+   'KQBBIZTDDS'  => '268',
+   'KQBMSBTSG3'  => '663',
+   'KQBVACUUM'   => '880',
+   'KQBWSSADAP'  => '136',
+   'KQBWSADPTR'  => '236',
+   'KQHAPPINTE'  => '444',
+   'KQHAPPINT1'  => '500',
+   'KQHAVAIL'    => '3244',
+   'KQHEVTLOG'   => '2212',
+   'KQHHISDATA'  => '240',
+   'KQHMSHIS01'  => '124',
+   'KQHMSSNALI'  => '1101',
+   'KQHMSSNAL1'  => '4903',
+   'KQHMANAGE0'  => '224',
+   'KQHMQBRID1'  => '72',
+   'KQHMSHISMQ'  => '436',
+   'KQHMSHISM2'  => '244',
+   'KQHMSHISM3'  => '148',
+   'KQHMQBRID2'  => '208',
+   'KQHMQBRID3'  => '208',
+   'KQHMQBRID4'  => '208',
+   'KQHMQBRID5'  => '208',
+   'KQHMSHISM1'  => '136',
+   'KQHMSFTDB2'  => '508',
+   'KQHPOBJST'   => '360',
+   'KQHSESSIO1'  => '140',
+   'KQHSESSIO2'  => '236',
+   'KQHSNA3270'  => '168',
+   'KQHMSSNAA0'  => '199',
+   'KQHMSSNAC0'  => '1451',
+   'KQHSNACON0'  => '212',
+   'KQHMSSNAD0'  => '1172',
+   'KQHSNALOG0'  => '212',
+   'KQHMSSNAL3'  => '239',
+   'KQHMSSNAL2'  => '211',
+   'KQHMSSNAL4'  => '231',
+   'KQHMSSNAL0'  => '207',
+   'KQHMSSNAPO'  => '147',
+   'KQHMSSNAP0'  => '159',
+   'KQHMSSNAPR'  => '4368',
+   'KQHMSSNAS0'  => '284',
+   'KQHMSSNA13'  => '283',
+   'KQHMSSNA12'  => '192',
+   'KQHMSSNA14'  => '1072',
+   'KQHMSSNA15'  => '223',
+   'KQHMSSNAST'  => '184',
+   'KQHMSSNAS5'  => '224',
+   'KQHMSSNAS8'  => '1792',
+   'KQHMSSNAS1'  => '976',
+   'KQHMSSNAS3'  => '188',
+   'KQHMSSNA11'  => '180',
+   'KQHMSSNA10'  => '196',
+   'KQHMSSNAS9'  => '180',
+   'KQHMSSNAS6'  => '180',
+   'KQHMSSNAS4'  => '228',
+   'KQHMSSNAS7'  => '880',
+   'KQHMSSNAS2'  => '368',
+   'KQHTN3270S'  => '268',
+   'KQHMSHIST7'  => '80',
+   'KQHMSHIST1'  => '64',
+   'KQHMSHISTR'  => '56',
+   'KQHMSHIST3'  => '56',
+   'KQHMSHIST5'  => '72',
+   'KQHMSHIST2'  => '80',
+   'KQHMSHIST4'  => '72',
+   'KQHMSHIST8'  => '80',
+   'KQHMSHIST9'  => '84',
+   'KQHMSHIST6'  => '80',
+   'KQ7ACTIVES'  => '200',
+   'KQ7ASPNETA'  => '204',
+   'KQ7ASPNETF'  => '204',
+   'KQ7ASPNET4'  => '204',
+   'KQ7AVAIL'    => '3244',
+   'KQ7EVTLOG'   => '2418',
+   'KQ7IISFTPS'  => '116',
+   'KQ7FTPSERV'  => '392',
+   'KQ7IISFTPI'  => '120',
+   'KQ7HTTPCUS'  => '368',
+   'KQ7HTTPERR'  => '1514',
+   'KQ7APPPOOL'  => '256',
+   'KQ7IISAPPL'  => '596',
+   'KQ7IISCOMP'  => '116',
+   'KQ7FTPBIND'  => '240',
+   'KQ7IISFTPM'  => '308',
+   'KQ7FSITDTL'  => '308',
+   'KQ7IISNNT2'  => '308',
+   'KQ7IISSMM'   => '308',
+   'KQ7IISWEBI'  => '120',
+   'KQ7WEBBIND'  => '304',
+   'KQ7IISWEBS'  => '116',
+   'KQ7IISWEB1'  => '308',
+   'KQ7WSITDTL'  => '372',
+   'KQ7INTERNE'  => '164',
+   'KQ7WIN32P1'  => '224',
+   'KQ7MIMETYP'  => '176',
+   'KQ7IISNNTP'  => '116',
+   'KQ7IISNNT0'  => '120',
+   'KQ7POBJST'   => '360',
+   'KQ7IISSMTP'  => '116',
+   'KQ7IISSMT0'  => '120',
+   'KQ7THPLST'   => '132',
+   'KQ7WIN32PE'  => '280',
+   'KQ7WIN32P0'  => '164',
+   'KQ7WEBSERV'  => '652',
+   'KQ7WEBSER1'  => '164',
+   'KQ7RESTRIC'  => '248',
+   'KQAT0ALERT'  => '1016',
+   'KQAXARRAY'   => '1012',
+   'KQAAVAIL'    => '3244',
+   'KQAXCACHEZ'  => '272',
+   'KQAXCACON'   => '160',
+   'KQAXDIFFSZ'  => '432',
+   'KQAXEMAILT'  => '72',
+   'KQAEVTLOG'   => '2212',
+   'KQAXFWENGZ'  => '192',
+   'KQAXFWSRVZ'  => '228',
+   'KQAXNETWK'   => '488',
+   'KQAXH323FZ'  => '64',
+   'KQAXCOMPRZ'  => '152',
+   'KQAXHTTPST'  => '232',
+   'KQAXLOWLS'   => '96',
+   'KQAXMALWRT'  => '512',
+   'KQAXGLOBAL'  => '2332',
+   'KQAPOBJST'   => '360',
+   'KQAXSERVER'  => '880',
+   'KQAXSOCKSZ'  => '128',
+   'KQAXSTORE'   => '668',
+   'KQAXURLFLT'  => '296',
+   'KQAXPROXYZ'  => '688',
+   'KQAXCACHEI'  => '48',
+   'KQAXCACHET'  => '48',
+   'KQAXDIFFSI'  => '48',
+   'KQAXDIFFST'  => '48',
+   'KQAXFWENGI'  => '48',
+   'KQAXFWENGT'  => '48',
+   'KQAXFWSRVI'  => '48',
+   'KQAXFWSRVT'  => '48',
+   'KQAXH323FI'  => '48',
+   'KQAXH323FT'  => '48',
+   'KQAXCOMPRI'  => '48',
+   'KQAXCOMPRT'  => '48',
+   'KQAXSOCKSI'  => '48',
+   'KQAXSOCKST'  => '48',
+   'KQAXPROXYI'  => '48',
+   'KQAXPROXYT'  => '48',
+   'KQPASPNET'   => '432',
+   'KQPAVAIL'    => '3244',
+   'KQPSHAREP8'  => '548',
+   'KQPDOCUMEN'  => '68',
+   'KQPEVTLOG'   => '2418',
+   'KQPEXCELCA'  => '200',
+   'KQPEXCELSE'  => '84',
+   'KQPEXCELWE'  => '96',
+   'KQPINFOPAT'  => '340',
+   'KQPOFFICE4'  => '188',
+   'KQPOFFICE5'  => '272',
+   'KQPOFFICE6'  => '536',
+   'KQPOFFICE7'  => '416',
+   'KQPOFFICE8'  => '192',
+   'KQPPOBJST'   => '260',
+   'KQPSEARC0'   => '156',
+   'KQPSEARCHA'  => '188',
+   'KQPSEARCHC'  => '260',
+   'KQPSEARCHG'  => '272',
+   'KQPSEARCH0'  => '536',
+   'KQPSEARCHI'  => '196',
+   'KQPSEARCHS'  => '192',
+   'KQPSEARCHT'  => '180',
+   'KQPSERVSUM'  => '1248',
+   'KQPSHAREDS'  => '292',
+   'KQPSPPVER'   => '248',
+   'KQPSPROLES'  => '348',
+   'KQPSHAREP0'  => '260',
+   'KQPSHARE10'  => '188',
+   'KQPSHAREP9'  => '272',
+   'KQPSHARE11'  => '536',
+   'KQPSHARE12'  => '416',
+   'KQPSHARE13'  => '192',
+   'KQPSHAREP1'  => '228',
+   'KQPSHAREP2'  => '352',
+   'KQPSHAREP3'  => '392',
+   'KQPSSPSUMM'  => '1672',
+   'KQPWEBAPPL'  => '1772',
+   'KQPWEBSERV'  => '432',
+   'KQ5AVAIL'    => '3244',
+   'KQ5WIN32CO'  => '112',
+   'KQ5CLUSCSV'  => '384',
+   'KQ5CLUCSVP'  => '184',
+   'KQ5CLUSUM'   => '432',
+   'KQ5B05PHYS'  => '256',
+   'KQ5D55RLL'   => '68',
+   'KQ5D40CPU'   => '188',
+   'KQ5D50RLL'   => '68',
+   'KQ5G20RISK'  => '488',
+   'KQ5D80HDD'   => '300',
+   'KQ5D85RLL'   => '68',
+   'KQ5D90RLL'   => '68',
+   'KQ5EVTLOG'   => '2418',
+   'KQ5CLUSTE1'  => '164',
+   'KQ5D60MEM'   => '228',
+   'KQ5D70RLL'   => '68',
+   'KQ5D75RLL'   => '68',
+   'KQ5CLUSTE3'  => '160',
+   'KQ5F20INT'   => '756',
+   'KQ5F30RLL'   => '68',
+   'KQ5F40NET'   => '328',
+   'KQ5F70RLL'   => '68',
+   'KQ5F50RLL'   => '68',
+   'KQ5F60RLL'   => '68',
+   'KQ5NWRECON'  => '164',
+   'KQ5E20NET'   => '460',
+   'KQ5NETMESS'  => '144',
+   'KQ5E30RLL'   => '68',
+   'KQ5B20LOGI'  => '624',
+   'KQ5D20NODE'  => '756',
+   'KQ5D30RLL'   => '68',
+   'KQ5POBJST'   => '360',
+   'KQ5MSCLUST'  => '252',
+   'KQ5CLUSRSC'  => '160',
+   'KQ5B30RLL'   => '68',
+   'KQ5B30LOGI'  => '456',
+   'KQ5B25LOGI'  => '456',
+   'KQ5B10RG'    => '280',
+   'KQ5B15RLL'   => '68',
+   'KQ5B25RTDR'  => '456',
+   'KQ5B35LOGI'  => '456',
+   'KQ5C20RES'   => '396',
+   'KQ5C30RLL'   => '68',
+   'KQ5CLUSTER'  => '172',
+   'KQ5CSVSUMM'  => '256',
+   'KQ5G30RLL'   => '268',
+   'KQ5THPLST'   => '132',
+   'KQRAVAIL'    => '3244',
+   'KQREVTLOG'   => '2212',
+   'KQRPOBJST'   => '260',
+   'KQRVMMS'     => '1172',
+   'KQRVNWKS'    => '772',
+   'KHVAVAIL'    => '3244',
+   'KHVDIRECTO'  => '145',
+   'KHVGETDIS0'  => '272',
+   'KHVEVTLOG'   => '2216',
+   'KHVHYLPROC'  => '452',
+   'KHVHYPART'   => '200',
+   'KHVHYRPART'  => '180',
+   'KHVHYRPROC'  => '468',
+   'KHVHYRPROM'  => '1172',
+   'KHVHYVPROC'  => '500',
+   'KHVHYVPROM'  => '1140',
+   'KHVLEGNWAD'  => '220',
+   'KHVHYPERV'   => '80',
+   'KHVTASKMD'   => '240',
+   'KHVTASKMDR'  => '816',
+   'KHVVIDECON'  => '212',
+   'KHVVMBUS'    => '72',
+   'KHVVMHESUM'  => '56',
+   'KHVVMSUMMA'  => '120',
+   'KHVVIRNWAD'  => '340',
+   'KHVVSTORDV'  => '412',
+   'KHVVIRSWIT'  => '304',
+   'KHVVIRSWPO'  => '365',
+   'KHVVMIOAPI'  => '152',
+   'KHVHYVIDP'   => '368',
+   'KHVHYPERVI'  => '1094',
+   'KHVGETMEM0'  => '260',
+   'KHVNVVMIGR'  => '468',
+   'KHVPOBJST'   => '360',
+   'KHVGETPRO0'  => '208',
+   'KHVTHPLST'   => '132',
+   'KHVGETVIR0'  => '788',
+   'KHVMSVMVI4'  => '214',
+   'KHVMSVMVI5'  => '268',
+   'KHVVMMODF'   => '610',
+   'KQXAVAIL'    => '3244',
+   'KQXCITRIXL'  => '288',
+   'KQXEVTLOG'   => '2212',
+   'KQXICA'      => '336',
+   'KQXIMA'      => '160',
+   'KQXLICENSE'  => '68',
+   'KQXPOBJST'   => '260',
+   'KQXPRESSRV'  => '432',
+   'KQXPRESSV3'  => '176',
+   'KQXPRESSV4'  => '76',
+   'KQXPRESV45'  => '388',
+   'KQXSECURE'   => '84',
+   'KVMATASKS'   => '852',
+   'KVMAEVENTS'  => '192',
+   'KVMCLTDRSF'  => '1548',
+   'KVMCLTRDST'  => '850',
+   'KVMCLTRRPS'  => '622',
+   'KVMCLTRSRV'  => '588',
+   'KVMCLTVAPS'  => '818',
+   'KVMCLTRVMS'  => '556',
+   'KVMCLUSTRT'  => '820',
+   'KVMDCTRS'    => '370',
+   'KVMDRCLUST'  => '464',
+   'KVMDSHSD'    => '548',
+   'KVMSTOPO'    => '798',
+   'KVMDSTORES'  => '1284',
+   'KVMDIRE'     => '118',
+   'KVMDVPGRPS'  => '586',
+   'KVMDVSWTCH'  => '334',
+   'KVMDVUPLNK'  => '830',
+   'KVMESXPOS'   => '360',
+   'KVMIRAEVNT'  => '1936',
+   'KVMDAG'      => '169',
+   'KVMNETSERV'  => '510',
+   'KVMNETVM'    => '710',
+   'KVMNVSWITC'  => '514',
+   'KVMDCNETS'   => '506',
+   'KVMPOBJST'   => '360',
+   'KVMRSPOOLC'  => '596',
+   'KVMRSPOOLG'  => '568',
+   'KVMRSPOOLM'  => '596',
+   'KVMSERVERG'  => '2102',
+   'KVMSERVERC'  => '272',
+   'KVMSERVRDS'  => '680',
+   'KVMSERVERD'  => '536',
+   'KVMSRVHBAS'  => '634',
+   'KVMSVRHLTH'  => '764',
+   'KVMSERVERM'  => '320',
+   'KVMSERVERN'  => '800',
+   'KVMSRVRSAN'  => '460',
+   'KVMSRVVSWI'  => '464',
+   'KVMSVMDSUT'  => '528',
+   'KVMSERVERE'  => '1872',
+   'KVMTASKS'    => '1948',
+   'KVMTHPLST'   => '132',
+   'KVMTOPEVNT'  => '470',
+   'KVMTOPO'     => '798',
+   'KVMALARMS'   => '786',
+   'KVMVCENTER'  => '476',
+   'KVMVM_GEN'   => '1572',
+   'KVMVSWITCH'  => '414',
+   'KVMVM_CPU'   => '584',
+   'KVMVMDSUTL'  => '540',
+   'KVMVM_DISK'  => '960',
+   'KVMVMDKPRF'  => '314',
+   'KVMVM_MEM'   => '624',
+   'KVMVM_NET'   => '1068',
+   'KVMVMORPDI'  => '752',
+   'KVMVM_PART'  => '572',
+   'KVMVMSNAPS'  => '652',
+   'KV1HOSTAG'   => '806',
+   'KV1HOSTCG'   => '527',
+   'KV1HOSTMG'   => '519',
+   'KV1POBJST'   => '360',
+   'KV1SCHPAG'   => '941',
+   'KV1STGPLAG'  => '734',
+   'KV1VMACHAG'  => '950',
+   'KXALICDETS'  => '336',
+   'KXACLSDS'    => '169',
+   'KXACLSSS'    => '918',
+   'KXAWMIFRM'   => '359',
+   'KXAELOGCLS'  => '2418',
+   'KXACLSPOS'   => '360',
+   'KXAPOBJST'   => '360',
+   'KXARFMPOS'   => '360',
+   'KXASRVCON'   => '918',
+   'KXATACTST'   => '3452',
+   'KXATHPLST'   => '132',
+   'KXAELOGXA5'  => '2418',
+   'KXAXA5POS'   => '360',
+   'KXAELOGXA6'  => '2418',
+   'KXAXA6POS'   => '360',
+   'KXAXA5DS'    => '169',
+   'KXAXA6DS'    => '169',
+   'KXAAGENCON'  => '433',
+   'KXAAPPDET'   => '5279',
+   'KXAAPPDE5'   => '5289',
+   'KXAXENAPPC'  => '180',
+   'KXAAPPSUM'   => '442',
+   'KXAAPPSU5'   => '442',
+   'KXACONFIG'   => '2090',
+   'KXACONFI5'   => '2090',
+   'KXANTSRV'    => '933',
+   'KXANTSR5'    => '933',
+   'KXAAPPDETS'  => '2308',
+   'KXAAPPSUMM'  => '634',
+   'KXAFRMSUMM'  => '634',
+   'KXAFRMDS'    => '169',
+   'KXASRVDETS'  => '2082',
+   'KXAXENAPP0'  => '770',
+   'KXAWRKDETS'  => '1798',
+   'KXAWGSUMM'   => '634',
+   'KXAZONSUMM'  => '889',
+   'KXAICASESD'  => '702',
+   'KXAICASES5'  => '702',
+   'KXAIMANET'   => '410',
+   'KXAIMANE5'   => '410',
+   'KXALICENSE'  => '426',
+   'KXALICENS5'  => '426',
+   'KXAMETAFRA'  => '602',
+   'KXAMETAFR5'  => '602',
+   'KXANTSRVO'   => '943',
+   'KXANTSRV5'   => '943',
+   'KXAPROCDET'  => '942',
+   'KXAPROCDE5'  => '942',
+   'KXASECURE0'  => '446',
+   'KXASECURE5'  => '446',
+   'KXASESSDET'  => '1862',
+   'KXASESSDE5'  => '1862',
+   'KXASESSSUM'  => '474',
+   'KXASESSSU5'  => '474',
+   'KXAXAPSTA'   => '1360',
+   'KXAXAPST5'   => '1360',
+   'KXAUSERDET'  => '606',
+   'KXAUSERDE5'  => '606',
+   'KXAUSERSUM'  => '410',
+   'KXAUSERSU5'  => '410',
+   'KXAWORGRP'   => '653',
+   'KV5BRAPP'    => '852',
+   'KV5CNTRLR'   => '852',
+   'KV5MACHINE'  => '948',
+   'KV5CATALOG'  => '152',
+   'KV5OSTYPE'   => '152',
+   'KV5PWRSTAT'  => '152',
+   'KV5RAM'      => '56',
+   'KV5SHUTDWN'  => '152',
+   'KV5USRSSON'  => '2648',
+   'KV5DUSR'     => '348',
+   'KV5DSKGRPS'  => '472',
+   'KV5DKGRAV'   => '152',
+   'KV5DKGRUSE'  => '152',
+   'KV5DKINGR'   => '956',
+   'KV5DKPOOL'   => '56',
+   'KV5EVTLGDT'  => '1348',
+   'KV5HYPALRT'  => '848',
+   'KV5LUSE'     => '164',
+   'KV5POBJST'   => '360',
+   'KV5THPLST'   => '132',
+   'KV5XD4LIC'   => '160',
+   'KV5XD4MF'    => '656',
+   'KV5XD4NET'   => '96',
+   'KV5XD5IN'    => '1048',
+   'KV5XD5XML'   => '196',
+   'KV5XD5SER'   => '232',
+   'KXIXENMFND'  => '353',
+   'KXIHCTRLDM'  => '336',
+   'KXIHHCPUSN'  => '640',
+   'KXIHVHODET'  => '1833',
+   'KXIXHVDS'    => '169',
+   'KXIHOSTPCH'  => '445',
+   'KXIHOSTPBD'  => '345',
+   'KXIHOSTPIF'  => '889',
+   'KXIHVVMSUB'  => '1309',
+   'KXISRHJOIN'  => '590',
+   'KXIPOBJST'   => '360',
+   'KXIHSTDETA'  => '1837',
+   'KXIPMCHANG'  => '320',
+   'KXIATTRI21'  => '276',
+   'KXIPPATCH'   => '412',
+   'KXIPBD'      => '376',
+   'KXIATTRIB4'  => '814',
+   'KXISRS'      => '293',
+   'KXIPOOL'     => '620',
+   'KXIVBD'      => '1116',
+   'KXIVDI'      => '912',
+   'KXIATTRI34'  => '732',
+   'KXITHPLST'   => '132',
+   'KXIXENEVTS'  => '1280',
+   'KXIXHVPOS'   => '360',
+   'KV6CHBKERS'  => '784',
+   'KV6CHBKLOS'  => '780',
+   'KV6CHBKPSE'  => '760',
+   'KV6BNTSTAT'  => '896',
+   'KV6CHACNFD'  => '552',
+   'KV6FANHELT'  => '1452',
+   'KV6FANMDCF'  => '756',
+   'KV6CHFANHS'  => '1252',
+   'KV6FNMDLSM'  => '464',
+   'KV6FANSTAT'  => '752',
+   'KV6CHHWFWD'  => '1048',
+   'KV6CHASSD'   => '980',
+   'KV6BCKPLNP'  => '852',
+   'KV6CIOCNFD'  => '952',
+   'KV6CHIOHSM'  => '1052',
+   'KV6IOMDTEM'  => '580',
+   'KV6CHPOWER'  => '296',
+   'KV6CHPSUCO'  => '752',
+   'KV6CHPSHSM'  => '1252',
+   'KV6PWSPUSM'  => '644',
+   'KV6CHSLDET'  => '748',
+   'KV6CHSLTSM'  => '848',
+   'KV6FAULTS'   => '1552',
+   'KV6CONFPRO'  => '556',
+   'KV6FANCONF'  => '756',
+   'KV6FNHELTH'  => '956',
+   'KV6EXPMODL'  => '956',
+   'KV6FIXPORT'  => '1152',
+   'KV6FIHWFWD'  => '1648',
+   'KV6FIHESUM'  => '556',
+   'KV6FILERRS'  => '584',
+   'KV6FILLOSS'  => '580',
+   'KV6FILPAUS'  => '560',
+   'KV6LANSTAT'  => '696',
+   'KV6FABPORT'  => '268',
+   'KV6FIPORTU'  => '452',
+   'KV6PSUCONF'  => '656',
+   'KV6PSUHLTH'  => '1056',
+   'KV6PSUSTAT'  => '584',
+   'KV6SANEROR'  => '588',
+   'KV6SANSTAT'  => '564',
+   'KV6FSYSTEM'  => '276',
+   'KV6FITMPST'  => '376',
+   'KV6MACPOOL'  => '464',
+   'KV6POBJST'   => '360',
+   'KV6SANPOOL'  => '564',
+   'KV6ICDCNFD'  => '956',
+   'KV6INCHESM'  => '952',
+   'KV6BSCONFI'  => '1052',
+   'KV6BSCPUCN'  => '1284',
+   'KV6CPUHESM'  => '1252',
+   'KV6CPUENVS'  => '880',
+   'KV6DCEHSUM'  => '1148',
+   'KV6BSDISKC'  => '1460',
+   'KV6DSKHESM'  => '1252',
+   'KV6BSETPCM'  => '1160',
+   'KV6BSETPER'  => '1160',
+   'KV6BSETPLS'  => '1176',
+   'KV6BSETPOS'  => '1168',
+   'KV6BSETPPS'  => '1172',
+   'KV6BSETPSM'  => '1172',
+   'KV6FCPRTST'  => '1064',
+   'KV6BSHWFWD'  => '1248',
+   'KV6HBACNFD'  => '2152',
+   'KV6HBAHSUM'  => '1652',
+   'KV6BLSHESM'  => '1352',
+   'KV6MEMAICS'  => '864',
+   'KV6BSMEMAR'  => '1064',
+   'KV6MEAHESM'  => '1052',
+   'KV6BSMEMUN'  => '1368',
+   'KV6MEMTMPS'  => '1064',
+   'KV6BSMTHRD'  => '952',
+   'KV6MOTHESM'  => '1152',
+   'KV6MBPOWST'  => '696',
+   'KV6MBTEMST'  => '712',
+   'KV6NICCNFD'  => '1852',
+   'KV6NICHSUM'  => '1552',
+   'KV6SERPOLD'  => '464',
+   'KV6BSSTCON'  => '1352',
+   'KV6STCHESM'  => '1452',
+   'KV6VNICSTS'  => '1080',
+   'KV6SERPRLH'  => '952',
+   'KV6THPLST'   => '132',
+   'KV6UIDSUFX'  => '564',
+   'KNU02AGREG'  => '464',
+   'KNUHOSTNIF'  => '419',
+   'KNU01HOST'   => '885',
+   'KNU04LUN'    => '424',
+   'KNUPOBJST'   => '260',
+   'KNU03VOL'    => '776',
+   'KP1CIMOMS'   => '1317',
+   'KP1CIMOV'    => '407',
+   'KP1COMPA'    => '847',
+   'KP1COMPOV'   => '407',
+   'KP1COMPUTE'  => '1024',
+   'KP1DASH'     => '292',
+   'KP1DATA'     => '1172',
+   'KP1DATSRV'   => '352',
+   'KP1DATSRVS'  => '276',
+   'KP1DEVSRV'   => '312',
+   'KP1DEVSRVS'  => '398',
+   'KP1DISK'     => '1364',
+   'KP1FABOV'    => '184',
+   'KP1FABRIC'   => '225',
+   'KP1FABRICA'  => '740',
+   'KP1HBA'      => '1686',
+   'KP1HYPER'    => '507',
+   'KP1HYPOV'    => '407',
+   'KP1INBAND'   => '695',
+   'KP1JOB'      => '316',
+   'KP1NAPI'     => '768',
+   'KP1NAPIOV'   => '280',
+   'KP1OTHER'    => '968',
+   'KP1OUTBAND'  => '656',
+   'KP1PM'       => '1067',
+   'KP1PMOV'     => '1067',
+   'KP1POBJST'   => '360',
+   'KP1POOL'     => '2376',
+   'KP1PROBE'    => '416',
+   'KP1PROBEOV'  => '727',
+   'KP1SCHED'    => '518',
+   'KP1SDSPOS'   => '360',
+   'KP1STASANB'  => '181',
+   'KP1STASANC'  => '167',
+   'KP1STATPCB'  => '188',
+   'KP1SUBA'     => '464',
+   'KP1SUBOV'    => '252',
+   'KP1SUBSYST'  => '988',
+   'KP1SWITCH'   => '1356',
+   'KP1SWITCHA'  => '464',
+   'KP1SWOV'     => '407',
+   'KP1TAPE'     => '1056',
+   'KP1TAPEA'    => '464',
+   'KP1TAPEOV'   => '407',
+   'KP1TCHPOS'   => '360',
+   'KP1TFSPOS'   => '360',
+   'KP1THPLST'   => '132',
+   'KP1TPC'      => '552',
+   'KP1TSSPOS'   => '360',
+   'KP1USRS'     => '220',
+   'KP1VMOV'     => '280',
+   'KP1VMWARED'  => '784',
+   'KP1VOLUME'   => '3152',
+   'KS1CLUINF'   => '168',
+   'KS1FTONDEM'  => '436',
+   'KS1POBJST'   => '260',
+   'KS1BUDDY'    => '184',
+   'KS1CHAT'     => '216',
+   'KS1FILESTA'  => '232',
+   'KS1FUNCT'    => '436',
+   'KS1PRESENC'  => '304',
+   'KS1MEETSTA'  => '520',
+   'KS1SCSPOS'   => '260',
+   'KS1PLACES'   => '408',
+   'KS1RESOLVE'  => '224',
+   'KS1SRVCONF'  => '404',
+   'KS1SSO'      => '296',
+   'KS1SCSSRV'   => '252',
+   'KS1SCSSRVS'  => '216',
+   'KS1SVRINF'   => '340',
+   'KS1TACTST'   => '3452',
+   'KS1THPLST'   => '132',
+   'KGBAVAIL'    => '3244',
+   'KGBDAGNT'    => '164',
+   'KGBDCAL'     => '172',
+   'KGBDCAL64'   => '196',
+   'KGBDCMD'     => '316',
+   'KGBDCFD'     => '748',
+   'KGBDDB'      => '220',
+   'KGBDDB64'    => '292',
+   'KGBDDBW'     => '292',
+   'KGBDGU'      => '348',
+   'KGBDICM'     => '468',
+   'KGBDICM64'   => '580',
+   'KGBDIMAP'    => '184',
+   'KGBDIMAP64'  => '220',
+   'KGBDLDAP'    => '308',
+   'KGBDLDAP64'  => '368',
+   'KGBKGBLOG0'  => '816',
+   'KGBDMAIL'    => '236',
+   'KGBDMBD'     => '268',
+   'KGBDMBD64'   => '264',
+   'KGBDMAIL64'  => '336',
+   'KGBDNETT'    => '168',
+   'KGBDNETT64'  => '204',
+   'KGBDREP'     => '168',
+   'KGBDREPC'    => '204',
+   'KGBDREPC64'  => '256',
+   'KGBDREP64'   => '188',
+   'KGBDRPL'     => '756',
+   'KGBDSRV'     => '584',
+   'KGBDSRVC'    => '200',
+   'KGBDSRV64'   => '636',
+   'KGBDSMTP'    => '172',
+   'KGBDSMTP64'  => '180',
+   'KGBDTASK'    => '448',
+   'KGBDWR'      => '1064',
+   'KGBIMDOM'    => '356',
+   'KGBIMINC'    => '364',
+   'KGBIMOUT'    => '356',
+   'KGBIMSIZ'    => '360',
+   'KGBIREPD'    => '356',
+   'KGBIREP'     => '384',
+   'KGBISERV'    => '520',
+   'KGBIVPERF'   => '364',
+   'KGBPOBJST'   => '260',
+   'KSADUMPS'    => '871',
+   'KSAUSERS'    => '822',
+   'KSAALERTS'   => '2326',
+   'KSAARCHIVE'  => '585',
+   'KSABDC'      => '649',
+   'KSAJOBS'     => '916',
+   'KSABUFFER'   => '665',
+   'KSAORASUM'   => '529',
+   'KSAEDIFILE'  => '857',
+   'KSAFSYSTEM'  => '840',
+   'KSAGWYCONN'  => '1315',
+   'KSASYS'      => '1397',
+   'KSAIDOCS'    => '1130',
+   'KSALOCKS'    => '698',
+   'KSALOGNGRP'  => '666',
+   'KSALOGNINF'  => '645',
+   'KSANUMDTL'   => '574',
+   'KSANUMSUMM'  => '596',
+   'KSAOSP'      => '644',
+   'KSAOUTPUT'   => '985',
+   'KSAOFFICE'   => '1242',
+   'KSAPERF'     => '566',
+   'KSASPOOL'    => '758',
+   'KSATRANS'    => '1036',
+   'KSATRANRFC'  => '1398',
+   'KSACTS'      => '858',
+   'KSAUPDATES'  => '1285',
+   'KSAPROCESS'  => '996',
+   'KP8ITMPSAV'  => '123',
+   'KP8AS'       => '360',
+   'KP8ASCS'     => '1339',
+   'KP8ASQS'     => '1343',
+   'KP8ASPS'     => '1080',
+   'KP8AVAIL'    => '3244',
+   'KP8CCC'      => '307',
+   'KP8DCONFIG'  => '1440',
+   'KP8IL'       => '307',
+   'KP8POBJST'   => '360',
+   'KP8SDSC'     => '335',
+   'KP8SRSC'     => '359',
+   'KP8SL'       => '375',
+   'KP8SPCA'     => '570',
+   'KP8SPTA'     => '570',
+   'KP8THPLST'   => '132',
+   'KP9ITMAGAV'  => '138',
+   'KP9AVAIL'    => '3244',
+   'KP9DSC'      => '335',
+   'KP9IL'       => '123',
+   'KP9POBJST'   => '360',
+   'KP9PCA'      => '570',
+   'KP9PRLR1'    => '829',
+   'KP9PRLR30'   => '829',
+   'KP9PRLR7'    => '829',
+   'KP9PSQS'     => '1339',
+   'KP9PSPS'     => '1080',
+   'KP9PTA'      => '570',
+   'KP9SRSC'     => '359',
+   'KP9THPLST'   => '132',
+   'KUBAVAIL'    => '3244',
+   'KUBCOMPDET'  => '562',
+   'KUBCOMPSTA'  => '832',
+   'KUBCPUCOMP'  => '3348',
+   'KUBCPUTASK'  => '4284',
+   'KUBCUTLRLU'  => '64',
+   'KUBDBFIL'    => '288',
+   'KUBDBFILSY'  => '368',
+   'KUBDETSTA'   => '1456',
+   'KUBDLAINP'   => '1000',
+   'KUBENTERPI'  => '480',
+   'KUBFILES'    => '388',
+   'KUBFILESYS'  => '368',
+   'KUBMKTST'    => '372',
+   'KUBPOBJST'   => '260',
+   'KUBSIEBSRV'  => '568',
+   'KUBSIEBSTA'  => '704',
+   'KUBSTATASG'  => '52',
+   'KUBSTATCOM'  => '56',
+   'KUBSTATCOR'  => '416',
+   'KUBSTATDAT'  => '456',
+   'KUBSTATEAI'  => '68',
+   'KUBSTATENG'  => '56',
+   'KUBSTATFLT'  => '60',
+   'KUBSTATMUL'  => '84',
+   'KUBSTATOBJ'  => '544',
+   'KUBSTATPIM'  => '372',
+   'KUBSTATREC'  => '60',
+   'KUBSTATSEA'  => '56',
+   'KUBSTATSUB'  => '60',
+   'KUBSTATXML'  => '64',
+   'KUBTASKDET'  => '1088',
+   'KUBTASKSUM'  => '84',
+   'KUBTUTLRLU'  => '64',
+   'KUBUSERSE2'  => '64',
+   'KUBUSERSES'  => '948',
+   'T3SNAGENT'   => '688',
+   'T3SNAPPL'    => '560',
+   'T3SNCLIENT'  => '688',
+   'T3SNCLTAGT'  => '688',
+   'T3ISMPHS'    => '708',
+   'T3ISMPHSEA'  => '808',
+   'T3ISMPHSE'   => '808',
+   'T3SNSERVER'  => '688',
+   'T3SNSVRAGT'  => '688',
+   'T3SNTRANS'   => '688',
+   'T3AGNTMSGS'  => '1668',
+   'T4AGNTMSGS'  => '1668',
+   'T4APPCS'     => '542',
+   'T4SRVCS'     => '684',
+   'T4SUBTXINS'  => '2263',
+   'T4SUBTXCS'   => '860',
+   'T4TXINS'     => '2237',
+   'T4TXCS'      => '958',
+   'T5AGNTMSGS'  => '1668',
+   'T5APPCS'     => '826',
+   'T5CLNTCS'    => '1068',
+   'T5SRVCS'     => '996',
+   'T5SSLALRCS'  => '358',
+   'T5SUBTXINS'  => '4893',
+   'T5SUBTXCS'   => '1100',
+   'T5TXINS'     => '5241',
+   'T5TXCS'      => '1214',
+   'T5USRSS'     => '1014',
+   'T6AGNTMSGS'  => '1668',
+   'T6APPCS'     => '586',
+   'T6PBEVENT'   => '2752',
+   'T6PBSTAT'    => '928',
+   'T6SUBTXCS'   => '936',
+   'T6SUBTXINS'  => '2347',
+   'T6TXCS'      => '1002',
+   'T6TXINS'     => '2289',
+   'AGGREGATS'   => '3368',
+   'INTERACTN'   => '4116',
+   'TINSTCXT'    => '912',
+   'TINSTINT'    => '4362',
+   'TINST'       => '3582',
+   'KISDHCP'     => '724',
+   'KISDIAL'     => '804',
+   'KISDNS'      => '772',
+   'KISFTP'      => '988',
+   'KISHSTATS'   => '372',
+   'KISHTTP'     => '864',
+   'KISICMP'     => '784',
+   'KISIMAP'     => '972',
+   'KISLDAP'     => '1020',
+   'KISMSTATS'   => '448',
+   'KISNNTP'     => '908',
+   'KISNTP'      => '812',
+   'KISPOP'      => '868',
+   'KISRADIUS'   => '972',
+   'KISRPING'    => '976',
+   'KISRTSP'     => '796',
+   'KISSAADHCP'  => '824',
+   'KISSAADLSW'  => '928',
+   'KISSAADNS'   => '876',
+   'KISSAAFTP'   => '876',
+   'KISSAAHTTP'  => '924',
+   'KISSAAICMP'  => '1488',
+   'KISSAAJITT'  => '1040',
+   'KISSAASNA'   => '992',
+   'KISSAAUDP'   => '976',
+   'KISSAAVOIP'  => '1040',
+   'KISSISTATS'  => '996',
+   'KISSSTATS'   => '372',
+   'KISSIP'      => '988',
+   'KISSMTP'     => '1052',
+   'KISSNMP'     => '1476',
+   'KISSOAP'     => '788',
+   'KISTCPPORT'  => '828',
+   'KISTFTP'     => '956',
+   'KISTRANSX'   => '1008',
+   'KISTRANSX2'  => '744',
+   'KISWMS'      => '924',
+   'KYNALARMM'   => '1000',
+   'KYNGCAF'     => '592',
+   'KYNAPHLTH'   => '996',
+   'KYNAPSRV'    => '1444',
+   'KYNAPSST'    => '1624',
+   'KYNCLICOM'   => '1192',
+   'KYNCNTROP'   => '872',
+   'KYNTRANS'    => '1016',
+   'KYNDATAS'    => '1224',
+   'KYNDBCONP'   => '1324',
+   'KYNDCMSG'    => '1384',
+   'KYNDCSSTK'   => '1088',
+   'KYNDURSUB'   => '1488',
+   'KYNCACHE'    => '836',
+   'KYNCACHT'    => '1364',
+   'KYNCONTNR'   => '1092',
+   'KYNEJB'      => '1292',
+   'KYNGCACT'    => '752',
+   'KYNGCCYC'    => '632',
+   'KYNHAMGMT'   => '792',
+   'KYNJ2C'      => '1144',
+   'KYNJMSSUM'   => '944',
+   'KYNLPORT'    => '1444',
+   'KYNLOGANAL'  => '1044',
+   'KYNMECOM'    => '976',
+   'KYNMSGENG'   => '948',
+   'KYNWPPAGE'   => '840',
+   'KYNWPTALS'   => '888',
+   'KYNWPLETS'   => '856',
+   'KYNMSGQUE'   => '1276',
+   'KYNREQUEST'  => '1656',
+   'KYNREQHIS'   => '1000',
+   'KYNSCHED'    => '1068',
+   'KYNREQSEL'   => '1248',
+   'KYNSVCOMEL'  => '1772',
+   'KYNSVCCOMP'  => '676',
+   'KYNSERVS'    => '1188',
+   'KYNSERVLT'   => '1356',
+   'KYNTHRDP'    => '960',
+   'KYNTOPICSP'  => '1260',
+   'KYNAPP'      => '1096',
+   'KYNWEBSVC'   => '1088',
+   'KYNWEBSGW'   => '940',
+   'KYNPREV'     => '588',
+   'KYNXDCG'     => '956',
+   'KYNXDGE'     => '1388',
+   'KYNXDODR'    => '1988',
+   'KYNXDSPV'    => '568',
+   'KYNXDSRV'    => '556',
+   'KYNGZCAT'    => '360',
+   'KYNGZCONT'   => '276',
+   'KYNGZRID'    => '360',
+   'KYNGZGRPLC'  => '144',
+   'KYNGZMAP'    => '316',
+   'KYNGZSERV'   => '804',
+   'KYNGZSHARD'  => '456',
+   'KYNGZPOOL'   => '180',
+   'KYNWMQCL'    => '960',
+   'KYNWMQLINK'  => '976',
+   'KYNWLMCL'    => '616',
+   'KYNWLMSR'    => '716',
+   'KYJGCAF'     => '716',
+   'KYJAPHLTH'   => '980',
+   'KYJAPSRV'    => '748',
+   'KYJAPSST'    => '1132',
+   'KYJDATAS'    => '1340',
+   'KYJSDBCON'   => '944',
+   'KYJDCMSG'    => '1376',
+   'KYJWLEJBC'   => '940',
+   'KYJEJB'      => '992',
+   'KYJWLEJB'    => '1328',
+   'KYJSEJB'     => '1124',
+   'KYJGCACT'    => '744',
+   'KYJGCCYC'    => '756',
+   'KYJPREV'     => '676',
+   'KYJWLCCPL'   => '916',
+   'KYJWLJTA'    => '980',
+   'KYJJCACP'    => '1060',
+   'KYJWLDBCON'  => '908',
+   'KYJJDKJVM'   => '1704',
+   'KYJJDKMEM'   => '696',
+   'KYJJDKOS'    => '1456',
+   'KYJJDKTHR'   => '1196',
+   'KYJWLJMSS'   => '1132',
+   'KYJJMSSUM'   => '1060',
+   'KYJJTARES'   => '932',
+   'KYJSJTASUM'  => '680',
+   'KYJLOGANAL'  => '1040',
+   'KYJREQUEST'  => '1720',
+   'KYJREQHIS'   => '1008',
+   'KYJREQSEL'   => '1364',
+   'KYJWLSRVLT'  => '1636',
+   'KYJSERVLT'   => '992',
+   'KYJWEBAPP'   => '832',
+   'KYJWLWEBAP'  => '1304',
+   'KYJSWEBCNT'  => '688',
+   'KHTAWEBSR'   => '1100',
+   'KHTAWEBST'   => '1052',
+   'KHTEVNT'     => '588',
+   'KHTSWEBSR'   => '2940',
+   'KHTSWEBST'   => '1344',
+   'KHTWSRS'     => '1000',
+   'KD43EM'      => '846',
+   'KD43RQ'      => '146',
+   'KD43RP'      => '202',
+   'KD43RS'      => '166',
+   'KD43SM'      => '118',
+   'KD42IT'      => '1482',
+   'KD42JT'      => '1614',
+   'KD42MT'      => '1260',
+   'KD43SO'      => '516',
+   'KBNCPUUSAG'  => '324',
+   'KBNDPSPOS'   => '360',
+   'KBNDPSTAT4'  => '478',
+   'KBNFILESYS'  => '416',
+   'KBNFIRMWA0'  => '498',
+   'KBNFIRMWAR'  => '544',
+   'KBNHTTPCON'  => '676',
+   'KBNDPSTAT3'  => '480',
+   'KBNDPSTAT0'  => '480',
+   'KBNDPLOGNO'  => '1358',
+   'KBNLOGTARG'  => '724',
+   'KBNMEMORYS'  => '380',
+   'KBNDPSTAT6'  => '368',
+   'KBNDPSTAT5'  => '368',
+   'KBNDPSTA17'  => '728',
+   'KBNPOBJST'   => '360',
+   'KBNDPSTAT2'  => '494',
+   'KBNSYSLOG0'  => '2021',
+   'KBNDATETIM'  => '704',
+   'KBNSYSTEMU'  => '324',
+   'KBNDPSTATU'  => '336',
+   'KBNTCPSUMM'  => '392',
+   'KBNTCPTABL'  => '684',
+   'KBNHPLST'    => '132',
+   'KN4IFTABLE'  => '643',
+   'KN4IFTOIPM'  => '719',
+   'KN4INTERFA'  => '52',
+   'KN4IP'       => '136',
+   'KN4IPADDRT'  => '124',
+   'KN4IPROUTE'  => '244',
+   'KN4NMAPOS'   => '360',
+   'KN4POBJST'   => '360',
+   'KN4SNMP'     => '172',
+   'KN4SYSTEM'   => '1264',
+   'KN4TCP'      => '108',
+   'KN4TCPCONN'  => '124',
+   'KN4THPLST'   => '132',
+   'KN4UDP'      => '68',
+   'KN4UDPTABL'  => '84',
+   'KNPAGTSTS'   => '156',
+   'KNPAVAIL'    => '3244',
+   'KNPCURDISC'  => '68',
+   'KNPDEVPOLL'  => '156',
+   'KNPSNMPAC'   => '56',
+   'KNPTOTENT'   => '52',
+   'KNPNODETO'   => '56',
+   'KNPLSTDISC'  => '188',
+   'KNPMIBOBJ'   => '52',
+   'KNPNETELEM'  => '84',
+   'KNPOBJDISC'  => '64',
+   'KNPPACPROC'  => '56',
+   'KNPPOBJST'   => '260',
+   'KNPPOLLPER'  => '1096',
+   'KNPCAPPACT'  => '52',
+   'KNPSNMPERR'  => '56',
+   'KNPWORKQUE'  => '52',
+   'KNAAPP'      => '210',
+   'KNADSD'      => '323',
+   'KNADSH'      => '264',
+   'KNADTA'      => '331',
+   'KNAHEA'      => '116',
+   'KNARD1'      => '208',
+   'KNARD2'      => '304',
+   'KNARD3'      => '108',
+   'KNARD4'      => '408',
+   'KNARI1'      => '384',
+   'KNARI2'      => '384',
+   'KNARSC'      => '612',
+   'KNASEA'      => '52',
+   'KNATCA'      => '52',
+   'KNATCI'      => '368',
+   'KNATCO'      => '601',
+   'KNAWL3'      => '76',
+   'KNAWL7'      => '228',
+   'ASCPUUTIL'   => '130',
+   'ASCSOWN'     => '692',
+   'ASREALSTOR'  => '142',
+   'ASRESRC2'    => '97',
+   'ASSUMRY'     => '375',
+   'ASVIRTSTOR'  => '64',
+   'BPXPRM2'     => '92',
+   'CHNPATHS'    => '364',
+   'COMSTOR'     => '339',
+   'DASD_MVS'    => '1170',
+   'DASDMVSDEV'  => '192',
+   'ENCTABLE'    => '164',
+   'ENQUEUE'     => '124',
+   'HLHCHKS'     => '276',
+   'KM5ASSTGSK'  => '164',
+   'KM5CMSTGSK'  => '200',
+   'KM5STGSTAT'  => '270',
+   'LPCLUST'     => '247',
+   'M5ZFSDCI'    => '115',
+   'M5ZFSKER'    => '61',
+   'M5ZFSMCI'    => '172',
+   'M5ZFSSTI'    => '460',
+   'M5ZFSUCA'    => '477',
+   'M5ZFSUCD'    => '222',
+   'MADDSPC'     => '1143',
+   'MCFCLIENT'   => '210',
+   'MCFPATH'     => '1132',
+   'MCFPOLCY'    => '122',
+   'MCFSMVS'     => '88',
+   'MCFSTRCT'    => '52',
+   'MCFSYS'      => '367',
+   'MDASD_DEV'   => '103',
+   'MDASD_GRP'   => '148',
+   'MDASD_SYS'   => '52',
+   'MGLBLENQ'    => '595',
+   'MOUNTS2'     => '153',
+   'MRESGRP'     => '124',
+   'MRPTCLS'     => '184',
+   'MSRVCLS'     => '200',
+   'MSRVDEF'     => '134',
+   'MSSWFA'      => '114',
+   'MWFAENQ'     => '160',
+   'MWFAIO'      => '349',
+   'MWLMPR'      => '83',
+   'MXCFGRP'     => '124',
+   'MXCFMBR'     => '88',
+   'MXCFPATH'    => '100',
+   'MXCFSSTA'    => '108',
+   'MXCFSYS'     => '126',
+   'OEKERNL2'    => '137',
+   'OPERALRT'    => '177',
+   'OPS2'        => '80',
+   'OUSERS2'     => '121',
+   'PAGEDS'      => '343',
+   'PAGING'      => '514',
+   'REALSTOR'    => '1376',
+   'SPINLOCK'    => '132',
+   'SUSLOCK'     => '110',
+   'SVCDET'      => '304',
+   'SYSCPUUTIL'  => '168',
+   'TAPEDRVS'    => '58',
+   'THREAD2'     => '2070',
+   'TOPUSER'     => '2606',
+   'URESPTM'     => '124',
+   'VCMLCPU'     => '124',
+   'VCMLPAR'     => '148',
+   'CHANNEL'     => '320',
+   'CTLUNIT'     => '460',
+   'DASDCACHE'   => '756',
+   'FCHANNEL'    => '296',
+   'KVLCPC'      => '164',
+   'KVLLGR'      => '268',
+   'KVLSCSI'     => '608',
+   'KVLSSI'      => '124',
+   'LCHANNEL'    => '324',
+   'LPARINFO'    => '364',
+   'MDCACHE'     => '556',
+   'PROCESSOR'   => '302',
+   'PTKSTAT'     => '148',
+   'TCPSDATA'    => '528',
+   'TCPUDATA'    => '304',
+   'VDISK'       => '311',
+   'VMCPDEV'     => '160',
+   'VMDEV'       => '224',
+   'VMHIPER'     => '264',
+   'VMLXAPPL'    => '880',
+   'VMSYSTEM'    => '504',
+   'VMSYSTEM2'   => '588',
+   'VMWAIT'      => '208',
+   'VMWORK'      => '760',
+   'VSWITCH'     => '662',
+   'CICSAID'     => '86',
+   'CICSBND'     => '563',
+   'CICSBNP'     => '616',
+   'CICSBNS'     => '65',
+   'CICSAFD'     => '609',
+   'CICSAFC'     => '55',
+   'CICSTSA'     => '162',
+   'CICSBNA'     => '182',
+   'CICSACD'     => '263',
+   'CICSCND'     => '168',
+   'CICSPND'     => '140',
+   'CICSPTD'     => '70',
+   'CON'         => '339',
+   'CICSCOS'     => '228',
+   'CICSCBS'     => '65',
+   'CICSD2S'     => '90',
+   'CICSD2T'     => '92',
+   'CICSDLS'     => '144',
+   'CICSCDS'     => '144',
+   'CICSCDM'     => '168',
+   'CICSCDP'     => '184',
+   'CICSDJD'     => '352',
+   'CICSDTD'     => '386',
+   'CICSDAT'     => '65',
+   'CICSDMP'     => '93',
+   'CICSCSD'     => '208',
+   'CICSNQA'     => '845',
+   'CICSEPD'     => '260',
+   'CICSEBD'     => '340',
+   'CICSEVD'     => '176',
+   'CICSEVS'     => '77',
+   'CICSEXD'     => '106',
+   'CICSFCA'     => '53',
+   'CICSFCS'     => '76',
+   'CICSICE'     => '103',
+   'CICSICO'     => '112',
+   'CICSIST'     => '48',
+   'CICSIPC'     => '348',
+   'CICSJPG'     => '341',
+   'CICSJAT'     => '103',
+   'CICSJVM'     => '77',
+   'CICSJCC'     => '109',
+   'CICSJVS'     => '112',
+   'CICSJVP'     => '88',
+   'CICSJPR'     => '309',
+   'CICSLSA'     => '154',
+   'CICSLPS'     => '134',
+   'MQCONN'      => '115',
+   'CICSMTG'     => '180',
+   'CICSMTR'     => '121',
+   'CICSPPD'     => '238',
+   'CICSPPH'     => '295',
+   'CICSPIS'     => '57',
+   'CICSRMG'     => '180',
+   'CICSRDS'     => '136',
+   'CICSROV'     => '216',
+   'CICSRQS'     => '301',
+   'CICSRTS'     => '220',
+   'CICSRTE'     => '217',
+   'RLS'         => '392',
+   'WSS'         => '291',
+   'CICSSTOR'    => '96',
+   'CICSSDP'     => '191',
+   'CICSSIA'     => '131',
+   'CICSTCA'     => '80',
+   'CICSTPS'     => '384',
+   'CICSTIP'     => '186',
+   'CICSTSD'     => '172',
+   'CICSTSG'     => '101',
+   'CICSTSX'     => '212',
+   'CICSTSS'     => '86',
+   'CICSTSV'     => '52',
+   'TRAN'        => '271',
+   'CICSTRP'     => '149',
+   'CICSTRN'     => '158',
+   'CICSTRD'     => '263',
+   'CICSTRF'     => '228',
+   'CICSTRE'     => '138',
+   'CICSTFL'     => '245',
+   'CICSTR2'     => '245',
+   'CICSTMR'     => '260',
+   'CICSTRR'     => '80',
+   'CICSTR1'     => '366',
+   'CICSTRS'     => '137',
+   'CICSXSV'     => '52',
+   'CICSTRT'     => '309',
+   'CICSTTS'     => '233',
+   'CICSTRU'     => '161',
+   'CICSTR3'     => '245',
+   'CICSTDQ'     => '88',
+   'CICSTDS'     => '62',
+   'CICSUDF'     => '135',
+   'CICSUWL'     => '422',
+   'CICSUWA'     => '56',
+   'CICSUWE'     => '74',
+   'CICSURG'     => '96',
+   'CICSURS'     => '75',
+   'CICSHSD'     => '169',
+   'VSAM'        => '366',
+   'CICSWBS'     => '155',
+   'CICSWRD'     => '220',
+   'CICSXMD'     => '624',
+   'CICSXMS'     => '90',
+   'CTGTRA'      => '124',
+   'CTGTRD'      => '506',
+   'CTGCSD'      => '88',
+   'CTGCSS'      => '96',
+   'CTGCAD'      => '277',
+   'CTGCMS'      => '80',
+   'CTGDSD'      => '242',
+   'CTGGDS'      => '116',
+   'CTGROV'      => '152',
+   'CTGRTD'      => '235',
+   'CTGRTS'      => '240',
+   'CTGWTS'      => '72',
+   'REALTHDA'    => '1432',
+   'DP_CI_EXCS'  => '112',
+   'DP_CI_THDS'  => '104',
+   'DB2CPKG'     => '227',
+   'DB2CONN'     => '308',
+   'DB2CTASK'    => '339',
+   'DP_DDF_CON'  => '96',
+   'DP_DDF_STA'  => '364',
+   'KDP_CFG'     => '181',
+   'DP_IM_CONN'  => '72',
+   'DP_IM_REG'   => '120',
+   'VDB2LKCONF'  => '694',
+   'DB2MSG'      => '2570',
+   'DP_SRM_BPD'  => '353',
+   'DP_SRM_BPM'  => '140',
+   'DP_SRM_EDM'  => '584',
+   'DP_SRM_EDX'  => '68',
+   'DP_SRM_LOG'  => '672',
+   'DP_SRM_LOX'  => '72',
+   'DP_SRM_SUB'  => '858',
+   'DP_SRM_SUX'  => '64',
+   'DP_SRM_UTL'  => '144',
+   'DP_SY_EXC'   => '320',
+   'DP_TH_EXC'   => '1317',
+   'DP_VOL_ACT'  => '244',
+   'DPFILTER'    => '102',
+   'REALRSUM'    => '1428',
+   'EDMPOOL'     => '612',
+   'GBP_STATS'   => '212',
+   'GOATHAS'     => '308',
+   'GOATHVS'     => '234',
+   'GOAVOLD'     => '230',
+   'GOAVOLS'     => '242',
+   'GOAACTS'     => '240',
+   'GB_POOL'     => '133',
+   'GBP_CONN'    => '132',
+   'GOBJECTA'    => '128',
+   'GOBJECTS'    => '132',
+   'DB2LKCONF'   => '694',
+   'MVSTOR64'    => '1260',
+   'REALSQLC'    => '92',
+   'DBM1STO'     => '712',
+   'TCONOVER'    => '962',
+   'TCONPKG'     => '537',
+   'TDB2CONN'    => '465',
+   'TCONSTMT'    => '624',
+   'THDDF64'     => '581',
+   'VDPTHDET'    => '636',
+   'REALACT'     => '2261',
+   'REALENC'     => '1821',
+   'REALSQLS'    => '565',
+   'VTHDSTAT'    => '152',
+   'OPERSYS'     => '176',
+   'ADRSPACS'    => '338',
+   'BALG'        => '176',
+   'BUFPOOLS'    => '276',
+   'VCF_GROUP'   => '316',
+   'DASDLOG'     => '201',
+   'DEDB'        => '172',
+   'DBCTHRDC'    => '640',
+   'DBCTHRDD'    => '368',
+   'DBCTHRDI'    => '124',
+   'DBCTHRDS'    => '168',
+   'DRDDC'       => '100',
+   'DEPREGNS'    => '491',
+   'DLIDEPRG'    => '676',
+   'XRF'         => '228',
+   'EXSUBSYS'    => '345',
+   'FPREGNS'     => '161',
+   'FPSYSTEM'    => '924',
+   'HALDBSUM'    => '214',
+   'HALDBPART'   => '116',
+   'DEVICES'     => '108',
+   'KIP_RTISU'   => '168',
+   'KIP_RTSSU'   => '220',
+   'KIPDEXDL'    => '868',
+   'KIPDEXSU'    => '428',
+   'IMSIO'       => '182',
+   'KIPLOCKCNF'  => '428',
+   'KIP_MSC_S'   => '164',
+   'VLCONFLICT'  => '460',
+   'KIP_LRTETE'  => '116',
+   'KIP_LRTENO'  => '148',
+   'KIP_LRTEXC'  => '438',
+   'KIP_LRTI02'  => '168',
+   'KIP_LRTG02'  => '442',
+   'KIP_LRTTMO'  => '144',
+   'KIP_LRTXMO'  => '186',
+   'KIP_LRTISU'  => '168',
+   'KIP_LRTSSU'  => '144',
+   'IP_IMS_STA'  => '184',
+   'IMS_SYS'     => '253',
+   'KIPVSAM'     => '274',
+   'IRLM'        => '200',
+   'CF_DS'       => '182',
+   'CF_DSO'      => '130',
+   'LIMS_PARM'   => '156',
+   'ICTLANDT'    => '152',
+   'ICTLEXEV'    => '148',
+   'ICTLRTDT'    => '344',
+   'ICTLIPDT'    => '148',
+   'ICTLTCSM'    => '268',
+   'ICTLTADT'    => '268',
+   'ICTLTPSM'    => '268',
+   'ICTLTDSM'    => '264',
+   'ICTLTTSM'    => '268',
+   'ICTLTUSM'    => '267',
+   'KIP_MQ_ST'   => '430',
+   'MSC_LLNK'    => '148',
+   'MSC_PLNK'    => '144',
+   'RTA_GNT'     => '135',
+   'RTA_LINT'    => '77',
+   'TRF_CLASS'   => '84',
+   'TRF_DLIS'    => '156',
+   'LTERMS'      => '119',
+   'MSDB'        => '179',
+   'MSDBF'       => '128',
+   'I3_MESSAGE'  => '124',
+   'OLDS'        => '186',
+   'OSAMSUBP'    => '100',
+   'OTMAGROUP'   => '83',
+   'OTMASTATUS'  => '282',
+   'OTMATMEM'    => '272',
+   'OTMATPIPE'   => '167',
+   'POOLUTIL'    => '320',
+   'PSBS'        => '282',
+   'RECONDS'     => '144',
+   'SQAPPCS1'    => '424',
+   'SQAPPCS2'    => '429',
+   'SQCOLDS2'    => '222',
+   'SQCOLDS1'    => '132',
+   'SQFPPGMS'    => '112',
+   'SQLTERMS'    => '260',
+   'SQOTMAS1'    => '132',
+   'SQOTMAS2'    => '132',
+   'SQTRANS'     => '128',
+   'SUBPOOLS'    => '152',
+   'EXSUBSY1'    => '138',
+   'ICTCBCPU'    => '120',
+   'SUMTRANS'    => '132',
+   'TRANS'       => '280',
+   'VSOAREAS'    => '172',
+   'VSODSPCS'    => '184',
+   'VSAMOSAM'    => '144',
+   'VSAMSUBP'    => '280',
+   'KN3CSM'      => '172',
+   'KN3EEC'      => '248',
+   'KN3EED'      => '238',
+   'KN3FSE'      => '377',
+   'KN3HPR'      => '559',
+   'KN3TIF'      => '469',
+   'KN3ISS'      => '360',
+   'KN3AGS'      => '220',
+   'KN3CSO'      => '166',
+   'KN3GCG'      => '98',
+   'KN3GCT'      => '80',
+   'KN3IFA'      => '129',
+   'KN3IFR'      => '308',
+   'KN3IFS'      => '304',
+   'KN3IFE'      => '343',
+   'KN3IFW'      => '200',
+   'KN3GIC'      => '230',
+   'KN3GIG'      => '84',
+   'KN3SCS'      => '104',
+   'KN3CTA'      => '596',
+   'KN3RTA'      => '312',
+   'KN3TCS'      => '756',
+   'KN3GTC'      => '276',
+   'KN3CMD'      => '674',
+   'KN3GUC'      => '124',
+   'KN3TTC'      => '388',
+   'KN3TTE'      => '422',
+   'KN3TTS'      => '476',
+   'KN3TTT'      => '418',
+   'KN3TCH'      => '413',
+   'KN3TLP'      => '104',
+   'KN3TPO'      => '761',
+   'KN3THC'      => '388',
+   'KN3THE'      => '478',
+   'KN3THS'      => '586',
+   'KN3THT'      => '482',
+   'KN3TCL'      => '287',
+   'KN3TAS'      => '621',
+   'KN3TAP'      => '686',
+   'KN3TCN'      => '667',
+   'KN3TCP'      => '643',
+   'KN3TDV'      => '430',
+   'KN3FTP'      => '2469',
+   'KN3TGA'      => '600',
+   'KN3TPV'      => '468',
+   'KN3TSL'      => '608',
+   'KN3TNA'      => '462',
+   'KN3UDP'      => '356',
+   'KN3VAS'      => '244',
+   'KN3BPE'      => '94',
+   'KN3BPD'      => '154',
+   'KN3BPS'      => '72',
+   'KN3BPG'      => '66',
+   'KN3VIO'      => '70',
+   'KN3SNA'      => '72',
+   'APPL_DSDET'  => '126',
+   'APPL'        => '198',
+   'CACHE_CU'    => '331',
+   'CACHE_DEV'   => '649',
+   'CHAN_PATH'   => '390',
+   'DASDUGPE'    => '471',
+   'DASDUGSP'    => '307',
+   'DASDPERF'    => '537',
+   'DASDSPAC'    => '371',
+   'DA_BLKSUM'   => '128',
+   'DA_CASSUM'   => '202',
+   'DA_CATSUM'   => '132',
+   'DA_CISSUM'   => '202',
+   'DA_CRTSUM'   => '128',
+   'DA_ORGDTL'   => '154',
+   'DA_ORGSUM'   => '156',
+   'DA_EXTSUM'   => '154',
+   'DA_IBKSUM'   => '154',
+   'DA_MATSUM'   => '186',
+   'DA_NRFSUM'   => '166',
+   'DA_NEWSUM'   => '146',
+   'DA_REFSUM'   => '128',
+   'DA_SMSDTL'   => '180',
+   'DA_SMSSUM'   => '154',
+   'DA_ALCSUM'   => '154',
+   'DA_UNUSUM'   => '154',
+   'DA_SYSSUM'   => '414',
+   'DA_UNCDTL'   => '146',
+   'DA_UNCSUM'   => '94',
+   'DSNG_ATTR'   => '192',
+   'DSNG_DETL'   => '846',
+   'DSNG_DVOL'   => '315',
+   'DSNG_SUMM'   => '416',
+   'DAGDSNDTL'   => '603',
+   'DAG_SUMM'    => '446',
+   'HSM_CDS'     => '118',
+   'KS3HSCSTOR'  => '46',
+   'KS3HCRQLHS'  => '76',
+   'KS3HCRQLPX'  => '109',
+   'KS3HSXFUDA'  => '124',
+   'HSM_FUN_DA'  => '144',
+   'HSM_ACTVTY'  => '59',
+   'KS3HSFUNST'  => '115',
+   'KS3HSWATRQ'  => '70',
+   'KS3HSHSTAT'  => '209',
+   'KS3HSPSTOR'  => '58',
+   'HSM_REQS'    => '188',
+   'HSM_STATUS'  => '234',
+   'LCU'         => '886',
+   'RMMCFG'      => '336',
+   'RMMCDS'      => '208',
+   'RMMSUM'      => '405',
+   'CACHE_SET'   => '175',
+   'SMS_CONFIG'  => '451',
+   'SMS_DAT_CL'  => '289',
+   'SMS_MAN_CL'  => '273',
+   'SMS_ST_CL'   => '245',
+   'SMS_ST_GRP'  => '506',
+   'ST_GRP_STA'  => '71',
+   'SMS_SYSTEM'  => '41',
+   'SYM_CONFIG'  => '262',
+   'SYM_DSK_DV'  => '116',
+   'SYM_DIR_OV'  => '74',
+   'SYM_DSK_DR'  => '327',
+   'SYM_SSIDS'   => '116',
+   'TAPE_DEV'    => '87',
+   'TAPE_GRP'    => '260',
+   'TDS_ARRAY'   => '99',
+   'TDS_CONFIG'  => '178',
+   'TDS_EXPOOL'  => '231',
+   'TDS_RANK'    => '196',
+   'TDS_SSIDS'   => '138',
+   'CACUGDEV'    => '606',
+   'DASD_SUMM'   => '905',
+   'VOL_SY_STA'  => '48',
+   'VTSCACHE'    => '93',
+   'S3VTCACHPC'  => '136',
+   'S3VTCHPGRP'  => '144',
+   'VTSCAPACTY'  => '253',
+   'S3VTCLUSTR'  => '132',
+   'VTSCOMPOS'   => '136',
+   'VTSOVRVIEW'  => '129',
+   'VTSPHYSDEV'  => '94',
+   'S3VTTPVOLC'  => '128',
+   'VTSVIRTDEV'  => '144',
+   'VTSDEVICES'  => '200',
+   'VSMCHANNL'   => '71',
+   'VSMCONFIG'   => '124',
+   'VSMQUEUED'   => '153',
+   'VSMRTDSTAT'  => '139',
+   'VSMSTATUS'   => '136',
+   'VSMSUBPOOL'  => '91',
+   'KZEBLADE'    => '493',
+   'KZECPC'      => '611',
+   'KZEECCDS'    => '968',
+   'KZEENSEMBL'  => '542',
+   'KZELPAR'     => '1210',
+   'KZEMVMVSV'   => '1048',
+   'KZEPERFPOL'  => '800',
+   'KZEPOBJST'   => '360',
+   'KZEPRSMVH'   => '344',
+   'KZEPVMVH'    => '420',
+   'KZEPVMVSV'   => '1205',
+   'KZESVCLASS'  => '728',
+   'KZETACTST'   => '3452',
+   'KZETHPLST'   => '132',
+   'KZEUPLINK'   => '564',
+   'KZEVNET'     => '628',
+   'KZEWKLOAD'   => '904',
+   'KZEWKLVSV'   => '1628',
+   'KZEXVMVH'    => '408',
+   'KZEXVMVSV'   => '1076',
+   'KZEZBX'      => '376',
+   'KZEZVMVH'    => '452',
+   'KZEZVMVSV'   => '1269',
+   'KDOCFSTAT'   => '397',
+   'KDOCICTRAN'  => '238',
+   'KDODB2TRAN'  => '190',
+   'KDODEVSTAT'  => '248',
+   'KDOIMSTRAN'  => '270',
+   'KDOJOBADDR'  => '156',
+   'KDOMVSLPAR'  => '138',
+   'KDOPOBJST'   => '260',
+   'KDOSYSSTAT'  => '174',
+   'KDOTCPCONN'  => '196',
+   'KDOVOLINFO'  => '178',
+   'KDOWLMSTAT'  => '308',
+   'KDOZLINUX'   => '222',
+   'KPPCDCSES1'  => '137',
+   'KPPCHNL1'    => '77',
+   'KPPCOMMON1'  => '1288',
+   'KPPDASD1'    => '264',
+   'KPPDASDDV1'  => '70',
+   'KPPDASDST1'  => '112',
+   'KPPENHCHL1'  => '171',
+   'KPPIS1'      => '400',
+   'KPPLODIC1'   => '68',
+   'KPPLODICU1'  => '68',
+   'KPPLPARTI1'  => '208',
+   'KPPMPIF1'    => '117',
+   'KPPPOBJST'   => '360',
+   'KPPDASDP1'   => '156',
+   'KPPDASDPS1'  => '108',
+   'KPPPDUSER1'  => '128',
+   'KPPPROCT1'   => '112',
+   'KPPSSM_TI1'  => '340',
+   'KPPSSU_TI1'  => '360',
+   'KPPSSUTIL1'  => '63',
+   'KPPSYSBLK1'  => '160',
+   'KPPSYSLST1'  => '88',
+   'KPPSYSMSG1'  => '168',
+   'KPPSYSSHT1'  => '184',
+   'KPPSYSTRC1'  => '87',
+   'KPPTAPE1'    => '172',
+   'KPPTCPIP1'   => '356',
+   'KPPTHPLST'   => '132',
+   'KPPTSLICE1'  => '120',
+   'KPPVFADE1'   => '340',
+   'KPPVFADS1'   => '120',
+   'KPPMQQC'     => '361',
+   'KPPMQQD'     => '485',
+   'KPPMQSSUM1'  => '436',
+   'KPPMQSUM1'   => '88',
+   'KREWTCFCL1'  => '1525',
+   'KREWTCFCLI'  => '1609',
+   'KREWTCFCL3'  => '1569',
+   'KREWTCFCL2'  => '1597',
+   'KREPOBJST'   => '360',
+   'KRETACTST'   => '3452',
+   'KRETHPLST'   => '132',
+   'KRGAGTERRM'  => '202',
+   'KRGBCDSUM'   => '125',
+   'KRGBCDEG1'   => '162',
+   'KRGBCDEG2'   => '182',
+   'KRGBCDEG3'   => '166',
+   'KRGBCDEG4'   => '210',
+   'KRGBCDEG5'   => '65',
+   'KRGBCDEG6'   => '83',
+   'KRGBCDEG7'   => '169',
+   'KRGBCDEG8'   => '71',
+   'KRGZHEVENT'  => '210',
+   'KRGTAPSUM'   => '125',
+   'KRGTPDEG1'   => '65',
+   'KRGTPDEG2'   => '124',
+   'KRGZLEVENT'  => '217',
+   'KRGMCDEG1'   => '205',
+   'KRGMCDEG2'   => '191',
+   'KRGMCDEG3'   => '65',
+   'KRGMCDEG4'   => '154',
+   'KRGMCDEG5'   => '83',
+   'KRGMCDEG6'   => '169',
+   'KRGMCDEG7'   => '205',
+   'KRGMCDSUM'   => '125',
+   'KRGOCDEG1'   => '132',
+   'KRGOCDEG2'   => '132',
+   'KRGOCDEG3'   => '76',
+   'KRGOCDEG4'   => '76',
+   'KRGOCDEG5'   => '76',
+   'KRGOCDSUM'   => '125',
+   'KRGPOBJST'   => '260',
+   'KRHACTLOGS'  => '126',
+   'KRHAREVENT'  => '266',
+   'KRHARMSGS'   => '164',
+   'KRHBCDSDET'  => '200',
+   'KRHBCDSSUM'  => '70',
+   'KRHBKUPDSN'  => '212',
+   'KRHBKUPVER'  => '192',
+   'KRHBKUPVOL'  => '216',
+   'KRHCDSBCKP'  => '230',
+   'KRHCDSENQS'  => '228',
+   'KRHCDSSPCE'  => '515',
+   'KRHCDSSUM'   => '78',
+   'KRHCOLEXTR'  => '287',
+   'KRHCOLFNCS'  => '297',
+   'KRHCOLSUMM'  => '120',
+   'KRHCOLTHRS'  => '134',
+   'KRHDAILYST'  => '212',
+   'KRHDSMDET'   => '134',
+   'KRHDSMSUM'   => '106',
+   'KRHDSRFUNC'  => '156',
+   'KRHDUMPCLS'  => '132',
+   'KRHDUMPDSN'  => '184',
+   'KRHDUMPVER'  => '472',
+   'KRHDUMPVOL'  => '176',
+   'KRHFILTER'   => '408',
+   'KRHHLTBKUP'  => '133',
+   'KRHHLTDET'   => '270',
+   'KRHHLTDUMP'  => '133',
+   'KRHHLTHVST'  => '133',
+   'KRHHLTMIG'   => '133',
+   'KRHHSMCDSS'  => '140',
+   'KRHHSMCMDS'  => '328',
+   'KRHHSMEXIT'  => '279',
+   'KRHHSMFUNC'  => '117',
+   'KRHHSMHOST'  => '384',
+   'KRHHSMLOGS'  => '140',
+   'KRHHSMMWES'  => '318',
+   'KRHHSMPTCH'  => '232',
+   'KRHHSMSSYS'  => '178',
+   'KRHHSMVOLS'  => '238',
+   'KRHLMIGDET'  => '148',
+   'KRHLRECDET'  => '180',
+   'KRHMCDDET'   => '195',
+   'KRHMGRTDSN'  => '483',
+   'KRHMGRTVOL'  => '290',
+   'KRHMMVSUM'   => '62',
+   'KRHPOBJST'   => '260',
+   'KRHRCSUM'    => '132',
+   'KRHSMSSMRY'  => '156',
+   'KRHTAPECPY'  => '100',
+   'KRHTAPEVOL'  => '135',
+   'KRHVOLEST'   => '175',
+   'KRHVSRFUNC'  => '151',
+   'KRHXTRSUM'   => '122',
+   'KRJACTREC'   => '390',
+   'KRJPOBJST'   => '260',
+   'KRJZZAOPAL'  => '112',
+   'KRJAOSUBQU'  => '260',
+   'KRNALSPC'    => '114',
+   'KRNCCHPRF'   => '134',
+   'KRNCATDSA'   => '166',
+   'KRNCATSUM'   => '134',
+   'KRNCATVOL'   => '122',
+   'KRNQACMEVT'  => '218',
+   'KRNLBKP'     => '222',
+   'KRNPOBJST'   => '260',
+   'KRVAGGMGMT'  => '100',
+   'KRVACDIAPP'  => '123',
+   'KRVBKUPALL'  => '142',
+   'KRVCBTIJOB'  => '90',
+   'KRVCBTIBKU'  => '80',
+   'KRVCDSNLST'  => '150',
+   'KRVDB2INV'   => '63',
+   'KRVFILTER'   => '408',
+   'KRVVOLDMPA'  => '119',
+   'KRVHISABMC'  => '102',
+   'KRVHISABME'  => '102',
+   'KRVHISCBTI'  => '102',
+   'KRVICDET'    => '156',
+   'KRVICREC'    => '115',
+   'KRVPOBJST'   => '260',
+   'KRVZABRPAL'  => '138',
+   'KSKACTSUMM'  => '1796',
+   'KSKACTVLOG'  => '1729',
+   'KSKAGNTLOG'  => '704',
+   'KSKAVAIL'    => '3244',
+   'KSKCLIENTF'  => '876',
+   'KSKCLIENTS'  => '964',
+   'KSKCLIENTT'  => '2118',
+   'KSKDATABAS'  => '576',
+   'KSKDRVS'     => '1520',
+   'KSKLIBS'     => '1100',
+   'KSKNODEACT'  => '744',
+   'KSKOCPNCY'   => '2112',
+   'KSKPOBJST'   => '260',
+   'KSKPVUDET'   => '4184',
+   'KSKRPLDET'   => '2656',
+   'KSKRPLSTAT'  => '3896',
+   'KSKSCHEDUL'  => '1876',
+   'KSKSDAGF'    => '1160',
+   'KSKSERVER'   => '684',
+   'KSKSESSION'  => '1440',
+   'KSKSTORAGE'  => '1080',
+   'KSKTAPEUSA'  => '1200',
+   'KSKTAPEVOL'  => '1992',
+   'QMMQIACCT'   => '1204',
+   'QMCONNAPP'   => '1136',
+   'QM_APQL'     => '484',
+   'QM_APAI'     => '380',
+   'QM_APTL'     => '416',
+   'QMLHBM'      => '432',
+   'QMCH_DATA'   => '976',
+   'QMCHANNEL'   => '1044',
+   'QMCHANIN'    => '312',
+   'QMCH_LH'     => '956',
+   'QMCHAN_ST'   => '1576',
+   'QMCHAN_SUM'  => '736',
+   'QMCONNOBJ'   => '1052',
+   'QMCURSTAT'   => '2132',
+   'QMERRLOG'    => '3820',
+   'QMEVENTL'    => '1668',
+   'QMLSSTATUS'  => '1180',
+   'QMDSPUSAGE'  => '344',
+   'QMLHLM'      => '760',
+   'QMLHMM'      => '488',
+   'QMMSG_STAT'  => '604',
+   'QMACTLOG'    => '1530',
+   'QMCH_STAT'   => '764',
+   'QMQ_STAT'    => '708',
+   'QMMQICDET'   => '336',
+   'QMMQIMDET'   => '232',
+   'QMMQISTAT'   => '940',
+   'QMPS_LH'     => '336',
+   'QSG_CHANS'   => '240',
+   'QSG_CFBKUP'  => '212',
+   'QSG_CFCONN'  => '304',
+   'QSG_CFSTR'   => '556',
+   'QSG_QMGR'    => '304',
+   'QSG_QUEUES'  => '220',
+   'QMQ_ACCT'    => '880',
+   'QMQ_DATA'    => '936',
+   'QMQUEUE'     => '932',
+   'QMQ_HDL_ST'  => '1036',
+   'QMQ_LH'      => '720',
+   'QMQ_QU_ST'   => '364',
+   'QMLHTM'      => '436',
+   'KQITACMF'    => '1792',
+   'KQITACND'    => '2008',
+   'KQITACTH'    => '1652',
+   'KQITACTR'    => '2072',
+   'KQITASMF'    => '1640',
+   'KQITASND'    => '1736',
+   'KQITASTH'    => '1380',
+   'KQITASTR'    => '1704',
+   'KQITBREV'    => '1712',
+   'KQITBRKR'    => '1620',
+   'KQITBRKS'    => '1156',
+   'KQITBSEV'    => '944',
+   'KQITCOMP'    => '852',
+   'KQITDFEG'    => '1272',
+   'KQITDFFN'    => '4016',
+   'KQITDFMF'    => '1944',
+   'KQITDSEA'    => '1816',
+   'KQITDSEN'    => '808',
+   'KQITDSER'    => '2176',
+   'KQITDSES'    => '3356',
+   'KQITEGRS'    => '744',
+   'KQITFLEV'    => '2856',
+   'KQITMFLS'    => '1692',
+   'KQITMNBR'    => '892',
+   'KQITMNEG'    => '1144',
+   'KQITMNEV'    => '1576',
+   'KQITMNFN'    => '1732',
+   'KQITMNMF'    => '1300',
+   'KQITMNSF'    => '1548',
+   'KQITPREV'    => '1176',
+   'KQITPSMG'    => '1048',
+   'KQITPSMS'    => '728',
+   'KQITPSMT'    => '1496',
+   'KQITPSST'    => '1044',
+   'KQITRSFL'    => '1024',
+   'KQITRSJD'    => '1272',
+   'KQITRSJV'    => '1008',
+   'KQITRSOD'    => '1012',
+   'KQITRSPS'    => '1064',
+   'KQITRSSP'    => '1152',
+   'KQITSTBR'    => '1148',
+   'KQITSTEG'    => '1656',
+   'KQITSTFN'    => '3012',
+   'KQITSTMF'    => '2068',
+   'KQITSTSF'    => '2572',
+   'KIC1034900'  => '944',
+   'KIC1675900'  => '944',
+   'KIC345600'   => '1020',
+   'KIC4091900'  => '1196',
+   'KM6AGTSTA'   => '464',
+   'KM6AGTTRAN'  => '208',
+   'KM6CALLLOG'  => '876',
+   'KM6TRANLOG'  => '1432',
+   'KM6FTEPOS'   => '260',
+   'KM6POBJST'   => '260',
+   'KM6SCHITEM'  => '880',
+   'KM6SCHDLOG'  => '1588',
+   'KM6SCHSUPP'  => '672',
+   'KM6TACTST'   => '3452',
+   'KM6THPLST'   => '132',
+   'KM6CALL'     => '480',
+   'KM6CALLOUT'  => '500',
+   'KM6CALLRES'  => '504',
+   'KM6CMDARG'   => '1200',
+   'KM6EXIT'     => '260',
+   'KM6TRSITEM'  => '1472',
+   'KM6TRSMETA'  => '432',
+   'KM6SUPPMNT'  => '644',
+   'KM6TRANTRI'  => '508',
+   'KE1ACPOS'    => '360',
+   'KE1AHUA'     => '1196',
+   'KE1AHUB'     => '1180',
+   'KE1AHUDS'    => '169',
+   'KE1AHUPOS'   => '360',
+   'KE1AHUS'     => '1410',
+   'KE1BLRPOS'   => '360',
+   'KE1BLRA'     => '1196',
+   'KE1BLRB'     => '1180',
+   'KE1BLRDS'    => '169',
+   'KE1BLRS'     => '700',
+   'KE1CDUA'     => '1196',
+   'KE1CDUB'     => '1180',
+   'KE1CDUDS'    => '169',
+   'KE1CDUPOS'   => '360',
+   'KE1CDUS'     => '294',
+   'KE1CHRS'     => '616',
+   'KE1CHPA'     => '1196',
+   'KE1CHPB'     => '1180',
+   'KE1CHPDS'    => '169',
+   'KE1CHPS'     => '338',
+   'KE1CHPPOS'   => '360',
+   'KE1CRACA'    => '1196',
+   'KE1CRACB'    => '1180',
+   'KE1ACDS'     => '169',
+   'KE1CRACS'    => '572',
+   'KE1FMPOS'    => '360',
+   'KE1FUELMTA'  => '1196',
+   'KE1FUELMTB'  => '1180',
+   'KE1FMDS'     => '169',
+   'KE1FMS'      => '262',
+   'KE1GENPOS'   => '360',
+   'KE1GENA'     => '1196',
+   'KE1GENB'     => '1180',
+   'KE1GENDS'    => '169',
+   'KE1GENS'     => '566',
+   'KE1HXUA'     => '1196',
+   'KE1HXUB'     => '1180',
+   'KE1HXUDS'    => '169',
+   'KE1HXUS'     => '262',
+   'KE1HXUPOS'   => '360',
+   'KE1MTRA'     => '1314',
+   'KE1MTRB'     => '1180',
+   'KE1MTRDS'    => '169',
+   'KE1MTRS'     => '326',
+   'KE1MTRPOS'   => '360',
+   'KE1OTHPOS'   => '360',
+   'KE1OTHA'     => '1196',
+   'KE1OTHB'     => '1180',
+   'KE1OTHDS'    => '169',
+   'KE1PDUA'     => '1196',
+   'KE1PDUBS'    => '674',
+   'KE1PDUB'     => '1180',
+   'KE1PDUDS'    => '169',
+   'KE1PDUPS'    => '524',
+   'KE1PDUPOS'   => '360',
+   'KE1PDUS'     => '278',
+   'KE1POBJST'   => '360',
+   'KE1RPTINFO'  => '366',
+   'KE1RPTAHU'   => '2866',
+   'KE1RPTBLR'   => '2274',
+   'KE1RPTBKR'   => '566',
+   'KE1RPTCDU'   => '2012',
+   'KE1RPTCHR'   => '2298',
+   'KE1RPTCHP'   => '2016',
+   'KE1RPTAC'    => '2084',
+   'KE1RPTFM'    => '1992',
+   'KE1RPTGEN'   => '2000',
+   'KE1RPTHXU'   => '2004',
+   'KE1RPTMTR'   => '1996',
+   'KE1RPTPDU'   => '1984',
+   'KE1RPTPNL'   => '364',
+   'KE1RPTSNS'   => '2008',
+   'KE1RPTUPS'   => '2032',
+   'KE1SNSA'     => '1196',
+   'KE1SNSB'     => '1180',
+   'KE1SNSDS'    => '169',
+   'KE1SNSS'     => '800',
+   'KE1SNSPOS'   => '360',
+   'KE1THPLST'   => '132',
+   'KE1UPSA'     => '1196',
+   'KE1UPSB'     => '1180',
+   'KE1UPSDS'    => '169',
+   'KE1UPSPOS'   => '360',
+   'KE1UPSS'     => '570',
+   'KE4ACPOS'    => '360',
+   'KE4AHUA'     => '1046',
+   'KE4AHUB'     => '1030',
+   'KE4AHUDS'    => '169',
+   'KE4AHUPOS'   => '360',
+   'KE4AHUS'     => '1394',
+   'KE4BLRPOS'   => '360',
+   'KE4BLRA'     => '1046',
+   'KE4BLRB'     => '1030',
+   'KE4BLRDS'    => '169',
+   'KE4BLRS'     => '700',
+   'KE4CDUA'     => '1046',
+   'KE4CDUB'     => '1030',
+   'KE4CDUDS'    => '169',
+   'KE4CDUPOS'   => '360',
+   'KE4CDUS'     => '294',
+   'KE4CHRA'     => '1046',
+   'KE4CHRB'     => '1030',
+   'KE4CHRDS'    => '169',
+   'KE4CHPA'     => '1046',
+   'KE4CHPB'     => '1030',
+   'KE4CHPDS'    => '169',
+   'KE4CHPS'     => '338',
+   'KE4CHRS'     => '720',
+   'KE4CHPPOS'   => '360',
+   'KE4CHRPOS'   => '360',
+   'KE4CRACA'    => '1046',
+   'KE4CRACB'    => '1030',
+   'KE4ACDS'     => '169',
+   'KE4CRACS'    => '556',
+   'KE4FMPOS'    => '360',
+   'KE4FMA'      => '1046',
+   'KE4FMB'      => '1030',
+   'KE4FMDS'     => '169',
+   'KE4FMS'      => '262',
+   'KE4GENPOS'   => '360',
+   'KE4GENA'     => '1046',
+   'KE4GENB'     => '1030',
+   'KE4GENDS'    => '169',
+   'KE4GENS'     => '582',
+   'KE4HXUA'     => '1046',
+   'KE4HXUB'     => '1030',
+   'KE4HXUDS'    => '169',
+   'KE4HXUS'     => '262',
+   'KE4HXUPOS'   => '360',
+   'KE4MTRA'     => '1046',
+   'KE4MTRB'     => '1030',
+   'KE4MTRDS'    => '169',
+   'KE4MTRS'     => '326',
+   'KE4MTRPOS'   => '360',
+   'KE4OTHPOS'   => '360',
+   'KE4OTHA'     => '1046',
+   'KE4OTHB'     => '1030',
+   'KE4OTHDS'    => '169',
+   'KE4PDUA'     => '1046',
+   'KE4PDUBS'    => '674',
+   'KE4PDUB'     => '1030',
+   'KE4PDUDS'    => '169',
+   'KE4PDUPS'    => '524',
+   'KE4PDUPOS'   => '360',
+   'KE4PDUS'     => '278',
+   'KE4POBJST'   => '360',
+   'KE4RPTINFO'  => '366',
+   'KE4RPTAHU'   => '2866',
+   'KE4RPTBLR'   => '2274',
+   'KE4RPTBKR'   => '2336',
+   'KE4RPTCDU'   => '2012',
+   'KE4RPTCHR'   => '2448',
+   'KE4RPTCHP'   => '2166',
+   'KE4RPTAC'    => '2234',
+   'KE4RPTAC2'   => '2234',
+   'KE4RPTFM'    => '1992',
+   'KE4RPTGEN'   => '2150',
+   'KE4RPTHXU'   => '2004',
+   'KE4RPTMTR'   => '2146',
+   'KE4RPTPDU'   => '2134',
+   'KE4RPTPNL'   => '2134',
+   'KE4RPTSNS'   => '2158',
+   'KE4RPTUPS'   => '2182',
+   'KE4SNSA'     => '1046',
+   'KE4SNSB'     => '1030',
+   'KE4SNSDS'    => '169',
+   'KE4SNSS'     => '800',
+   'KE4SNSPOS'   => '360',
+   'KE4THPLST'   => '132',
+   'KE4UPSA'     => '1046',
+   'KE4UPSB'     => '1030',
+   'KE4UPSDS'    => '169',
+   'KE4UPSPOS'   => '360',
+   'KE4UPSS'     => '570',
+   'KE6ACPOS'    => '360',
+   'KE6AHUA'     => '1334',
+   'KE6AHUB'     => '1318',
+   'KE6AHUDS'    => '169',
+   'KE6AHUPOS'   => '360',
+   'KE6AHUS'     => '1394',
+   'KE6BLRPOS'   => '360',
+   'KE6BLRA'     => '1334',
+   'KE6BLRB'     => '1318',
+   'KE6BLRDS'    => '169',
+   'KE6BLRS'     => '700',
+   'KE6CDUA'     => '1334',
+   'KE6CDUB'     => '1318',
+   'KE6CDUDS'    => '169',
+   'KE6CDUPOS'   => '360',
+   'KE6CDUS'     => '294',
+   'KE6CHRA'     => '1334',
+   'KE6CHRB'     => '1318',
+   'KE6CHRDS'    => '169',
+   'KE6CHPA'     => '1334',
+   'KE6CHPB'     => '1318',
+   'KE6CHPDS'    => '169',
+   'KE6CHPS'     => '338',
+   'KE6CHRS'     => '3226',
+   'KE6CHPPOS'   => '360',
+   'KE6CHRPOS'   => '360',
+   'KE6CRACA'    => '1334',
+   'KE6CRACB'    => '1318',
+   'KE6ACDS'     => '169',
+   'KE6CRACS'    => '2732',
+   'KE6FMPOS'    => '360',
+   'KE6FMA'      => '1334',
+   'KE6FMB'      => '1318',
+   'KE6FMDS'     => '169',
+   'KE6FMS'      => '262',
+   'KE6GENA'     => '1334',
+   'KE6GENB'     => '1318',
+   'KE6GENPOS'   => '360',
+   'KE6GENS'     => '2780',
+   'KE6GENDS'    => '169',
+   'KE6HXUA'     => '1334',
+   'KE6HXUB'     => '1318',
+   'KE6HXUDS'    => '169',
+   'KE6HXUS'     => '262',
+   'KE6HXUPOS'   => '360',
+   'KE6MTRA'     => '1334',
+   'KE6MTRB'     => '1318',
+   'KE6MTRDS'    => '169',
+   'KE6MTRS'     => '326',
+   'KE6MTRPOS'   => '360',
+   'KE6OTHPOS'   => '360',
+   'KE6OTHA'     => '1334',
+   'KE6OTHB'     => '1318',
+   'KE6OTHDS'    => '169',
+   'KE6PDUA'     => '1334',
+   'KE6PDUB'     => '1318',
+   'KE6PDUBS'    => '674',
+   'KE6PDUDS'    => '169',
+   'KE6PDUPS'    => '524',
+   'KE6PDUPOS'   => '360',
+   'KE6PDUS'     => '2780',
+   'KE6POBJST'   => '360',
+   'KE6RPTINFO'  => '366',
+   'KE6RPTAHU'   => '2866',
+   'KE6RPTBLR'   => '2274',
+   'KE6RPTBKR'   => '582',
+   'KE6RPTCDU'   => '2012',
+   'KE6RPTCHR'   => '2548',
+   'KE6RPTCHP'   => '2016',
+   'KE6RPTAC'    => '2084',
+   'KE6RPTFM'    => '1992',
+   'KE6RPTGEN'   => '1996',
+   'KE6RPTHXU'   => '2004',
+   'KE6RPTMTR'   => '1996',
+   'KE6RPTPDU'   => '1984',
+   'KE6RPTPNL'   => '364',
+   'KE6RPTSNS'   => '2008',
+   'KE6RPTUPS'   => '2032',
+   'KE6SNSA'     => '3290',
+   'KE6SNSDS'    => '169',
+   'KE6SNSPOS'   => '360',
+   'KE6THPLST'   => '132',
+   'KE6UPSA'     => '1334',
+   'KE6UPSB'     => '1318',
+   'KE6UPSDS'    => '169',
+   'KE6UPSPOS'   => '360',
+   'KE6UPSS'     => '2844',
+   'KE6KE6WOUT'  => '1122',
+   'KE7AIRPOS'   => '360',
+   'KE7AIRID'    => '4006',
+   'KE7AIRDS'    => '169',
+   'KE7ARUDS'    => '169',
+   'KE7AIRFMS8'  => '372',
+   'KE7AIRFMSY'  => '312',
+   'KE7AIRIR26'  => '152',
+   'KE7AIRIRG6'  => '1866',
+   'KE7AIRIRM3'  => '112',
+   'KE7AIRIRM6'  => '1990',
+   'KE7AIRIRR6'  => '160',
+   'KE7AIRIRR3'  => '1882',
+   'KE7AIRIR14'  => '204',
+   'KE7AIRIR11'  => '1934',
+   'KE7AIRIR23'  => '208',
+   'KE7AIRIR20'  => '1938',
+   'KE7AIRIRS3'  => '256',
+   'KE7AIRIRS0'  => '1862',
+   'KE7RARUCON'  => '128',
+   'KE7RARUFAN'  => '164',
+   'KE7RARUIDE'  => '116',
+   'KE7RARUPOW'  => '64',
+   'KE7RARUSE0'  => '236',
+   'KE7RARUSEN'  => '60',
+   'KE7RARUST0'  => '56',
+   'KE7RARUSTA'  => '224',
+   'KE7EMCONF1'  => '56',
+   'KE7EMSTAT0'  => '120',
+   'KE7EMCONF0'  => '192',
+   'KE7EMSTAT1'  => '60',
+   'KE7EMIDENT'  => '1702',
+   'KE7EMSTATU'  => '164',
+   'KE7EMCONFI'  => '256',
+   'KE7EEMDS'    => '169',
+   'KE7IEMCON0'  => '192',
+   'KE7IEMSTA0'  => '120',
+   'KE7IEMCON1'  => '56',
+   'KE7IEMSTA2'  => '60',
+   'KE7IEMIDEN'  => '1702',
+   'KE7IEMCONF'  => '256',
+   'KE7IEMSTAT'  => '228',
+   'KE7IEMSTA1'  => '120',
+   'KE7IEMDS'    => '169',
+   'KE7XPDDS'    => '169',
+   'KE7RPDDS'    => '169',
+   'KE7RPDUSTA'  => '60',
+   'KE7RPDUOUT'  => '72',
+   'KE7RPDULO3'  => '80',
+   'KE7RPDULOA'  => '60',
+   'KE7RPDULO0'  => '60',
+   'KE7RPDUST1'  => '60',
+   'KE7RPDUOU5'  => '148',
+   'KE7RPDUST0'  => '60',
+   'KE7RPDUIDE'  => '2022',
+   'KE7RPDULO1'  => '1662',
+   'KE7RPDULO4'  => '68',
+   'KE7RPDUOU3'  => '132',
+   'KE7RPDULO2'  => '68',
+   'KE7UPSADVB'  => '60',
+   'KE7UPSBAS0'  => '1858',
+   'KE7UPSBAS6'  => '432',
+   'KE7UPSADV0'  => '72',
+   'KE7UPSPHA1'  => '1718',
+   'KE7UPSPHA0'  => '144',
+   'KE7UPSDS'    => '169',
+   'KE7UPSADVO'  => '1666',
+   'KE7UPSPHA4'  => '1746',
+   'KE7UPSPHA3'  => '76',
+   'KE7UPSADVI'  => '2022',
+   'KE7UPSADV2'  => '72',
+   'KE7XPDUBR0'  => '52',
+   'KE7XPDUMA0'  => '56',
+   'KE7XPDUBRA'  => '216',
+   'KE7XPDUMAI'  => '84',
+   'KE7XPDUSYS'  => '148',
+   'KE7XPDUIDE'  => '2150',
+   'KE7XPDUDEV'  => '60',
+   'KE7XPDUSY0'  => '1750',
+   'KE7XPDUSY1'  => '56',
+   'KE7ARUPOS'   => '360',
+   'KE7EEMPOS'   => '360',
+   'KE7IEMPOS'   => '360',
+   'KE7POBJST'   => '360',
+   'KE7RPDPOS'   => '360',
+   'KE7RPTINFO'  => '366',
+   'KE7THPLST'   => '132',
+   'KE7UPSPOS'   => '360',
+   'KE7XPDPOS'   => '360',
+   'KE8GTACTA'   => '634',
+   'KE8GTALRM'   => '52',
+   'KE8GTDEVCO'  => '2757',
+   'KE8GTIDDM'   => '1431',
+   'KE8GTIDEM'   => '2742',
+   'KE8GTIDMAM'  => '1415',
+   'KE8GTIDMPQ'  => '1411',
+   'KE8GTIDPSS'  => '1374',
+   'KE8GTIDRTM'  => '1363',
+   'KE8GTIDRTP'  => '1363',
+   'KE8GTIDPDI'  => '1557',
+   'KE8GTIDPDO'  => '1557',
+   'KE8GTIDPCM'  => '1413',
+   'KE8GTIDPPH'  => '1351',
+   'KE8GTIDPSN'  => '1434',
+   'KE8GTWPOS'   => '360',
+   'KE8GTSYS'    => '1196',
+   'KE8MGDGTW'   => '169',
+   'KE8MGDMTR'   => '169',
+   'KE8MGDPDU'   => '169',
+   'KE8MGDUPS'   => '169',
+   'KE8MTRACAI'  => '634',
+   'KE8MTRACTA'  => '698',
+   'KE8MTRALRM'  => '52',
+   'KE8PWRMET3'  => '152',
+   'KE8PWRMET2'  => '1718',
+   'KE8PCDMEAS'  => '134',
+   'KE8PWRMET1'  => '136',
+   'KE8PCDPHAS'  => '72',
+   'KE8MTRPHYS'  => '3069',
+   'KE8MTRPQSA'  => '95',
+   'KE8MTRPOWE'  => '164',
+   'KE8PWRMETE'  => '84',
+   'KE8PWRMET0'  => '84',
+   'KE8MTRSYS'   => '878',
+   'KE8MTRID'    => '432',
+   'KE8MTRPOS'   => '360',
+   'KE8MTRURI'   => '112',
+   'KE8PDUACAI'  => '634',
+   'KE8PDUACTA'  => '698',
+   'KE8PDUALRM'  => '52',
+   'KE8PDUBMT'   => '64',
+   'KE8PDUBPMT'  => '1670',
+   'KE8PDUBRT'   => '95',
+   'KE8PDUCON'   => '123',
+   'KE8PDUENV'   => '76',
+   'KE8PDUID'    => '432',
+   'KE8PDUINP'   => '1693',
+   'KE8PDUIOT'   => '1756',
+   'KE8PDUWOUT'  => '80',
+   'KE8PDUINPT'  => '64',
+   'KE8PDUNAME'  => '64',
+   'KE8PDUOUT'   => '111',
+   'KE8PDUOUTT'  => '64',
+   'KE8PDUPMT'   => '76',
+   'KE8PDUPPMT'  => '68',
+   'KE8PDUPRT'   => '99',
+   'KE8PDUPOS'   => '360',
+   'KE8PDUPHYS'  => '1479',
+   'KE8PDUSYS'   => '878',
+   'KE8PDUURI'   => '112',
+   'KE8POBJST'   => '360',
+   'KE8RPTINFO'  => '366',
+   'KE8RPTGMET'  => '2969',
+   'KE8THPLST'   => '132',
+   'KE8UPSACAI'  => '634',
+   'KE8UPSACTA'  => '698',
+   'KE8UPSALRM'  => '52',
+   'KE8UPSBAT'   => '1678',
+   'KE8UPSBYP'   => '56',
+   'KE8UPSBYPT'  => '56',
+   'KE8UPSCON'   => '123',
+   'KE8UPSENV'   => '92',
+   'KE8UPSID'    => '173',
+   'KE8UPSIDE'   => '236',
+   'KE8UPSIDU'   => '300',
+   'KE8UPSINP'   => '68',
+   'KE8UPSIO'    => '1674',
+   'KE8UPSIOT'   => '1678',
+   'KE8UPSINPT'  => '1658',
+   'KE8UPSOUT'   => '1654',
+   'KE8UPSOUTT'  => '68',
+   'KE8UPSPOS'   => '360',
+   'KE8UPSPHYS'  => '1479',
+   'KE8UPSCFG'   => '110',
+   'KE8UPSRECT'  => '72',
+   'KE8UPSSYS'   => '878',
+   'KE8UPSTES'   => '60',
+   'KE8UPSTOP'   => '64',
+   'KE8UPSURI'   => '112',
+   'KE8PDUWBMT'  => '448',
+   'KE8PDUWBM2'  => '2054',
+   'KE8PDUWBRT'  => '479',
+   'KE8PDUWENV'  => '460',
+   'KE8PDUWINP'  => '2077',
+   'KE8PDUWINT'  => '448',
+   'KE8PDUWNAM'  => '448',
+   'KE8PDUIO'    => '495',
+   'KE8PDUWOTT'  => '448',
+   'KE8PDUWPMT'  => '460',
+   'KE8PDUWPM2'  => '452',
+   'KE8PDUWPRT'  => '483',
+   'KE8UPSWBYP'  => '181',
+   'KE8UPSWBYT'  => '181',
+   'KE8UPSWENV'  => '217',
+   'KE8UPSWINP'  => '193',
+   'KE8UPSWINT'  => '1783',
+   'KE8UPSWOUT'  => '1779',
+   'KE8UPSWOTT'  => '193',
+   'KE8UPSWCFG'  => '235',
+   'KE8UPSWTOP'  => '189',
+   'KE9ACPOS'    => '360',
+   'KE9ALLBC'    => '3770',
+   'KE9ALLCRAC'  => '3168',
+   'KE9ALL'      => '152',
+   'KE9ALLPDU2'  => '2844',
+   'KE9ALLPDU'   => '1532',
+   'KE9ALLPOS'   => '360',
+   'KE9ALLDAG'   => '169',
+   'KE9ALLRS1'   => '3344',
+   'KE9ALLRK1'   => '2942',
+   'KE9ALLSNSC'  => '2548',
+   'KE9ALLSNS'   => '496',
+   'KE9ALLSNNC'  => '2298',
+   'KE9ALLSZ1'   => '2804',
+   'KE9ALLUPS'   => '3388',
+   'KE9ALLZEN1'  => '2456',
+   'KE9ALLSZ2'   => '1088',
+   'KE9BCPOS'    => '360',
+   'KE9BC'       => '3770',
+   'KE9BLDAG'    => '169',
+   'KE9CRACDAT'  => '3168',
+   'KE9CRACDAG'  => '169',
+   'KE9PDUDEV'   => '1101',
+   'KE9PDUOUTL'  => '1262',
+   'KE9PDUGRP'   => '722',
+   'KE9PDUPOS'   => '360',
+   'KE9PDU'      => '1532',
+   'KE9PDUSENS'  => '680',
+   'KE9PDU2'     => '2844',
+   'KE9PDUDAG'   => '169',
+   'KE9POBJST'   => '360',
+   'KE9RK1'      => '2942',
+   'KE9RS1'      => '3344',
+   'KE9RADAG'    => '169',
+   'KE9RKDAG'    => '169',
+   'KE9RKPOS'    => '360',
+   'KE9RPTINFO'  => '366',
+   'KE9RSPOS'    => '360',
+   'KE9SNSC'     => '2548',
+   'KE9SNS'      => '496',
+   'KE9SNNC'     => '2298',
+   'KE9SNSDAG'   => '169',
+   'KE9SNSPOS'   => '360',
+   'KE9SZ1'      => '2804',
+   'KE9SYDAG'    => '169',
+   'KE9SZPOS'    => '360',
+   'KE9THPLST'   => '132',
+   'KE9UPSPOS'   => '360',
+   'KE9UPSDAT'   => '3388',
+   'KE9UPSSNS'   => '680',
+   'KE9UPSDAG'   => '169',
+   'KE9ZENPOS'   => '360',
+   'KE9ZENTDAG'  => '169',
+   'KE9BCE'      => '1138',
+   'KE9ZENT1'    => '2456',
+   'KE9SZ2'      => '1088',
+   'KY8ACPOS'    => '360',
+   'KY8AHUA'     => '1030',
+   'KY8AHUB'     => '1014',
+   'KY8AHUDS'    => '169',
+   'KY8AHUPOS'   => '360',
+   'KY8AHUS'     => '1378',
+   'KY8BLRDS'    => '169',
+   'KY8BLRPOS'   => '360',
+   'KY8BLRA'     => '1030',
+   'KY8BLRB'     => '1014',
+   'KY8BLRS'     => '700',
+   'KY8CDUA'     => '1030',
+   'KY8CDUB'     => '1014',
+   'KY8CDUDS'    => '169',
+   'KY8CDUPOS'   => '360',
+   'KY8CDUS'     => '294',
+   'KY8CHPA'     => '1030',
+   'KY8CHPB'     => '1014',
+   'KY8CHPDS'    => '169',
+   'KY8CHPS'     => '338',
+   'KY8CHRS'     => '688',
+   'KY8CHPPOS'   => '360',
+   'KY8CRACA'    => '1030',
+   'KY8CRACB'    => '1014',
+   'KY8ACDS'     => '169',
+   'KY8CRACS'    => '556',
+   'KY8FMPOS'    => '360',
+   'KY8FMA'      => '1030',
+   'KY8FMB'      => '1014',
+   'KY8FMDS'     => '169',
+   'KY8FMS'      => '262',
+   'KY8GENPOS'   => '360',
+   'KY8GENA'     => '1030',
+   'KY8GENB'     => '1014',
+   'KY8GENDS'    => '169',
+   'KY8GENS'     => '566',
+   'KY8HXUA'     => '1030',
+   'KY8HXUB'     => '1014',
+   'KY8HXUDS'    => '169',
+   'KY8HXUS'     => '262',
+   'KY8HXUPOS'   => '360',
+   'KY8JMXATTR'  => '2096',
+   'KY8JMXNOTI'  => '2420',
+   'KY8MTRA'     => '1030',
+   'KY8MTRB'     => '1014',
+   'KY8MTRDS'    => '169',
+   'KY8MTRS'     => '326',
+   'KY8MTRPOS'   => '360',
+   'KY8OTHPOS'   => '360',
+   'KY8OTHA'     => '1030',
+   'KY8OTHB'     => '1014',
+   'KY8OTHDS'    => '169',
+   'KY8PDUA'     => '1030',
+   'KY8PDUB'     => '1014',
+   'KY8PDUBS'    => '674',
+   'KY8PDUDS'    => '169',
+   'KY8PDUPS'    => '524',
+   'KY8PDUPOS'   => '360',
+   'KY8PDUS'     => '278',
+   'KY8POBJST'   => '360',
+   'KY8RPTINFO'  => '366',
+   'KY8RPTAHU'   => '2866',
+   'KY8RPTBLR'   => '2274',
+   'KY8RPTBKR'   => '566',
+   'KY8RPTCDU'   => '2012',
+   'KY8RPTCHR'   => '2298',
+   'KY8RPTCHP'   => '2016',
+   'KY8RPTAC'    => '2084',
+   'KY8RPTFM'    => '1984',
+   'KY8RPTGEN'   => '2000',
+   'KY8RPTHXU'   => '2004',
+   'KY8RPTMTR'   => '1996',
+   'KY8RPTPDU'   => '1984',
+   'KY8RPTPNL'   => '364',
+   'KY8RPTSNS'   => '2008',
+   'KY8RPTUPS'   => '2032',
+   'KY8SNSA'     => '1030',
+   'KY8SNSB'     => '1014',
+   'KY8SNSDS'    => '169',
+   'KY8SNSS'     => '800',
+   'KY8SNSPOS'   => '360',
+   'KY8THPLST'   => '132',
+   'KY8UPSA'     => '1030',
+   'KY8UPSB'     => '1014',
+   'KY8UPSDS'    => '169',
+   'KY8UPSPOS'   => '360',
+   'KY8UPSS'     => '570',
+   'KY9ACPOS'    => '360',
+   'KY9AHUA'     => '1030',
+   'KY9AHUB'     => '1014',
+   'KY9AHUDS'    => '169',
+   'KY9AHUPOS'   => '360',
+   'KY9AHUS'     => '1378',
+   'KY9BLRDS'    => '169',
+   'KY9BLRPOS'   => '360',
+   'KY9BLRA'     => '1030',
+   'KY9BLRB'     => '1014',
+   'KY9BLRS'     => '700',
+   'KY9CDUA'     => '1030',
+   'KY9CDUB'     => '1014',
+   'KY9CDUDS'    => '169',
+   'KY9CDUPOS'   => '360',
+   'KY9CDUS'     => '294',
+   'KY9CHPA'     => '1030',
+   'KY9CHPB'     => '1014',
+   'KY9CHPDS'    => '169',
+   'KY9CHPS'     => '338',
+   'KY9CHRS'     => '688',
+   'KY9CHPPOS'   => '360',
+   'KY9CRACA'    => '1030',
+   'KY9CRACB'    => '1014',
+   'KY9ACDS'     => '169',
+   'KY9CRACS'    => '556',
+   'KY9FMPOS'    => '360',
+   'KY9FMA'      => '1030',
+   'KY9FMB'      => '1014',
+   'KY9FMDS'     => '169',
+   'KY9FMS'      => '262',
+   'KY9GENPOS'   => '360',
+   'KY9GENA'     => '1030',
+   'KY9GENB'     => '1014',
+   'KY9GENDS'    => '169',
+   'KY9GENS'     => '566',
+   'KY9HXUA'     => '1030',
+   'KY9HXUB'     => '1014',
+   'KY9HXUDS'    => '169',
+   'KY9HXUS'     => '262',
+   'KY9HXUPOS'   => '360',
+   'KY9MTRA'     => '1030',
+   'KY9MTRB'     => '1014',
+   'KY9MTRDS'    => '169',
+   'KY9MTRS'     => '326',
+   'KY9MTRPOS'   => '360',
+   'KY9OTHPOS'   => '360',
+   'KY9OTHA'     => '1030',
+   'KY9OTHB'     => '1014',
+   'KY9OTHDS'    => '169',
+   'KY9PDUA'     => '1030',
+   'KY9PDUB'     => '1014',
+   'KY9PDUBS'    => '674',
+   'KY9PDUDS'    => '169',
+   'KY9PDUPS'    => '524',
+   'KY9PDUPOS'   => '360',
+   'KY9PDUS'     => '278',
+   'KY9POBJST'   => '360',
+   'KY9RPTINFO'  => '366',
+   'KY9RPTAHU'   => '2866',
+   'KY9RPTBLR'   => '2274',
+   'KY9RPTBKR'   => '566',
+   'KY9RPTCDU'   => '2012',
+   'KY9RPTCHR'   => '2298',
+   'KY9RPTCHP'   => '2016',
+   'KY9RPTAC'    => '2084',
+   'KY9RPTFM'    => '1992',
+   'KY9RPTGEN'   => '2000',
+   'KY9RPTHXU'   => '2004',
+   'KY9RPTMTR'   => '1996',
+   'KY9RPTPDU'   => '1984',
+   'KY9RPTPNL'   => '364',
+   'KY9RPTSNS'   => '2008',
+   'KY9RPTUPS'   => '2032',
+   'KY9SNSA'     => '1030',
+   'KY9SNSB'     => '1014',
+   'KY9SNSDS'    => '169',
+   'KY9SNSS'     => '800',
+   'KY9SNSPOS'   => '360',
+   'KY9THPLST'   => '132',
+   'KY9UPSA'     => '1030',
+   'KY9UPSB'     => '1014',
+   'KY9UPSDS'    => '169',
+   'KY9UPSPOS'   => '360',
+   'KY9UPSS'     => '570',
+   'KD9SDEVTS'   => '5172',
+   'KD9ALLJOBS'  => '1928',
+   'KD9ALLENDP'  => '5904',
+   'KD9BLDADSV'  => '6124',
+   'KD9BLDASVG'  => '6164',
+   'KD9CACHMEM'  => '3612',
+   'KD9CACHMEG'  => '3644',
+   'KD9CARD'     => '6600',
+   'KD9CARDG'    => '6640',
+   'KD9CHASSIS'  => '6380',
+   'KD9CHASSIG'  => '6420',
+   'KD9CHIP'     => '6200',
+   'KD9CHIPG'    => '6240',
+   'KD9SYSDISC'  => '1412',
+   'KD9DISKDRV'  => '4132',
+   'KD9DISKDRG'  => '4172',
+   'KD9DSKPART'  => '3584',
+   'KD9DSKPARG'  => '3624',
+   'KD9DSKTDRV'  => '3616',
+   'KD9DSKTDRG'  => '3656',
+   'KD9DISPCON'  => '3536',
+   'KD9DISPCOG'  => '3576',
+   'KD9DNSPEND'  => '3260',
+   'KD9DNSPENG'  => '3300',
+   'KD9DNSSETN'  => '4528',
+   'KD9DNSSETG'  => '4568',
+   'KD9SYSENDP'  => '5904',
+   'KD9GRPENDP'  => '5384',
+   'KD9EPPOS'    => '360',
+   'KD9ETHPORT'  => '3812',
+   'KD9ETHPORG'  => '3852',
+   'KD9SDEVCND'  => '564',
+   'KD9SDEVDET'  => '2104',
+   'KD9SDEVDTI'  => '5428',
+   'KD9DIREVTG'  => '4684',
+   'KD9EVTTYPS'  => '4144',
+   'KD9DIREVT'   => '5328',
+   'KD9FAN'      => '3512',
+   'KD9FANG'     => '3552',
+   'KD9FCPORT'   => '3816',
+   'KD9FCPORTG'  => '3856',
+   'KD9FILESYS'  => '6488',
+   'KD9FILSYSG'  => '6528',
+   'KD9FRU'      => '6332',
+   'KD9FRUG'     => '6372',
+   'KD9GHNTDEV'  => '6124',
+   'KD9GNTDEVG'  => '6164',
+   'KD9GRPOS'    => '360',
+   'KD9HDMNCNS'  => '6252',
+   'KD9HMNCNSG'  => '6292',
+   'KD9IDECONT'  => '3524',
+   'KD9IDECONG'  => '3564',
+   'KD9INV1G'    => '432',
+   'KD9INV1'     => '952',
+   'KD9IPPREND'  => '2792',
+   'KD9IPPRENG'  => '2832',
+   'KD9JOBS'     => '2448',
+   'KD9JOBSG'    => '1928',
+   'KD9KEYBORD'  => '3676',
+   'KD9KEYBORG'  => '3716',
+   'KD9LANEND'   => '2900',
+   'KD9LANENDG'  => '2940',
+   'KD9LOCATN'   => '5664',
+   'KD9LOCATNG'  => '5704',
+   'KD9LOGMOD'   => '3512',
+   'KD9LOGMODG'  => '3552',
+   'KD9LOGVOL'   => '3572',
+   'KD9LOGVOLG'  => '3612',
+   'KD9MNGCONT'  => '6124',
+   'KD9MNGCTRG'  => '6164',
+   'KD9MEMORY'   => '3588',
+   'KD9MEMORYG'  => '3628',
+   'KD9OPERSYS'  => '4612',
+   'KD9OPRSYSG'  => '4652',
+   'KD9OPTDRIV'  => '3616',
+   'KD9OPTDRVG'  => '3656',
+   'KD9PLLCONT'  => '3528',
+   'KD9PLLCNTG'  => '3568',
+   'KD9PASSTMD'  => '6152',
+   'KD9PASTMDG'  => '6192',
+   'KD9PCIBRIG'  => '3720',
+   'KD9PCIBRGG'  => '3760',
+   'KD9PCIDEV'   => '3752',
+   'KD9PCIDEVG'  => '3808',
+   'KD9POBJST'   => '360',
+   'KD9PHYSCON'  => '6208',
+   'KD9PHYSCNG'  => '6248',
+   'KD9PHYFRAM'  => '6364',
+   'KD9PHYFRMG'  => '6404',
+   'KD9PHYLINK'  => '6200',
+   'KD9PHYLNKG'  => '6240',
+   'KD9PHYSMEM'  => '6364',
+   'KD9PHYMEMG'  => '6404',
+   'KD9PHYPACK'  => '6332',
+   'KD9PHYPCKG'  => '6372',
+   'KD9PHYPRT'   => '6212',
+   'KD9PHYPRTG'  => '6252',
+   'KD9PHYSVOL'  => '3572',
+   'KD9PHYSVLG'  => '3612',
+   'KD9POINTDV'  => '3528',
+   'KD9POINTDG'  => '3568',
+   'KD9PORTCON'  => '3528',
+   'KD9PORTCNG'  => '3568',
+   'KD9PRINTER'  => '3756',
+   'KD9PRINTRG'  => '3796',
+   'KD9PROCSSR'  => '4356',
+   'KD9PRCSSRG'  => '4396',
+   'KD9RAIDCON'  => '5996',
+   'KD9RAIDCNG'  => '6036',
+   'KD9RSACCPT'  => '5216',
+   'KD9RSACPG'   => '5256',
+   'KD9SASPORT'  => '3808',
+   'KD9SASPRTG'  => '3848',
+   'KD9SCSIPE'   => '2360',
+   'KD9SCSIPEG'  => '2400',
+   'KD9SERCON'   => '3528',
+   'KD9SERCONG'  => '3568',
+   'KD9SERVER'   => '6516',
+   'KD9SERVERG'  => '6548',
+   'KD9SLOT'     => '7168',
+   'KD9SLOTG'    => '7208',
+   'KD9SNMPTT'   => '4884',
+   'KD9SNMPTTG'  => '4924',
+   'KD9STORSUB'  => '6640',
+   'KD9STGSSG'   => '6680',
+   'KD9STORVOL'  => '3572',
+   'KD9STORVLG'  => '3612',
+   'KD9SWITCH'   => '6324',
+   'KD9SWITCHG'  => '6364',
+   'KD9SASTSET'  => '3176',
+   'KD9SYSASTG'  => '3216',
+   'KD9SYSCHAS'  => '7048',
+   'KD9SYSCHSG'  => '7088',
+   'KD9THPLST'   => '132',
+   'KD9TIMZNS'   => '2680',
+   'KD9TIMZNSG'  => '2720',
+   'KD9USBCON'   => '3592',
+   'KD9USBCONG'  => '3632',
+   'KD9VIDHEAD'  => '3656',
+   'KD9VIDHEDG'  => '3712',
+   'KP2LANTCP'   => '380',
+   'KP2LOGDSK'   => '420',
+   'KP2POBJST'   => '360',
+   'KP2SYSTEM'   => '356',
+   'KP2THPLST'   => '132',
+   'KR9AVAIL'    => '3284',
+   'KR9XMLLOG'   => '596',
+   'KR9POBJST'   => '289',
+   'KR9RADLOG'   => '351',
+   'KR9KR9KPI'   => '483',
+   'KR9KR9STAT'  => '1273',
+   'KR9KR9SCHG'  => '2074',
+   'KR9KR9URLC'  => '454',
+   'KKAAVAIL'    => '3244',
+   'KKAECOACTF'  => '419',
+   'KKAECOACTC'  => '156',
+   'KKAECOEDFL'  => '1037',
+   'KKAECOEDCF'  => '423',
+   'KKAECOEDHF'  => '614',
+   'KKAECOEDRF'  => '487',
+   'KKAECOEDSF'  => '359',
+   'KKAECOTHRU'  => '192',
+   'KKAPOBJST'   => '260',
+   'KNONCOECNM'  => '184',
+   'KNONCOECNC'  => '152',
+   'KNOAVAIL'    => '3244',
+   'KNONCOECNI'  => '352',
+   'KNONCOECNA'  => '132',
+   'KNONCOEDCF'  => '403',
+   'KNONCOEDNB'  => '200',
+   'KNONCOEDFL'  => '136',
+   'KNONCOECNK'  => '379',
+   'KNOPOBJST'   => '360',
+   'KNONCOECNE'  => '164',
+   'KNONCOECNG'  => '268',
+   'KNOTHPLST'   => '132',
+);
 
 my $advi = -1;                  # capture advisories
 my @advonline = ();
@@ -201,7 +3953,7 @@ logit(0,"EVENTAUDIT000I - ITM_Situation_Information $gVersion $args_start");
 my $arg_start = join(" ",@ARGV);
 
 $hdri++;$hdr[$hdri]="Situation Status History Audit Report $gVersion\n";
-$hdri++;$hdr[$hdri] = "Runtime parameters: $arg_start";
+$hdri++;$hdr[$hdri] = "Runtime parameters: $args_start";
 $hdri++;$hdr[$hdri]="\n";
 
 # process two sources of situation event status data
@@ -209,8 +3961,57 @@ $hdri++;$hdr[$hdri]="\n";
 
 $rc = init_all();
 
+# there are cases where event history records are months or years old.
+# to avoid unnecessary processing, limit the lookback view. Default is
+# 7 days but can be specified differently including 0 meaning no limit.
+if ($opt_days > 0) {
+   my $limit_seconds = $opt_days*86400;
+   if ($event_max > $event_min+$limit_seconds) {
+      $event_min = $event_max - $limit_seconds;
+   }
+}
+my $stamp_max = "1" . substr(sec2time($event_max),2,12) . "000";
+my $stamp_min = "1" . substr(sec2time($event_min),2,12) . "000";
 
 $event_dur = $event_max - $event_min;
+
+# Now we need to do the event accounting postponed until we discovered
+# the time range to be reported on - based on opt_days.
+
+foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Managed System Names
+   my $node_ref = $nodex{$f};
+   print STDERR "working on loop 0 $f " .  __LINE__ . "\n" if $opt_v == 1;
+
+   foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) { # second by situation name
+      my $situation_ref = $node_ref->{situations}{$g};
+      print STDERR "working on loop 0/situation $g " .  __LINE__ . "\n" if $opt_v == 1;
+
+      foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) { # Next by atomize value - which might be null
+         my $atomize_ref = $situation_ref->{atoms}{$h};
+         print STDERR "working on loop 0/atomize [$h] " . __LINE__ . "\n" if $opt_v == 1;
+
+          foreach my $i (sort {$a <=> $b  }   keys %{$atomize_ref->{tdetails}} ) { # by Agent Time/atomize
+             my $tdetail_ref = $atomize_ref->{tdetails}{$i};
+             if ($tdetail_ref->{tseconds} lt $stamp_min) {
+                $atomize_ref->{postdelta} = $tdetail_ref->{deltastat};
+                next;
+             }
+             print STDERR "working on loop 0/time [$i] " .  __LINE__ . "\n" if $opt_v == 1;
+             $situation_ref->{count} += 1;
+             $situation_ref->{open} += 1 if $tdetail_ref->{deltastat} eq "Y";
+             $situation_ref->{close} += 1 if $tdetail_ref->{deltastat} eq "N";
+             $situation_ref->{bad} += 1 if $tdetail_ref->{deltastat} eq "X";
+             $atomize_ref->{count} += 1;
+             $atomize_ref->{open} += 1 if $tdetail_ref->{deltastat} eq "Y";
+             $atomize_ref->{close} += 1 if $tdetail_ref->{deltastat} eq "N";
+             $atomize_ref->{bad} += 1 if $tdetail_ref->{deltastat} eq "X";
+          }
+      }
+   }
+}
+
+
+
 
 
 my $outline;
@@ -219,9 +4020,11 @@ my $outline;
 # rolled into the situation_ref hashes.
 foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Managed System Names
    my $node_ref = $nodex{$f};
+   print STDERR "working on loop 1 $f " .  __LINE__ . "\n" if $opt_v == 1;
 
    foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) { # second by situation name
       my $situation_ref = $node_ref->{situations}{$g};
+      print STDERR "working on loop 1/situation $g " .  __LINE__ . "\n" if $opt_v == 1;
       my $sx = $sitx{$g};
       my $sitatomnull = 0;
       if (!defined $sx) {
@@ -233,6 +4036,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
 
       foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) { # Next by atomize value - which might be null
          my $atomize_ref = $situation_ref->{atoms}{$h};
+         print STDERR "working on loop 1/atomize [$h] " . __LINE__ . "\n" if $opt_v == 1;
 
           # Next by detail within atomize value. key is the global time stamp concatenated
           # with the input line number from the file to create a reliable ordering while
@@ -248,15 +4052,13 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
           # DisplayItem set, but multiple identical atomize values seen
           # DisplayItem not set, but multiple results in same second
 
+           my $hi = 0;
           foreach my $i (sort {$a <=> $b  }   keys %{$atomize_ref->{adetails}} ) { # by Agent Time/atomize
              my $adetail_ref = $atomize_ref->{adetails}{$i};
-#if ($f eq "D4:107c052e:PRDGSB-TX-G2G02") {
-#if ($g eq "Fault_610") {
-#if ($h eq "0659bef7e009d41ffd2ac16ba2203351") {
-#}
-#}
-#}
-
+             $hi += 1;
+             print STDERR "working on loop 1/time [$i] $hi " .  __LINE__ . "\n" if $opt_v == 1;
+             next if $adetail_ref->{aseconds} lt $stamp_min;
+             print STDERR "working on loop 1/time [$i] $hi " .  __LINE__ . "\n" if $opt_v == 1;
              my $asecs = $adetail_ref->{aseconds};               # agent side in whole seconds
              my $akey = $adetail_ref->{aseconds} . "|" . $h;
              my $asum_ref = $situation_ref->{asecs}{$akey};   # situation summary
@@ -273,27 +4075,26 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                 $situation_ref->{asecs}{$akey} = \%asumref;
                 $asum_ref->{attrgct} = scalar keys %{$adetail_ref->{attrgs}};
              }
-             my @debugi = [__LINE__,$adetail_ref->{results},$h,$i,$adetail_ref->{l}];
-             push @{$asum_ref->{debug}},\@debugi;
-#if ($f eq "BNC000BDA756:06") {
-#if ($g eq "CONVENIO_TIEMPO_RESPUESTA") {
-#if ($asum_ref->{atom} eq "CATALOGO ESTILOS") {
-#if ($asum_ref->{aseconds} == 1180216103517000) {
-#$DB::single=2;
-#}
-#}
-#}
-#}
+             if ($opt_debug == 1) {
+                my @debugi = [__LINE__,$adetail_ref->{results},$h,$i,$adetail_ref->{l}];
+                push @{$asum_ref->{debug}},\@debugi;
+             }
              $asum_ref->{results} += $adetail_ref->{results};
              $asum_ref->{count} += 1;
           }
 
           # walk through the TEMS side of the retrieval
+          $hi = 0;
           foreach my $i ( sort {$a <=> $b} keys %{$atomize_ref->{tdetails}}) {
              my $tdetail_ref = $atomize_ref->{tdetails}{$i};
+             $hi += 1;
              if (defined $sitsx{$tdetail_ref->{thrunode}}{$g}) {
+                print STDERR "working on loop 2 before start time/time $i $hi " .  __LINE__ . "\n" if $opt_v == 1;
                 next if $tdetail_ref->{gbltmstmp} < $sitsx{$tdetail_ref->{thrunode}}{$g};
              }
+             print STDERR "working on loop 2/time $i " .  __LINE__ .  " $hi $tdetail_ref->{tseconds} $stamp_min\n" if $opt_v == 1;
+             next if $tdetail_ref->{tseconds} lt $stamp_min;
+             print STDERR "working on loop 2/time $i " .  __LINE__ . "\n" if $opt_v == 1;
              my $tsecs = $tdetail_ref->{tseconds};
              my $tkey = $tdetail_ref->{tseconds} . "|" . $h;
              my $tsum_ref = $situation_ref->{tsecs}{$tkey};  # situation summary
@@ -313,12 +4114,15 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
              }
              $tsum_ref->{results} += $tdetail_ref->{results};
              $tsum_ref->{count} += 1;
-             my @debugi = [__LINE__,$tdetail_ref->{results},$h,$i,$tdetail_ref->{l}];
-             push @{$tsum_ref->{debug}},\@debugi;
+             if ($opt_debug == 1) {
+                my @debugi = [__LINE__,$tdetail_ref->{results},$h,$i,$tdetail_ref->{l}];
+                push @{$tsum_ref->{debug}},\@debugi;
+             }
           }
 
       }
       # finished walking through all the agent and tems side data
+      print STDERR "finished loop " .  __LINE__ . "\n" if $opt_v == 1;
 
       # following logic scans summarized
       # observed atomize values in each second for agent/situation
@@ -338,16 +4142,6 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
             $sitatomnull += 1 if $situation_ref->{atomize} ne "";
          }
          next if $asum_ref->{results} <= 1; # ignore single results
-#if ($f eq "BNC000BDA756:06") {
-#if ($g eq "CONVENIO_TIEMPO_RESPUESTA") {
-#if ($asum_ref->{atom} eq "CATALOGO ESTILOS") {
-#if ($asum_ref->{aseconds} == 1180216103517000) {
-#$DB::single=2;
-#}
-#}
-#}
-#}
-         # following logic emits warning on multiple results only if
          # the results respresent a single attribute group. When a
          # situation formula is from a multi-row and a single row attribute group
          # the results will be bundled. Count is two but not a problem condition.
@@ -401,10 +4195,15 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
          }
       }
 
+      my $hi = 0;
       foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
          my $atomize_ref = $situation_ref->{atoms}{$h};
+         $hi += 1;
+         print STDERR "working on loop 3/time atom [$h] " .  __LINE__ .  " $hi\n" if $opt_v == 1;
          if ($h eq "") {
+            print STDERR "working on loop 3/atom logic " .  __LINE__ .  " $hi\n" if $opt_v == 1;
             if ($situation_ref->{reeval} != 0) {
+               print STDERR "working on loop 3/sampled sitation logic " .  __LINE__ .  " $hi\n" if $opt_v == 1;
                my $displayitem_prob = 1;
                my $displayitem_sec = 1;
                my $tems_sec = 1;
@@ -426,6 +4225,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                      last;
                   }
                }
+               print STDERR "finished multi-row checking " .  __LINE__ .  " $hi\n" if $opt_v == 1;
                if ($displayitem_prob > 1) {
                   my $pi = $displayitem_sec;
                   $advi++;$advonline[$advi] = "Situation $g on node $f showing $displayitem_prob events at same local second $pi - missing DisplayItem";
@@ -435,135 +4235,185 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                }
             }
          }
+         $hi = 0;
+         print STDERR "starting Y/N details " .  __LINE__ .  " $hi\n" if $opt_v == 1;
          # now run through the second details and track Y and N's
          my $detail_state = 1;   # wait for initial Y record
          my $detail_start;
          my $detail_end;
          my $detail_last = "";
+         my $detail_results = 0;
+         my $time_ref;
+         my $time_thrunode_ref;
+         my $time_node_ref;
+         my $time_situation_ref;
          foreach my $i (sort {$a cmp $b} keys %{$atomize_ref->{tdetails}}) {
             my $tdetail_ref = $atomize_ref->{tdetails}{$i};
-            # calculate open versus close for sampled events and thus calculate open time
-            if ($situation_ref->{reeval} == 0) {                #pure situation
-               $atomize_ref->{pure_ct} += 1;
-               $situation_ref->{pure_ct} += 1;
-            } else {                                            # sampled situation
-            if ($situation_ref->{reeval} > 0) {
-               if ($detail_state == 1) {   # waiting for Y record
-                  if ($tdetail_ref->{deltastat} eq "Y") {
-                     $detail_start = $tdetail_ref->{epoch};
-                     $atomize_ref->{sampled_ct} += 1;
-                     $situation_ref->{sampled_ct} += 1;
-                     $situation_ref->{transitions} += 1;
-                     $detail_state = 2;
-                 } elsif ($detail_last eq "N") {
-                     $tdetail_ref->{nn} += 1;          # record N followed by N
-                     $atomize_ref->{nn} += 1;
-                     $situation_ref->{nn} += 1;
-                  }
-               } elsif ($detail_state == 2) {    # waiting for N record
+            next if $tdetail_ref->{tseconds} lt $stamp_min;
+            if ($atomize_ref->{postdelta} ne "") {
+               if ($atomize_ref->{postdelta} eq "Y") {
                   if ($tdetail_ref->{deltastat} eq "N") {
-                     $detail_end = $tdetail_ref->{epoch};
-                     $tdetail_ref->{open_time} += $detail_end - $detail_start;
-                     $atomize_ref->{open_time} += $detail_end - $detail_start;
-                     $situation_ref->{open_time} += $detail_end - $detail_start;
-                     $situation_ref->{transitions} += 1;
-                     $detail_state = 1;
-                  } elsif ($detail_last eq "Y") {
-                     $tdetail_ref->{yy} += 1;          # record Y followed by Y
-                     $atomize_ref->{yy} += 1;
-                     $situation_ref->{yy} += 1;
+                     $atomize_ref->{postdelta} = "";
+                     $detail_start = $event_min;
+                     $detail_results = 1;
+                     $detail_state = 2;
                   }
                }
-               $detail_last = $tdetail_ref->{deltastat};
+               $atomize_ref->{postdelta} = "";
             }
-         }
-         if ($situation_ref->{reeval} > 0) {
-            if ($detail_last eq "Y") {
-               $atomize_ref->{open_time} += $event_max - $detail_start;
-               $situation_ref->{open_time} += $event_max - $detail_start;
-               $atomize_ref->{sampled_ct} = int($atomize_ref->{open_time}/$situation_ref->{reeval});
-               $situation_ref->{sampled_ct} = int($situation_ref->{open_time}/$situation_ref->{reeval});
+            $hi += 1;
+            print STDERR "Starting loop 4 " .  __LINE__ .  " $hi\n" if $opt_v == 1;
+
+            # prepare to capture the agent side workload on a minute by minute basis
+            # the TEMS side timing can be spread out over many seconds and
+            # doesn't reflect the initial capture.
+
+            if ($situation_ref->{reeval} == 0) {                #pure situation
+            print STDERR "Pure event loop 4 " .  __LINE__ .  " $hi\n" if $opt_v == 1;
+               $atomize_ref->{pure_ct} += 1;
+               $situation_ref->{pure_ct} += 1;
+               my $ekey = substr($tdetail_ref->{lcltmstmp},0,11) . "00";
+               setload($ekey,1,$tdetail_ref->{results},$tdetail_ref->{thrunode},$f,$g) if $opt_time == 1;
+            } else {                                            # sampled situation
+               print STDERR "Sampled event loop 4 [$i]" .  __LINE__ .  " $hi\n" if $opt_v == 1;
+               # calculate open versus close for sampled events and thus calculate open time
+               if ($situation_ref->{reeval} > 0) {
+                  if ($detail_state == 1) {   # waiting for Y record
+                     if ($tdetail_ref->{deltastat} eq "Y") {
+                        $detail_start = $tdetail_ref->{epoch};
+                        $detail_results = $tdetail_ref->{results};
+                        $atomize_ref->{sampled_ct} += 1;
+                        $situation_ref->{sampled_ct} += 1;
+                        $situation_ref->{transitions} += 1;
+                        $detail_state = 2;
+                     } elsif ($detail_last eq "N") {
+                        $tdetail_ref->{nn} += 1;          # record N followed by N, keep waiting for Y
+                        $atomize_ref->{nn} += 1;
+                        $situation_ref->{nn} += 1;
+                     }
+                  } elsif ($detail_state == 2) {    # waiting for N record
+                     if ($tdetail_ref->{deltastat} eq "N") {
+                        $detail_end = $tdetail_ref->{epoch};
+                        $tdetail_ref->{open_time} += $detail_end - $detail_start;
+                        $atomize_ref->{open_time} += $detail_end - $detail_start;
+                        $situation_ref->{open_time} += $detail_end - $detail_start;
+                        $situation_ref->{transitions} += 1;
+
+                        # estimate how many sampling intervals there were
+                        my $evals = int(($detail_end - $detail_start)/$situation_ref->{reeval}) + 1;
+                        for (my $e = 0; $e<=$evals;$e++) {
+                           my $etime = $detail_start + $e*$situation_ref->{reeval};
+                           my $ekey = "1" . substr(sec2time($etime),2,10) . "00";
+                           setload($ekey,1,$detail_results,$tdetail_ref->{thrunode},$f,$g) if $opt_time == 1;
+                        }
+                        $detail_state = 1;
+                     } elsif ($detail_last eq "Y") {
+                        $tdetail_ref->{yy} += 1;          # record Y followed by Y, keep waiting for N
+                        $atomize_ref->{yy} += 1;
+                        $situation_ref->{yy} += 1;
+                     }
+                  }
+                  $detail_last = $tdetail_ref->{deltastat};
+               }
+            }
+            if ($situation_ref->{reeval} > 0) {
+               if ($detail_last eq "Y") {
+                  $atomize_ref->{open_time} += $event_max - $detail_start;
+                  $situation_ref->{open_time} += $event_max - $detail_start;
+                  $atomize_ref->{sampled_ct} = int($atomize_ref->{open_time}/$situation_ref->{reeval});
+                  $situation_ref->{sampled_ct} = int($situation_ref->{open_time}/$situation_ref->{reeval});
+
+                  # estimate how many sampling intervals there were
+                  my $evals = int(($event_max - $detail_start)/$situation_ref->{reeval}) + 1;
+                  for (my $e = 0; $e<=$evals;$e++) {
+                     my $etime = $detail_start + $e*$situation_ref->{reeval};
+                     my $ekey = "1" . substr(sec2time($etime),2,10) . "00";
+                     setload($ekey,1,$detail_results,$tdetail_ref->{thrunode},$f,$g) if $opt_time == 1;
+                  }
+               }
             }
          }
       }
-   }
-   if ($sitatomnull > 0) {
-      if ($situation_ref->{atomize} ne "") {
-         $advi++;$advonline[$advi] = "DisplayItem [$situation_ref->{atomize}] with null atomize values situation [$g] node [$f]";
-         $advcode[$advi] = "EVENTAUDIT1009W";
-         $advimpact[$advi] = $advcx{$advcode[$advi]};
-         $advsit[$advi] = "TEMS";
+      if ($sitatomnull > 0) {
+         if ($situation_ref->{atomize} ne "") {
+            $advi++;$advonline[$advi] = "DisplayItem [$situation_ref->{atomize}] with null atomize values situation [$g] node [$f]";
+            $advcode[$advi] = "EVENTAUDIT1009W";
+            $advimpact[$advi] = $advcx{$advcode[$advi]};
+            $advsit[$advi] = "TEMS";
+         }
       }
    }
 }
-}
+print STDERR "finished loop 1" .  __LINE__ . "\n" if $opt_v == 1;
 
 my %situationx;
 
 # now summarize by situation instead of node
 foreach my $f (sort { $a cmp $b } keys %nodex ) {
 my $node_ref = $nodex{$f};
-foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
-   my $situation_ref = $node_ref->{situations}{$g};
-   my $situationx_ref = $situationx{$g};
-   if (!defined $situationx_ref) {
-      my %situationxref = (
-                             count => 0,
-                             open => 0,
-                             bad => 0,
-                             sampled_ct => 0,
-                             pure_ct => 0,
-                             close => 0,
-                             atomize => $situation_ref->{atomize},
-                             atoms => {},
-                             reeval => $situation_ref->{reeval},
-                             transitions => 0,
-                             tfwd => 0,
-                             nodes => {},
-                             nn => 0,
-                             yy => 0,
-                             time999 => {},
-                             time998 => {},
-                             ct999 => 0,
-                             ct998 => 0,
-                             node999 => {},
-                             node998 => {},
-                             atomize => "",
-                          );
-       $situationx_ref = \%situationxref;
-       $situationx{$g} = \%situationxref;
-   }
-   $situationx_ref->{count} += $situation_ref->{count};
-   $situationx_ref->{open} += $situation_ref->{open};
-   $situationx_ref->{close} += $situation_ref->{close};
-   $situationx_ref->{bad} += $situation_ref->{bad};
-   $situationx_ref->{sampled_ct} += $situation_ref->{sampled_ct};
-   $situationx_ref->{pure_ct} += $situation_ref->{pure_ct};
-   $situationx_ref->{nn} += $situation_ref->{nn};
-   $situationx_ref->{yy} += $situation_ref->{yy};
-   $situationx_ref->{transitions} += $situation_ref->{transitions};
-   $situationx_ref->{tfwd} = $situation_ref->{tfwd};
-   $situationx_ref->{atomize} = $situation_ref->{atomize};
-   $situationx_ref->{nodes}{$f} += 1;
-   foreach my $h (keys %{$situation_ref->{atoms}}) {
-      $situationx_ref->{atoms}{$h} += 1;
-   }
-   foreach my $h (keys %{$situation_ref->{time999}}) {
-      $situationx_ref->{time999}{$h} += 1;
-      $situationx_ref->{ct999} += 1;
-   }
-   foreach my $h (keys %{$situation_ref->{time998}}) {
-      $situationx_ref->{time998}{$h} += 1;
-      $situationx_ref->{ct998} += 1;
-   }
-   foreach my $h (keys %{$situation_ref->{node999}}) {
-      $situationx_ref->{node999}{$h} += 1;
-   }
-   foreach my $h (keys %{$situation_ref->{node998}}) {
-      $situationx_ref->{node998}{$h} += 1;
+   foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
+      my $situation_ref = $node_ref->{situations}{$g};
+      my $situationx_ref = $situationx{$g};
+      if (!defined $situationx_ref) {
+         my %situationxref = (
+                                count => 0,
+                                open => 0,
+                                bad => 0,
+                                sampled_ct => 0,
+                                pure_ct => 0,
+                                close => 0,
+                                atomize => $situation_ref->{atomize},
+                                atoms => {},
+                                reeval => $situation_ref->{reeval},
+                                transitions => 0,
+                                trans_rate => 0,
+                                tfwd => 0,
+                                nodes => {},
+                                nn => 0,
+                                yy => 0,
+                                time999 => {},
+                                time998 => {},
+                                ct999 => 0,
+                                ct998 => 0,
+                                node999 => {},
+                                node998 => {},
+                                atomize => "",
+                             );
+          $situationx_ref = \%situationxref;
+          $situationx{$g} = \%situationxref;
+      }
+      $situationx_ref->{count} += $situation_ref->{count};
+      $situationx_ref->{open} += $situation_ref->{open};
+      $situationx_ref->{close} += $situation_ref->{close};
+      $situationx_ref->{bad} += $situation_ref->{bad};
+      $situationx_ref->{sampled_ct} += $situation_ref->{sampled_ct};
+      $situationx_ref->{pure_ct} += $situation_ref->{pure_ct};
+      $situationx_ref->{nn} += $situation_ref->{nn};
+      $situationx_ref->{yy} += $situation_ref->{yy};
+      $situationx_ref->{transitions} += $situation_ref->{transitions};
+      $situationx_ref->{tfwd} = $situation_ref->{tfwd};
+      $situationx_ref->{atomize} = $situation_ref->{atomize};
+      $situationx_ref->{nodes}{$f} += 1;
+      foreach my $h (keys %{$situation_ref->{atoms}}) {
+         $situationx_ref->{atoms}{$h} += 1;
+      }
+      foreach my $h (keys %{$situation_ref->{time999}}) {
+         $situationx_ref->{time999}{$h} += 1;
+         $situationx_ref->{ct999} += 1;
+      }
+      foreach my $h (keys %{$situation_ref->{time998}}) {
+         $situationx_ref->{time998}{$h} += 1;
+         $situationx_ref->{ct998} += 1;
+      }
+      foreach my $h (keys %{$situation_ref->{node999}}) {
+         $situationx_ref->{node999}{$h} += 1;
+      }
+      foreach my $h (keys %{$situation_ref->{node998}}) {
+         $situationx_ref->{node998}{$h} += 1;
+      }
    }
 }
-}
+
 
 my $total_count = 0;
 my $total_open = 0;
@@ -630,13 +4480,24 @@ $hdri++;$hdr[$hdri]="Event Result History pure $total_pure $ppc/min";
 my $ppc_pure_rate = $ppc;
 
 
+# pass to calculate Transitions/Agent/Hour  rate
+my $res_pc;
+foreach $g (keys %situationx) {
+   my $situationx_ref = $situationx{$g};
+   if ($event_dur > 0) {
+      $res_rate = ($situationx_ref->{transitions}*3600)/$event_dur;
+      my $ct = scalar keys %{$situationx_ref->{nodes}};
+      $situationx_ref->{trans_rate} = $res_rate/$ct;
+   }
+}
+
+
 $rptkey = "EVENTREPORT001";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $outline = "$rptkey: Event Summary sorted by Event Status Count";
 $cnt++;$oline[$cnt]="$outline\n";
 $outline = "Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Atoms,Nodes,Transitions,Tr/hour,PDT";
 $cnt++;$oline[$cnt]="$outline\n";
-my $res_pc;
 foreach $g ( sort { $situationx{$b}->{count} <=>  $situationx{$a}->{count} }  keys %situationx) {
    my $situationx_ref = $situationx{$g};
    $outline = $g . ",";
@@ -769,6 +4630,62 @@ foreach $g ( sort { $situationx{$b}->{sampled_ct} <=>  $situationx{$a}->{sampled
    $res_rate = 0;
    $res_rate = ($situationx_ref->{transitions}*3600)/$event_dur if $event_dur > 0;
    $ppc = sprintf '%.2f', $res_rate;
+   $outline .= $ppc . ",";
+   my $ppdt = "";
+   my $sx = $sitx{$g};
+   $ppdt = $sit_pdt[$sx] if defined $sx;
+   $outline .= $ppdt . ",";
+   $cnt++;$oline[$cnt]="$outline\n";
+}
+
+$rptkey = "EVENTREPORT008";$advrptx{$rptkey} = 1;         # record report key
+$cnt++;$oline[$cnt]="\n";
+$outline = "$rptkey: Event Summary sorted by Transition Rate per Agent per Hour";
+$cnt++;$oline[$cnt]="$outline\n";
+$outline = "Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Atoms,Nodes,Transitions,Tr/Agent/Hour,PDT";
+$cnt++;$oline[$cnt]="$outline\n";
+foreach $g ( sort { $situationx{$b}->{trans_rate} <=>  $situationx{$a}->{trans_rate} }  keys %situationx) {
+   my $situationx_ref = $situationx{$g};
+   $outline = $g . ",";
+   $outline .= $situationx_ref->{count} . ",";
+   $res_pc = ($situationx_ref->{open}*100)/$total_count;
+   $ppc = sprintf '%.2f%%', $res_pc;
+   $outline .= $ppc . ",";
+   $res_rate = 0;
+   $res_rate = ($situationx_ref->{count}*60)/$event_dur if $event_dur > 0;
+   $ppc = sprintf '%.2f', $res_rate;
+   $outline .= $ppc . ",";
+   $outline .= $situationx_ref->{open} . ",";
+   $outline .= $situationx_ref->{close} . ",";
+   $outline .= $situationx_ref->{sampled_ct} . ",";
+   $ppc = "0.00%";
+   if ($total_sampled > 0) {
+      $res_pc = ($situationx_ref->{sampled_ct}*100)/$total_sampled;
+      $ppc = sprintf '%.2f%%', $res_pc;
+   }
+   $outline .= $ppc . ",";
+   $res_rate = 0;
+   $res_rate = ($situationx_ref->{sampled_ct}*60)/$event_dur if $event_dur > 0;
+   $ppc = sprintf '%.2f', $res_rate;
+   $outline .= $ppc . ",";
+   $outline .= $situationx_ref->{pure_ct} . ",";
+   $ppc = "0.00%";
+   if ($total_pure > 0) {
+      $res_pc = ($situationx_ref->{pure_ct}*100)/$total_pure;
+      $ppc = sprintf '%.2f%%', $res_pc;
+   }
+   $outline .= $ppc . ",";
+   $res_rate = 0;
+   $res_rate = ($situationx_ref->{pure_ct}*60)/$event_dur if $event_dur > 0;
+   $ppc = sprintf '%.2f', $res_rate;
+   $outline .= $ppc . ",";
+   $outline .= $situationx_ref->{atomize} . ",";
+   my $ct = scalar keys %{$situationx_ref->{atoms}};
+   $outline .= $ct . ",";
+   $ct = scalar keys %{$situationx_ref->{nodes}};
+   $outline .= $ct . ",";
+   $outline .= $situationx_ref->{transitions} . ",";
+   $ppc = sprintf '%.2f', $situationx_ref->{trans_rate};
    $outline .= $ppc . ",";
    my $ppdt = "";
    my $sx = $sitx{$g};
@@ -920,6 +4837,70 @@ if ($i eq "1180219091256999") {
    }
 }
 
+if ($opt_time == 1) {
+
+   $rptkey = "EVENTREPORT009";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Incoming workload sorted by time\n";
+   $cnt++;$oline[$cnt]="Agent_Time,Count,Results,\n";
+   foreach my $f (sort { $a <=> $b } keys %timex ) {
+      my $time_ref = $timex{$f};
+      $outline = $f . ",";
+      $outline .= $time_ref->{count} . ",";
+      $outline .= $time_ref->{results} . ",";
+      $cnt++;$oline[$cnt]="$outline\n";
+   }
+
+   $rptkey = "EVENTREPORT010";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Incoming workload sorted by Time and Thrunode\n";
+   $cnt++;$oline[$cnt]="Agent_Time,Thrunode,Count,Results,\n";
+   foreach my $f (sort { $a <=> $b } keys %timex ) {
+      my $time_ref = $timex{$f};
+      foreach my $g  (sort { $a cmp $b } keys %{$time_ref->{by_thrunode}}) {
+         my $time_thrunode_ref = $time_ref->{by_thrunode}{$g};
+         $outline = $f . ",";
+         $outline .= $g . ",";
+         $outline .= $time_thrunode_ref->{count} . ",";
+         $outline .= $time_thrunode_ref->{results} . ",";
+         $cnt++;$oline[$cnt]="$outline\n";
+      }
+   }
+
+   $rptkey = "EVENTREPORT011";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Incoming workload sorted by Time and Node\n";
+   $cnt++;$oline[$cnt]="Agent_Time,Node,Count,Results,\n";
+   foreach my $f (sort { $a <=> $b } keys %timex ) {
+      my $time_ref = $timex{$f};
+      foreach my $g  (sort { $a cmp $b } keys %{$time_ref->{by_node}}) {
+         my $time_thrunode_ref = $time_ref->{by_node}{$g};
+         $outline = $f . ",";
+         $outline .= $g . ",";
+         $outline .= $time_thrunode_ref->{count} . ",";
+         $outline .= $time_thrunode_ref->{results} . ",";
+         $cnt++;$oline[$cnt]="$outline\n";
+      }
+   }
+
+   $rptkey = "EVENTREPORT012";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Incoming workload sorted by Time and Situation\n";
+   $cnt++;$oline[$cnt]="Agent_Time,Node,Count,Results,\n";
+   foreach my $f (sort { $a <=> $b } keys %timex ) {
+      my $time_ref = $timex{$f};
+      foreach my $g  (sort { $a cmp $b } keys %{$time_ref->{by_situation}}) {
+         my $time_thrunode_ref = $time_ref->{by_situation}{$g};
+         $outline = $f . ",";
+         $outline .= $g . ",";
+         $outline .= $time_thrunode_ref->{count} . ",";
+         $outline .= $time_thrunode_ref->{results} . ",";
+         $cnt++;$oline[$cnt]="$outline\n";
+      }
+   }
+
+}
+
 if ($opt_all == 1) {
    $rptkey = "EVENTREPORT003";$advrptx{$rptkey} = 1;         # record report key
    $cnt++;$oline[$cnt]="\n";
@@ -943,14 +4924,8 @@ if ($opt_all == 1) {
                $outline .= $tdetail_ref->{results} . ",";
                $outline .= $situation_ref->{atomize} . ",";
                $outline .= $h . ",";
+               $outline .= $tdetail_ref->{l} . ",";
                $cnt++;$oline[$cnt]="$outline\n";
-#if ($g eq "BN_NT_Netscaler") {
-#if ($f eq "NetScaler:BNC000BDA419:02") {
-#if ($tdetail_ref->{lcltmstmp} == 1180216125945999) {
-#$DB::single=2;
-#}
-#}
-#}
                my @rarry = @{$tdetail_ref->{allresults}};
                if (($#rarry > 0) or  ($opt_results == 1)){
                   for (my $ri=0;$ri<= $#rarry;$ri++) {
@@ -1049,7 +5024,62 @@ if ($opt_sum != 0) {
    close(SUM);
 }
 
-exit;
+exit 0;
+
+sub setload {
+   my ($tkey,$icount,$inumres,$ithrunode,$inode,$isituation) = @_;
+   my $time_ref = $timex{$tkey};
+   if (!defined $time_ref) {
+      my %timeref = (
+                       count => 0,
+                       results => 0,
+                       by_thrunode => {},
+                       by_node => {},
+                       by_situation => {},
+                    );
+      $time_ref = \%timeref;
+      $timex{$tkey} = \%timeref;
+   }
+   $time_ref->{count} += $icount;
+   $time_ref->{results} += $inumres;
+
+   my $time_thrunode_ref = $time_ref->{by_thrunode}{$ithrunode};
+   if (!defined $time_thrunode_ref) {
+      my %time_thrunoderef = (
+                                count => 0,
+                                results => 0,
+                             );
+      $time_thrunode_ref = \%time_thrunoderef;
+      $time_ref->{by_thrunode}{$ithrunode}  = \%time_thrunoderef;
+   }
+   $time_thrunode_ref->{count} += $icount;
+   $time_thrunode_ref->{results} += $inumres;
+
+   my $time_node_ref = $time_ref->{by_node}{$inode};
+   if (!defined $time_node_ref) {
+      my %time_noderef = (
+                            count => 0,
+                            results => 0,
+                         );
+      $time_node_ref = \%time_noderef;
+      $time_ref->{by_node}{$inode}  = \%time_noderef;
+   }
+   $time_node_ref->{count} += $icount;
+   $time_node_ref->{results} += $inumres;
+
+   my $time_situation_ref = $time_ref->{by_situation}{$isituation};
+   if (!defined $time_situation_ref) {
+      my %time_situationref = (
+                                 count => 0,
+                                 results => 0,
+                              );
+      $time_situation_ref = \%time_situationref;
+      $time_ref->{by_situation}{$isituation}  = \%time_situationref;
+   }
+   $time_situation_ref->{count} += $icount;
+   $time_situation_ref->{results} += $inumres;
+}
+
 
 sub newnam {
       my ($iid,$ifullname) = @_;
@@ -1109,7 +5139,7 @@ sub newstsh {
    }
 
    # MS_Offline type situations use fake ORIGINNODEs [managed systems] and thus do not relate to
-   # true situation and so don't affect agnent related situation processing.
+   # normal situation events and so don't affect agent related situation processing.
    $sx = $sitx{$isitname};
    if (defined $sx) {
       return if index($sit_pdt[$sx],"ManagedSystem.Status") != -1;
@@ -1175,10 +5205,7 @@ sub newstsh {
    }
    # create a hash of last start time observed for this situation
    # we will ignore events recorded before that time at the TEMS.
-   $situation_ref->{count} += 1;
-   $situation_ref->{open} += 1 if $ideltastat eq "Y";
-   $situation_ref->{close} += 1 if $ideltastat eq "N";
-   $situation_ref->{bad} += 1 if $ideltastat eq "X";
+   # counting is postponed so we can ignore ancient events
    my $atomize_ref = $situation_ref->{atoms}{$iatomize};
    if (!defined $atomize_ref) {
       my %atomizeref = (
@@ -1200,6 +5227,7 @@ sub newstsh {
                           ttime_max => "",
                           nn => 0,
                           yy => 0,
+                          postdelta => "",
                        );
       $atomize_ref = \%atomizeref;
       $situation_ref->{atoms}{$iatomize} = \%atomizeref;
@@ -1219,10 +5247,7 @@ sub newstsh {
    $atomize_ref->{ttime_min} = $t_seconds if $t_seconds lt $atomize_ref->{ttime_min};
    $atomize_ref->{ttime_max} = $t_seconds if $t_seconds gt $atomize_ref->{ttime_max};
 
-   $atomize_ref->{count} += 1;
-   $atomize_ref->{open} += 1 if $ideltastat eq "Y";
-   $atomize_ref->{close} += 1 if $ideltastat eq "N";
-   $atomize_ref->{bad} += 1 if $ideltastat eq "X";
+   # counting is postponed so we can ignore ancient events
 
    # first section captures activity on the Agent. Agents know nothing
    # about events going open/closed so only work with the open status records
@@ -1284,6 +5309,7 @@ sub newstsh {
                              lcltmstmp => $ilcltmstmp,
                              thrunode => $inode,
                              tseconds => $t_seconds,
+                             aseconds => $a_seconds,
                              epoch => 0,
                              l => $ill,
                              rndx => 0,
@@ -1317,7 +5343,7 @@ sub newstsh {
             }
          }
       }
-      # Collect all results if needed later
+      # Collect all results for later usage
       if ($ideltastat eq "Y") {
          foreach my $r (@segres) {
             push @{$tdetail_ref->{allresults}},$r;
@@ -1433,6 +5459,8 @@ sub init_all {
       $read_fn = $opt_lst_tname;
       $read_fn = $opt_workpath . $opt_lst_tname if -e $opt_workpath . $opt_lst_tname;
    }
+   # perl \support\itm\bin\tems2sql.pl -txt -o -s ID -tc ID,FULLNAME  \support\itm\dat\kib.cat  QA1DNAME.DB
+
    # QA1DNAME would be missing on a remote TEMS capture
    if(open(KNAM, "< $read_fn")) {
       @knam_data = <KNAM>;
@@ -1467,6 +5495,8 @@ sub init_all {
       $read_fn = $opt_lst_tsitdesc;
       $read_fn = $opt_workpath . $opt_lst_tsitdesc if -e $opt_workpath . $opt_lst_tsitdesc;
    }
+   # perl \support\itm\bin\tems2sql.pl -txt -o -tlim 0 -s SITNAME -tc SITNAME,SITINFO,REEV_DAYS,REEV_TIME,PDT \support\itm\dat\kib.cat  QA1CSITF.DB
+
    open(KSIT, "< $read_fn") || die("Could not open TSITDESC $read_fn\n");
    @ksit_data = <KSIT>;
    close(KSIT);
@@ -1507,6 +5537,8 @@ sub init_all {
       $read_fn = $opt_lst_tsitstsh;
       $read_fn = $opt_workpath . $opt_lst_tsitstsh if -e $opt_workpath . $opt_lst_tsitstsh;
    }
+   # perl \support\itm\bin\tems2sql.pl -txt -o -tr -s SITNAME -tlim 0 -tc SITNAME,DELTASTAT,ORIGINNODE,LCLTMSTMP,GBLTMSTMP,NODE,ATOMIZE,RESULTS \support\itm\dat\kib.cat  QA1CSTSH.DB
+
    open(KSTSH, "< $read_fn") || die("Could not open TSITSTSH $read_fn\n");
    @kstsh_data = <KSTSH>;
    close(KSTSH);
@@ -1517,7 +5549,7 @@ sub init_all {
       next if $ll < 5;
       chop $oneline;
       $oneline .= " " x 200;
-#print STDERR "working on $ll\n";
+print STDERR "working on $ll\n" if $opt_v == 1;
       if ($opt_txt == 1) {
          $isitname = substr($oneline,0,32);
          $isitname =~ s/\s+$//;   #trim trailing whitespace
@@ -1537,15 +5569,25 @@ sub init_all {
          $iresults =~ s/\s+$//;   #trim trailing whitespace
       } else {
          next if substr($oneline,0,1) ne "[";                    # Look for starting point
-         ($isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$igbltmstmp,$inode,$iatomize,$iresults) = parse_lst(6,$oneline);
+         ($isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$igbltmstmp,$inode,$iatomize,$iresults) = parse_lst(8,$oneline);
          $isitname =~ s/\s+$//;   #trim trailing whitespace
          $ideltastat =~ s/\s+$//;   #trim trailing whitespace
          $ioriginnode =~ s/\s+$//;   #trim trailing whitespace
          $ilcltmstmp =~ s/\s+$//;   #trim trailing whitespace
+         $igbltmstmp =~ s/\s+$//;   #trim trailing whitespace
          $inode =~ s/\s+$//;   #trim trailing whitespace
          $iatomize =~ s/\s+$//;   #trim trailing whitespace
+         $iresults =~ s/\s+$//;   #trim trailing whitespace
       }
       next if ($ideltastat ne 'Y') and ($ideltastat ne 'N') and ($ideltastat ne 'X') and ($ideltastat ne 'S');
+
+      # Squeeze out ending blanks in attribute results to report optics
+      # And convert tabs, carriage returns, and linefeeds into symbolics
+      # to avoid having reports display strangely by creating multiple lines.
+      $iresults =~ s/[ ]*;/;/g;
+      $iresults =~ s/\x09/\\t/g;
+      $iresults =~ s/\x0A/\\n/g;
+      $iresults =~ s/\x0D/\\r/g;
       newstsh($ll,$isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$igbltmstmp,$inode,$iatomize,$iresults);
    }
 
@@ -1571,11 +5613,19 @@ sub init {
       } elsif ($ARGV[0] eq "-lst") {
          $opt_lst = 1;
          shift(@ARGV);
+         if (defined $ARGV[0]) {
+            if (substr($ARGV[0],0,1) ne "-") {
+               $opt_lst_tems = shift(@ARGV);
+            }
+         }
       } elsif ($ARGV[0] eq "-all") {
          $opt_all = 1;
          shift(@ARGV);
       } elsif ($ARGV[0] eq "-results") {
          $opt_results = 1;
+         shift(@ARGV);
+      } elsif ($ARGV[0] eq "-time") {
+         $opt_time = 1;
          shift(@ARGV);
       } elsif ($ARGV[0] eq "-sum") {
          $opt_sum = 1;
@@ -1602,6 +5652,10 @@ sub init {
          shift(@ARGV);
          $opt_o = shift(@ARGV);
          die "-o output specified but no file found\n" if !defined $opt_o;
+      } elsif ($ARGV[0] eq "-days") {
+         shift(@ARGV);
+         $opt_days = shift(@ARGV);
+         die "-days but no number found\n" if !defined $opt_days;
       } elsif ($ARGV[0] eq "-tsitstsh") {
          shift(@ARGV);
          $opt_tsitstsh = shift(@ARGV);
@@ -1626,6 +5680,7 @@ sub init {
    if (!defined $opt_v) {$opt_v = 0;}
    if (!defined $opt_nohdr) {$opt_nohdr = 0;}
    if (!defined $opt_o) {$opt_o = "eventaud.csv";}
+   if (!defined $opt_days) {$opt_days = 7;}
    if (!defined $opt_odir) {$opt_odir = "";}
 
    if (!defined $opt_workpath) {
@@ -1651,6 +5706,7 @@ sub init {
    if (!defined $opt_debug) {$opt_debug=0;}                    # debug - turn on rare error cases
    if (!defined $opt_all) {$opt_all=1;}                       # initial testing show all details
    if (!defined $opt_results) {$opt_results=0;}               # initial testing show all results
+   if (!defined $opt_time) {$opt_time=0;}               # initial testing show all results
 
    if (defined $opt_txt) {
       $opt_txt_tsitdesc = "QA1CSITF.DB.TXT";
@@ -1659,10 +5715,15 @@ sub init {
       $opt_txt_tname = "QA1DNAME.DB.TXT";
    }
    if (defined $opt_lst) {
-      $opt_lst_tsitdesc = "QA1CSITF.DB.LST";
-      $opt_lst_tsitstsh = "QA1CSTSH.DB.LST";
-      $opt_lst_tsitstsh = $opt_tsitstsh if defined $opt_tsitstsh;
-      $opt_lst_tname = "QA1DNAME.DB.LST";
+      $opt_lst_tsitdesc = "HUB.TSITDESC.LST" if !defined $opt_lst_tsitdesc;
+      $opt_lst_tname = "HUB.TNAME.LST" if !defined $opt_lst_tname;
+      if (!defined $opt_lst_tsitstsh) {
+         if ($opt_lst_tems eq "") {
+            $opt_lst_tsitstsh = "HUB.TSITSTSH.LST";
+         } else {
+            $opt_lst_tsitstsh = $opt_lst_tems . ".TSITSTSH.LST";
+         }
+      }
    }
 
 
@@ -1699,6 +5760,9 @@ sub init {
             if ($words[0] eq "log") {$opt_log = $words[1];}
             elsif ($words[0] eq "o") {$opt_o = $words[1];}
             elsif ($words[0] eq "workpath") {$opt_workpath = $words[1];}
+            elsif ($words[0] eq "lst_tsitdesc") {$opt_lst_tsitdesc = $words[1];}
+            elsif ($words[0] eq "lst_tname") {$opt_lst_tname = $words[1];}
+            elsif ($words[0] eq "lst_tsitstsh") {$opt_lst_tsitstsh = $words[1];$opt_lst_tems = "";}
             elsif (substr($uword,0,10) eq "EVENTAUDIT"){
                die "unknown advisory code $words[0]" if !defined $advcx{$uword};
                die "Advisory code $words[0] with no advisory impact" if !defined $words[1];
@@ -1883,6 +5947,8 @@ sub get_epoch {
 # 1.09000  : Split 1012 into 1012/1015 Pure/Sampled
 #          : Ignore event history prior to most recent situation start per thrunode
 #          : Update Report explanations
+# 1.10000  : Add time based summary reports on incoming workload - needs -time option
+#            Add report008 sorted in reverse by Transitions/Agent/Hour
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -2258,27 +6324,7 @@ is different from EVENTREPORT002 by estimating incoming results. A single
 situation open event will result in multiple results since the agent periodically
 resends result rows in order to "confirm" the condition is still true.
 
-
-Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Nodes,Transitions,Tr/hour,PDT
-
-Situation    : Situation Name. This can be the name index in case TNAME Fullname is used
-Count        : Number of situation results
-Count%       : Per Cent of total situation results
-Count/min    : Rate per minute of situation results
-Open         : Number of Open events
-Close        : Number of Close events
-Sampled      : Number of sampled results
-Sampled%     : Per Cent of sampled results
-Sampled/min  : Rare of sampled results
-Pure         : Number of pure results
-Pure%        : Per Cent of pure results
-Pure/min     : Rate of pure result
-Atomize      : Number of different Atomize values
-Atoms        : Count of different atomize values
-Nodes        : Number of reporting nodes [agents]
-Transitions  : Transitions from one open/close to another
-Tr/hour      : Rate of transitions per hour
-PDT          : Situation Formula [predicate]
+See EVENTREPORT001 for definitions of the Columns
 
 There are major savings to be had be reducing the number of incoming
 situation results at a remote TEMS. The benefit is mostly at the
@@ -2407,4 +6453,77 @@ decide what the DisplayItem should be.
 
 Recovery plan: Correct the situaton so results transform into
 individual situation events with proper use of DisplayItem.
+----------------------------------------------------------------
+
+EVENTREPORT008
+Text: Event Summary sorted by Transitions
+
+Sample:
+Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Atoms,Nodes,Transitions,Tr/hour,PDT
+boi_logscrp_g06c_win,5549,75.17%,69.18,5533,16,145,0.66%,1.81,0,0.00%,0.00,,1,14,31,23.19,*IF *VALUE K06_LOGFILEMONITOR_SCRIPT.RC *NE '17' *UNTIL ( *TTL 0:00:05:00 ),
+boi_prcmis_xuxc_ctrlmsprc,222,1.47%,2.77,108,114,4816,21.82%,60.04,0,0.00%,0.00,UNIXPS.UCOMMAND,6,2,216,161.56,*IF *MISSING Process.Process_Command_U *EQ ('*p_ctmsu*','*p_ctmrt*','*p_ctmns*','*p_ctmtr*','*p_ctmwd*','*p_ctmca*') *UNTIL ( *TTL 0:00:05:00 ),
+
+Meaning: Report what situation created the most situation events
+
+Sorted in reverse number by the number of status transitions status. This means
+Open [Y] to Close [N] or  Close[N] to Open [Y]. The goal is to identify situation
+experiencing many open/close/open/close sequences. Those cases are wasteful and
+violate the ITM goal that situation events be rare and exceptional and repairable.
+
+See EVENTREPORT001 for definitions of the Columns
+
+Recovery plan:  Review report and improve TEMS efficiency by eliminating
+or redesigning the situation workloads.
+----------------------------------------------------------------
+
+EVENTREPORT009
+Text: Incoming workload sorted by time
+
+Sample:
+no be added
+
+Meaning: Detailed report on counts and result rows overall by time
+
+Needs the -time option to be produced. Rather a lot of output.
+
+Recovery plan:  Used to research workload in depth.
+----------------------------------------------------------------
+
+EVENTREPORT010
+Text: Incoming workload sorted by Time and Thrunode
+
+Sample:
+no be added
+
+Meaning: Detailed report on counts and result rows overall by time
+
+Needs the -time option to be produced. Rather a lot of output.
+
+Recovery plan:  Used to research workload in depth.
+----------------------------------------------------------------
+
+EVENTREPORT011
+Text: Incoming workload sorted by Time and Node
+
+Sample:
+no be added
+
+Meaning: Detailed report on counts and result rows overall by time
+
+Needs the -time option to be produced. Rather a lot of output.
+
+Recovery plan:  Used to research workload in depth.
+----------------------------------------------------------------
+
+EVENTREPORT012
+Text: Incoming workload sorted by Time and Situation
+
+Sample:
+no be added
+
+Meaning: Detailed report on counts and result rows overall by time
+
+Needs the -time option to be produced. Rather a lot of output.
+
+Recovery plan:  Used to research workload in depth.
 ----------------------------------------------------------------
