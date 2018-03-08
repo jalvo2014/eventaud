@@ -30,6 +30,7 @@ my $gVersion = "1.10000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
+use Time::Local;
 
 # a collection of variables which are used throughout the program.
 # defined globally
@@ -5926,7 +5927,7 @@ sub get_epoch {
       my $yday = 0;
       $iyy += 100;
       $imo -= 1;
-      $unixtime = mktime ($iss, $imm, $ihh, $idd, $imo, $iyy, $wday, $yday);
+      $unixtime = timegm ($iss, $imm, $ihh, $idd, $imo, $iyy);
    }
    return $unixtime;
 }
