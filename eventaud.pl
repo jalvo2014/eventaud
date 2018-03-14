@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.11000";
+my $gVersion = "1.12000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -83,6 +83,7 @@ sub sec2time;
 sub setload;                             # account for workload by time
 sub setbudget;                            # account for workload by time
 
+my %advsitx;
 
 my $full_logfn;
 my $logfn;
@@ -130,10 +131,9 @@ my $opt_tsitstsh;               # name of TSITSTSH file
 my $opt_odir;                   # Directory for output file
 my $opt_workpath;               # Directory to store output files
 my $opt_syntax;                 # syntax tracing
-my $opt_all;                    # dump all details
 my $opt_sum;                    # When 1 create summary file
 my $opt_nohdr;                  # skip printing header
-my $opt_results;                # when 1 add in all results to each all line report
+my $opt_allresults;                # when 1 show maximum detail report
 my $opt_time;                   # when 1 add in all results to each all line report
 my $opt_days;                   # How many days to look backward, default 2 days
 
@@ -145,6 +145,7 @@ my %budget_situationx;
 my $budget_total_ref;
 my $total_key = "_total_";
 my $budget_situation_ref;
+my $irowsize;
 
 my %budget_thrunodex;
 my $budget_thrunode_ref;
@@ -3009,6 +3010,7 @@ my %htabsize = (
    'QMQ_LH'      => '720',
    'QMQ_QU_ST'   => '364',
    'QMLHTM'      => '436',
+   'QMQUEUES' => '844',
    'KQITACMF'    => '1792',
    'KQITACND'    => '2008',
    'KQITACTH'    => '1652',
@@ -3944,7 +3946,13 @@ my %htabsize = (
    'KNONCOECNE'  => '164',
    'KNONCOECNG'  => '268',
    'KNOTHPLST'   => '132',
+   'LNXFILE'       => '3580',
 );
+
+# current search list
+# KUDAGINF
+
+my %newtabsizex;
 
 my $advi = -1;                  # capture advisories
 my @advonline = ();
@@ -4075,6 +4083,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
          $advcode[$advi] = "EVENTAUDIT1001W";
          $advimpact[$advi] = $advcx{$advcode[$advi]};
          $advsit[$advi] = "TEMS";
+         $advsitx{$g} = 1;
       }
 
       foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) { # Next by atomize value - which might be null
@@ -4135,7 +4144,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
              # a certain number per second.
              setbudget($g,$adetail_ref->{thrunode},$f,$adetail_ref->{table});
              my $imiss = $adetail_ref->{results} - 1;
-             my $irowsize = $budget_situation_ref->{rowsize};
+             $irowsize = $budget_situation_ref->{rowsize};
              $budget_total_ref->{results} += $adetail_ref->{results};
              $budget_situation_ref->{results} += $adetail_ref->{results};
              $budget_thrunode_ref->{results} += $adetail_ref->{results};
@@ -4224,7 +4233,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
          # situation formula is from a multi-row and a single row attribute group
          # the results will be bundled. Count is two but not a problem condition.
          if ($asum_ref->{attrgct} == 1) {
-            my $irowsize = 500;
+            $irowsize = 500;
+            $newtabsizex{$asum_ref->{table}} += 1 if !defined $htabsize{$asum_ref->{table}};
             $irowsize = $htabsize{$asum_ref->{table}} if defined $htabsize{$asum_ref->{table}};
             if ($situation_ref->{atomize} ne "") {
                # budget calculation for null DisplayItem case
@@ -4243,11 +4253,13 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                   $advcode[$advi] = "EVENTAUDIT1010W";
                   $advimpact[$advi] = $advcx{$advcode[$advi]};
                   $advsit[$advi] = "TEMS";
+                  $advsitx{$g} = 1;
                } else {                             # sampled situation
                   $advi++;$advonline[$advi] = "Sampled situation [$g] node [$f] duplicate atomize [$asum_ref->{atom}] DisplayItem [$situation_ref->{atomize}] $nt times at local second $h";
                   $advcode[$advi] = "EVENTAUDIT1011W";
                   $advimpact[$advi] = $advcx{$advcode[$advi]};
                   $advsit[$advi] = "TEMS";
+                  $advsitx{$g} = 1;
                }
             }
             if ($situation_ref->{atomize} eq "") {
@@ -4266,11 +4278,13 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                   $advcode[$advi] = "EVENTAUDIT1012W";
                   $advimpact[$advi] = $advcx{$advcode[$advi]};
                   $advsit[$advi] = "TEMS";
+                  $advsitx{$g} = 1;
                } else {                             # sampled situation
                   $advi++;$advonline[$advi] = "Sampled Situation [$g] node [$f] multiple results [$asum_ref->{results}] at local second $h - but no DisplayItem set";
                   $advcode[$advi] = "EVENTAUDIT1015W";
                   $advimpact[$advi] = $advcx{$advcode[$advi]};
                   $advsit[$advi] = "TEMS";
+                  $advsitx{$g} = 1;
                }
             }
          }
@@ -4282,7 +4296,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
          next if $tsum_ref->{results} <= 1; # ignore single results
          if ($situation_ref->{atomize} ne "") {
             setbudget($g,$tsum_ref->{thrunode},$f,$tsum_ref->{table});
-            my $irowsize = 500;
+            $irowsize = 500;
+            $newtabsizex{$tsum_ref->{table}} += 1 if !defined $htabsize{$tsum_ref->{table}};
             $irowsize = $htabsize{$tsum_ref->{table}} if defined $htabsize{$tsum_ref->{table}};
             $budget_total_ref->{pure_merge} += $tsum_ref->{results};
             $budget_situation_ref->{pure_merge} += $tsum_ref->{results};
@@ -4301,6 +4316,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                $advcode[$advi] = "EVENTAUDIT1013W";
                $advimpact[$advi] = $advcx{$advcode[$advi]};
                $advsit[$advi] = "TEMS";
+               $advsitx{$g} = 1;
             }
          }
       }
@@ -4342,6 +4358,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                   $advcode[$advi] = "EVENTAUDIT1002E";
                   $advimpact[$advi] = $advcx{$advcode[$advi]};
                   $advsit[$advi] = "TEMS";
+                  $advsitx{$g} = 1;
                }
             }
          }
@@ -4379,6 +4396,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
             # doesn't reflect the initial capture.
 
             setbudget($g,$tdetail_ref->{thrunode},$f,$tdetail_ref->{table});
+            $budget_situation_ref->{bad} += 1 if $tdetail_ref->{deltastat} eq "X";
+            $irowsize = $budget_situation_ref->{rowsize};
             if ($situation_ref->{reeval} == 0) {                #pure situation
             print STDERR "Pure event loop 4 " .  __LINE__ .  " $hi\n" if $opt_v == 1;
                $atomize_ref->{pure_ct} += 1;
@@ -4417,6 +4436,10 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                         $tdetail_ref->{nn} += 1;          # record N followed by N, keep waiting for Y
                         $atomize_ref->{nn} += 1;
                         $situation_ref->{nn} += 1;
+                        $budget_total_ref->{yy} += 1;
+                        $budget_situation_ref->{yy} += 1;
+                        $budget_thrunode_ref->{yy} += 1;
+                        $budget_node_ref->{yy} += 1;
                      }
                   } elsif ($detail_state == 2) {    # waiting for N record
                      if ($tdetail_ref->{deltastat} eq "N") {
@@ -4425,6 +4448,10 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                         $atomize_ref->{open_time} += $detail_end - $detail_start;
                         $situation_ref->{open_time} += $detail_end - $detail_start;
                         $situation_ref->{transitions} += 1;
+                        $budget_total_ref->{event} += 1;
+                        $budget_situation_ref->{event} += 1;
+                        $budget_thrunode_ref->{event} += 1;
+                        $budget_node_ref->{event} += 1;
                         $budget_total_ref->{transitions} += 1;
                         $budget_situation_ref->{transitions} += 1;
                         $budget_thrunode_ref->{transitions} += 1;
@@ -4437,7 +4464,6 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                            my $ekey = "1" . substr(sec2time($etime),2,10) . "00";
                            setload($ekey,1,$detail_results,$tdetail_ref->{thrunode},$f,$g) if $opt_time == 1;
                         }
-                        my $irowsize = $budget_situation_ref->{rowsize};
                         $budget_total_ref->{samp_confirm} += $evals;
                         $budget_situation_ref->{samp_confirm} += $evals;
                         $budget_thrunode_ref->{samp_confirm} += $evals;
@@ -4459,6 +4485,10 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                         $tdetail_ref->{yy} += 1;          # record Y followed by Y, keep waiting for N
                         $atomize_ref->{yy} += 1;
                         $situation_ref->{yy} += 1;
+                        $budget_total_ref->{nn} += 1;
+                        $budget_situation_ref->{nn} += 1;
+                        $budget_thrunode_ref->{nn} += 1;
+                        $budget_node_ref->{nn} += 1;
                      }
                   }
                   $detail_last = $tdetail_ref->{deltastat};
@@ -4473,6 +4503,22 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
 
                   # estimate how many sampling intervals there were
                   my $evals = int(($event_max - $detail_start)/$situation_ref->{reeval}) + 1;
+                  $budget_total_ref->{samp_confirm} += $evals;
+                  $budget_situation_ref->{samp_confirm} += $evals;
+                  $budget_thrunode_ref->{samp_confirm} += $evals;
+                  $budget_node_ref->{samp_confirm} += $evals;
+                  $budget_total_ref->{samp_confirm_bytes} += $evals * $irowsize;
+                  $budget_situation_ref->{samp_confirm_bytes} += $evals * $irowsize;
+                  $budget_thrunode_ref->{samp_confirm_bytes} += $evals * $irowsize;
+                  $budget_node_ref->{samp_confirm_bytes} += $evals * $irowsize;
+                  $budget_total_ref->{results} += $evals;
+                  $budget_situation_ref->{results} += $evals;
+                  $budget_thrunode_ref->{results} += $evals;
+                  $budget_node_ref->{results} += $evals;
+                  $budget_total_ref->{result_bytes} += $evals * $irowsize;
+                  $budget_situation_ref->{result_bytes} += $evals * $irowsize;
+                  $budget_thrunode_ref->{result_bytes} += $evals * $irowsize;
+                  $budget_node_ref->{result_bytes} += $evals * $irowsize;
                   for (my $e = 0; $e<=$evals;$e++) {
                      my $etime = $detail_start + $e*$situation_ref->{reeval};
                      my $ekey = "1" . substr(sec2time($etime),2,10) . "00";
@@ -4488,6 +4534,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
             $advcode[$advi] = "EVENTAUDIT1009W";
             $advimpact[$advi] = $advcx{$advcode[$advi]};
             $advsit[$advi] = "TEMS";
+            $advsitx{$g} = 1;
          }
       }
    }
@@ -4588,44 +4635,39 @@ $total_sampled += $situationx_ref->{sampled_ct};
 
 $rptkey = "EVENTREPORT000";$advrptx{$rptkey} = 1;         # record report key
 $hdri++;$hdr[$hdri]="$rptkey: Event/Result Summary Budget Report";
-$hdri++;$hdr[$hdri]="Duration $event_dur Seconds";
+$hdri++;$hdr[$hdri]="Duration: $event_dur Seconds";
 $res_rate = ($budget_total_ref->{event}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Total Events = $budget_total_ref->{event} $ppc/min";
+$hdri++;$hdr[$hdri]="Total Open/Close Events: $budget_total_ref->{event} $ppc/min";
 $res_rate = ($budget_total_ref->{results}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Total Results = $budget_total_ref->{results} $ppc/min";
+$hdri++;$hdr[$hdri]="Total Results: $budget_total_ref->{results} $ppc/min";
 my $ppc_event_rate = $ppc;
 
-$res_rate = ($budget_total_ref->{result_bytes}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-my $worry_rate = ($res_rate*100)/500000;
+$res_rate = ($budget_total_ref->{result_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
+my $worry_rate = ($res_rate*100)/500;
 my $wpc = sprintf '%.2f%%', $worry_rate;
 
-$hdri++;$hdr[$hdri]="Total Result Bytes = $budget_total_ref->{result_bytes} $ppc/min Worry[$wpc]";
+$hdri++;$hdr[$hdri]="Total Result Bytes: $budget_total_ref->{result_bytes} $ppc K/min Worry[$wpc]";
 my $ppc_result_rate = $ppc;
 my $ppc_worry_pc = $wpc;
 
-$res_rate = ($budget_total_ref->{miss}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Miss DisplayItem = $budget_total_ref->{miss} $ppc/min";
-$res_rate = ($budget_total_ref->{miss_bytes}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Miss DisplayItem Bytes = $budget_total_ref->{miss_bytes} $ppc/min";
-$res_rate = ($budget_total_ref->{dup}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Duplicate DisplayItem = $budget_total_ref->{dup} $ppc/min";
-$res_rate = ($budget_total_ref->{dup_bytes}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Duplicate DisplayItem Bytes = $budget_total_ref->{dup_bytes} $ppc/min";
-$res_rate = ($budget_total_ref->{null}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Null DisplayItem = $budget_total_ref->{null} $ppc/min";
-$res_rate = ($budget_total_ref->{null_bytes}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Null DisplayItem Bytes = $budget_total_ref->{null_bytes} $ppc/min";
-$res_rate = ($budget_total_ref->{pure_merge}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Pure Merged Results = $budget_total_ref->{pure_merge} $ppc/min";
-$res_rate = ($budget_total_ref->{pure_merge_bytes}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Pure Merged Results Bytes = $budget_total_ref->{pure_merge_bytes} $ppc/min";
 $res_rate = ($budget_total_ref->{samp_confirm}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Sampled Results Confirm = $budget_total_ref->{samp_confirm} $ppc/min";
+$hdri++;$hdr[$hdri]="Sampled Results Confirm: $budget_total_ref->{samp_confirm} $ppc/min";
 my $ppc_confirm_rate = $ppc;
 
-$res_rate = ($budget_total_ref->{samp_confirm_bytes}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
+$res_rate = ($budget_total_ref->{samp_confirm_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 my $pcrate = ($budget_total_ref->{samp_confirm_bytes}*100)/$budget_total_ref->{result_bytes} if $budget_total_ref->{result_bytes} > 0;my $prpc = sprintf '%.2f', $pcrate;
-$hdri++;$hdr[$hdri]="Sampled Results Confirm Bytes = $budget_total_ref->{samp_confirm_bytes} $ppc/min, $prpc% of total results";
+$hdri++;$hdr[$hdri]="Sampled Results Confirm Bytes: $budget_total_ref->{samp_confirm_bytes} $ppc K/min, $prpc% of total results";
+
+$res_rate = ($budget_total_ref->{miss}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
+$hdri++;$hdr[$hdri]="Miss DisplayItem: $budget_total_ref->{miss} $ppc/min";
+$res_rate = ($budget_total_ref->{dup}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
+$hdri++;$hdr[$hdri]="Duplicate DisplayItem: $budget_total_ref->{dup} $ppc/min";
+$res_rate = ($budget_total_ref->{dup_bytes}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
+$hdri++;$hdr[$hdri]="Null DisplayItem: $budget_total_ref->{null} $ppc/min";
+$res_rate = ($budget_total_ref->{pure_merge}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
+$hdri++;$hdr[$hdri]="Pure Merged Results: $budget_total_ref->{pure_merge} $ppc/min";
+$hdri++;$hdr[$hdri]="Open/Open transitions: $budget_total_ref->{yy}";
+$hdri++;$hdr[$hdri]="Close/Close transitions: $budget_total_ref->{nn}";
 
 # pass to calculate Transitions/Agent/Hour  rate
 # goal is to identify situations with many transitions, indicate
@@ -4749,6 +4791,7 @@ foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situati
       $advcode[$advi] = "EVENTAUDIT1003W";
       $advimpact[$advi] = $advcx{$advcode[$advi]};
       $advsit[$advi] = "TEMS";
+      $advsitx{$g} = 1;
    }
    if ($situation_ref->{tfwd} ne "") {   # is this event forwarded
       if ($sit_forwarded > 0) {          # are any events forwarded
@@ -4757,6 +4800,7 @@ foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situati
             $advcode[$advi] = "EVENTAUDIT1004W";
             $advimpact[$advi] = $advcx{$advcode[$advi]};
             $advsit[$advi] = "TEMS";
+            $advsitx{$g} = 1;
          }
       }
    }
@@ -4765,12 +4809,14 @@ foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situati
       $advcode[$advi] = "EVENTAUDIT1005W";
       $advimpact[$advi] = $advcx{$advcode[$advi]};
       $advsit[$advi] = "TEMS";
+      $advsitx{$g} = 1;
    }
    if ($situation_ref->{nn} > 0) {
       $advi++;$advonline[$advi] = "Situation $g showing $situation_ref->{nn} close->close transitions over $node_ct agents";
       $advcode[$advi] = "EVENTAUDIT1006W";
       $advimpact[$advi] = $advcx{$advcode[$advi]};
       $advsit[$advi] = "TEMS";
+      $advsitx{$g} = 1;
    }
 }
 
@@ -4852,11 +4898,6 @@ foreach my $f (sort { $budget_nodex{$b}->{result_bytes} <=> $budget_nodex{$a}->{
    $cnt++;$oline[$cnt]="$outline\n";
 }
 
-
-
-
-
-
 my $node999_total = 0;
 my $time999_total = 0;
 
@@ -4919,13 +4960,14 @@ $outline = "Situation,Count,";
 $cnt++;$oline[$cnt]="$outline\n";
 my $bad_ct = 0;
 my $bad_total = 0;
-foreach $g ( sort { $situationx{$b}->{ct998} <=> $situationx{$a}->{ct998}}  keys %situationx) {
-   my $situation_ref = $situationx{$g};
-   next if $situation_ref->{bad} == 0;
+foreach $g ( sort { $a cmp $b}  keys %budget_situationx) {
+   my $budget_situation_ref = $budget_situationx{$g};
+   next if $g eq "_total_";
+   next if $budget_situation_ref->{bad} == 0;
    $bad_ct += 1;
-   $bad_total +=  $situation_ref->{bad};
+   $bad_total +=  $budget_situation_ref->{bad};
    $outline = $g . ",";
-   $outline .= $situation_ref->{bad} . ",";
+   $outline .= $budget_situation_ref->{bad} . ",";
    $cnt++;$oline[$cnt]="$outline\n";
 }
 
@@ -4935,6 +4977,7 @@ if ($bad_ct > 0) {
    $advimpact[$advi] = $advcx{$advcode[$advi]};
    $advsit[$advi] = "TEMS";
 }
+
 
 
 if ($opt_time == 1) {
@@ -5045,50 +5088,67 @@ if ($opt_time == 1) {
 #   }
 #}
 
-
-
-if ($opt_all == 1) {
-   $rptkey = "EVENTREPORT999";$advrptx{$rptkey} = 1;         # record report key
+my $newtabsize_ct = scalar keys %newtabsizex;
+if ($newtabsize_ct > 0) {
+   $rptkey = "EVENTREPORT008";$advrptx{$rptkey} = 1;         # record report key
    $cnt++;$oline[$cnt]="\n";
-   $cnt++;$oline[$cnt]="$rptkey: Full report sorted by Node/Situation/Time\n";
-   $cnt++;$oline[$cnt]="Situation,Node,Thrunode,Agent_Time,TEMS_Time,Deltastat,Reeval,Results,Atomize,DisplayItem\n";
-   foreach my $f (sort { $a cmp $b } keys %nodex ) {
-      my $node_ref = $nodex{$f};
-      foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
-         my $situation_ref = $node_ref->{situations}{$g};
-         my $sx = $sitx{$g};
-         foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
-         my $atomize_ref = $situation_ref->{atoms}{$h};
-            foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{tdetails}}) {
-               my $tdetail_ref = $atomize_ref->{tdetails}{$i};
-               $outline = $g . ",";
-               $outline .= $f . ",";
-               $outline .= $tdetail_ref->{thrunode} . ",";
-               $outline .= $tdetail_ref->{lcltmstmp} . ",";
-               $outline .= $tdetail_ref->{gbltmstmp} . ",";
-               $outline .= $tdetail_ref->{deltastat} . ",";
-               $outline .= $situation_ref->{reeval} . ",";
-               $outline .= $tdetail_ref->{results} . ",";
-               $outline .= $situation_ref->{atomize} . ",";
-               $outline .= $h . ",";
-               $outline .= $tdetail_ref->{l} . ",";
-               $outline .= $sit_pdt[$sx] . "," if defined $sx;
-               $cnt++;$oline[$cnt]="$outline\n";
-               my @rarry = @{$tdetail_ref->{allresults}};
-               if (($#rarry > 0) or  ($opt_results == 1)){
-                  for (my $ri=0;$ri<= $#rarry;$ri++) {
-                     my $rc = $ri + 1;
-                     if (substr($rarry[$ri],0,1) eq "*") {
-                        my $div_point = index($rarry[$ri],";");
-                        $outline = ",,,,,,,P,";
-                        $outline .= substr($rarry[$ri],0,$div_point) . ",";
-                        $cnt++;$oline[$cnt]="$outline\n";
-                        $rarry[$ri] = substr($rarry[$ri],$div_point+1);
-                     }
-                     $outline = ",,,,,,," . $ri . ",";
-                     $outline .= $rarry[$ri] . ",";
+   $cnt++;$oline[$cnt]="$rptkey: List of estimated table sizes\n";
+   $cnt++;$oline[$cnt]="Table,Count,\n";
+   foreach my $f (sort { $a cmp $b } keys %newtabsizex ) {
+      $outline = $f . ",";
+      $outline .= $newtabsizex{$f} . ",";
+      $cnt++;$oline[$cnt]="$outline\n";
+   }
+}
+
+
+
+$rptkey = "EVENTREPORT999";$advrptx{$rptkey} = 1;         # record report key
+$cnt++;$oline[$cnt]="\n";
+my $ititle = "Detailed report sorted by Node/Situation/Time - for situations recorded in Advisories";
+$ititle = "Full report sorted by Node/Situation/Time" if $opt_allresults == 1;
+
+$cnt++;$oline[$cnt]="$rptkey: $ititle\n";
+$cnt++;$oline[$cnt]="Situation,Node,Thrunode,Agent_Time,TEMS_Time,Deltastat,Reeval,Results,Atomize,DisplayItem\n";
+foreach my $f (sort { $a cmp $b } keys %nodex ) {
+   my $node_ref = $nodex{$f};
+   foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
+      my $situation_ref = $node_ref->{situations}{$g};
+      if ($opt_allresults == 0) {
+         next if !defined $advsitx{$g};
+      }
+      my $sx = $sitx{$g};
+      foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
+      my $atomize_ref = $situation_ref->{atoms}{$h};
+         foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{tdetails}}) {
+            my $tdetail_ref = $atomize_ref->{tdetails}{$i};
+            $outline = $g . ",";
+            $outline .= $f . ",";
+            $outline .= $tdetail_ref->{thrunode} . ",";
+            $outline .= $tdetail_ref->{lcltmstmp} . ",";
+            $outline .= $tdetail_ref->{gbltmstmp} . ",";
+            $outline .= $tdetail_ref->{deltastat} . ",";
+            $outline .= $situation_ref->{reeval} . ",";
+            $outline .= $tdetail_ref->{results} . ",";
+            $outline .= $situation_ref->{atomize} . ",";
+            $outline .= $h . ",";
+            $outline .= $tdetail_ref->{l} . ",";
+            $outline .= $sit_pdt[$sx] . "," if defined $sx;
+            $cnt++;$oline[$cnt]="$outline\n";
+            my @rarry = @{$tdetail_ref->{allresults}};
+            if (($#rarry > 0) or  ($opt_allresults == 1)){
+               for (my $ri=0;$ri<= $#rarry;$ri++) {
+                  my $rc = $ri + 1;
+                  if (substr($rarry[$ri],0,1) eq "*") {
+                     my $div_point = index($rarry[$ri],";");
+                     $outline = ",,,,,,,P,";
+                     $outline .= substr($rarry[$ri],0,$div_point) . ",";
                      $cnt++;$oline[$cnt]="$outline\n";
+                     $rarry[$ri] = substr($rarry[$ri],$div_point+1);
                   }
+                  $outline = ",,,,,,," . $ri . ",";
+                  $outline .= $rarry[$ri] . ",";
+                  $cnt++;$oline[$cnt]="$outline\n";
                }
             }
          }
@@ -5291,6 +5351,7 @@ sub setbudget {
                                    nodes => {},
                                    yy => 0,
                                    nn => 0,
+                                   bad => 0,
                                 );
       $budget_situation_ref = \%budget_situationref;
       $budget_situationx{$isitname} = \%budget_situationref;
@@ -5583,6 +5644,7 @@ sub newstsh {
 
    # second section captures activity at the TEMS, where Open and Close [Y/N] are determined
    if (($ideltastat eq "N")  or                                     # Handle event sitaution close
+       ($ideltastat eq "X")  or                                     # Handle event sitaution problem
        (($ideltastat eq "Y") and (substr($iresults,0,1) eq "*"))) {  # Handle initial event situation open
 
       my $tkey = $t_seconds;
@@ -5931,11 +5993,8 @@ sub init {
                $opt_lst_tems = shift(@ARGV);
             }
          }
-      } elsif ($ARGV[0] eq "-all") {
-         $opt_all = 1;
-         shift(@ARGV);
-      } elsif ($ARGV[0] eq "-results") {
-         $opt_results = 1;
+      } elsif ($ARGV[0] eq "-allresults") {
+         $opt_allresults = 1;
          shift(@ARGV);
       } elsif ($ARGV[0] eq "-time") {
          $opt_time = 1;
@@ -6017,8 +6076,7 @@ sub init {
    if (!defined $opt_ini) {$opt_ini = "eventaud.ini";}         # default control file if not specified
    if (!defined $opt_debuglevel) {$opt_debuglevel=90;}         # debug logging level - low number means fewer messages
    if (!defined $opt_debug) {$opt_debug=0;}                    # debug - turn on rare error cases
-   if (!defined $opt_all) {$opt_all=1;}                       # initial testing show all details
-   if (!defined $opt_results) {$opt_results=0;}               # initial testing show all results
+   if (!defined $opt_allresults) {$opt_allresults=0;}               # initial testing show all results
    if (!defined $opt_time) {$opt_time=0;}               # initial testing show all results
 
    if (defined $opt_txt) {
@@ -6263,6 +6321,9 @@ sub get_epoch {
 # 1.10000  : Add time based summary reports on incoming workload - needs -time option
 #            Add report003 sorted in reverse by Transitions/Agent/Hour
 # 1.11000  : Add Budget style reports
+# 1.12000  : Limit result output unless advisories by default, add -addresults
+#          : Add in long tail sampled confirm results
+#          : Add in hash of table sizes
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -6788,6 +6849,22 @@ See EVENTREPORT001 for definitions of the Columns
 
 Recovery plan:  Review report and improve TEMS efficiency by eliminating
 or redesigning the situation workloads.
+----------------------------------------------------------------
+
+EVENTREPORT008
+Text: List of estimated table sizes
+
+Sample:
+to be added
+
+Meaning: Result byte calculations depend on a built in table
+and values supplied in the eventaud.ini file. If tables are
+not found, they are assigned a length of 500 bytes. This
+includes Agent Builder and Universal Agent agents, but also
+includes ones not found in development.
+
+Recovery plan:  Add control to eventaud.ini to increase report
+accuracy.
 ----------------------------------------------------------------
 
 EVENTREPORT009
