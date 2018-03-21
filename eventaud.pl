@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.12000";
+my $gVersion = "1.13000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -153,6 +153,17 @@ my $budget_thrunode_ref;
 my %budget_nodex;
 my $budget_node_ref;
 
+my %situation_dupx;
+my %situation_dnullx;
+my %situation_nullx;
+my %situation_missx;
+my %situation_mergex;
+my $null_ct = 0;
+my $dnull_ct = 0;
+my $dup_ct = 0;
+my $merge_ct = 0;
+my $miss_ct = 0;
+
 my $budget_events = 0;
 my $budget_results = 0;
 my $budget_results_bytes = 0;
@@ -204,6 +215,7 @@ my %advcx = (
               "EVENTAUDIT1013W" => "50",
               "EVENTAUDIT1014W" => "65",
               "EVENTAUDIT1015W" => "65",
+              "EVENTAUDIT1016W" => "85",
            );
 
 # Following table can be used to calculate result
@@ -355,14 +367,14 @@ my %htabsize = (
    'KLZLOGIN'    => '488',
    'KLZVM'       => '380',
    'LNXALLUSR'   => '152',
-   'LNXCPU'      => '252',
+   'LNXCPU'      => '156',
    'LNXCPUAVG'   => '348',
    'LNXCPUCON'   => '312',
    'LNXDISK'     => '488',
    'LNXDSKIO'    => '248',
    'LNXDU'       => '204',
    'LNXGROUP'    => '144',
-   'LNXPING'     => '228',
+   'LNXPING'     => '216',
    'LNXIOEXT'    => '440',
    'LNXIPADDR'   => '546',
    'LNXMACHIN'   => '828',
@@ -1906,13 +1918,13 @@ my %htabsize = (
    'KSAALERTS'   => '2326',
    'KSAARCHIVE'  => '585',
    'KSABDC'      => '649',
-   'KSAJOBS'     => '916',
+   'KSAJOBS'     => '944',
    'KSABUFFER'   => '665',
    'KSAORASUM'   => '529',
    'KSAEDIFILE'  => '857',
    'KSAFSYSTEM'  => '840',
    'KSAGWYCONN'  => '1315',
-   'KSASYS'      => '1397',
+   'KSASYS'      => '1444',
    'KSAIDOCS'    => '1130',
    'KSALOCKS'    => '698',
    'KSALOGNGRP'  => '666',
@@ -1923,12 +1935,14 @@ my %htabsize = (
    'KSAOUTPUT'   => '985',
    'KSAOFFICE'   => '1242',
    'KSAPERF'     => '566',
-   'KSASPOOL'    => '758',
+   'KSASPOOL'    => '760',
    'KSATRANS'    => '1036',
    'KSATRANRFC'  => '1398',
    'KSACTS'      => '858',
-   'KSAUPDATES'  => '1285',
-   'KSAPROCESS'  => '996',
+   'KSAUPDATES'  => '1288',
+   'KSAPROCESS'  => '1052',
+   'KSADMPCNT' => '472',
+   'KSASERINFO' => '340',
    'KP8ITMPSAV'  => '123',
    'KP8AS'       => '360',
    'KP8ASCS'     => '1339',
@@ -3947,10 +3961,15 @@ my %htabsize = (
    'KNONCOECNG'  => '268',
    'KNOTHPLST'   => '132',
    'LNXFILE'       => '3580',
+   'ISITSTSH'      => '624',
+   'NTFLTREND'   => '1584',
+   'LOCALTIME'   => 112,
+   'UTCTIME'  => 112,
 );
 
 # current search list
 # KUDAGINF
+# 'KSASLOG'  => '',
 
 my %newtabsizex;
 
@@ -4062,10 +4081,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
 }
 
 
-
-
-
 my $outline;
+
 
 # Analysis and summary of event information. Mostly the data is summarized and
 # rolled into the situation_ref hashes.
@@ -4226,7 +4243,20 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
          setbudget($g,$asum_ref->{thrunode},$f,$asum_ref->{table});
          # note the case where DisplayItem is set but null values seen
          if ($asum_ref->{atom} eq "") {
-            $sitatomnull += 1 if $situation_ref->{atomize} ne "";
+            if ($situation_ref->{atomize} ne "") {
+               my $situation_dnull_ref = $situation_dnullx{$g};
+               if (!defined $situation_dnull_ref) {
+                  my %situation_dnullref = (
+                                               reeval => $situation_ref->{reeval},
+                                               instances => [],
+                                            );
+                  $situation_dnull_ref = \%situation_dnullref;
+                  $situation_dnullx{$g} = \%situation_dnullref;
+               }
+               my @idnull = [$asum_ref->{aseconds},$asum_ref->{results},$f,$situation_ref->{atomize},$asum_ref->{atom}];
+               push @{$situation_dnull_ref->{instances}},@idnull;
+               $dnull_ct += 1;
+            }
          }
          next if $asum_ref->{results} <= 1; # ignore single results
          # the results respresent a single attribute group. When a
@@ -4236,7 +4266,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
             $irowsize = 500;
             $newtabsizex{$asum_ref->{table}} += 1 if !defined $htabsize{$asum_ref->{table}};
             $irowsize = $htabsize{$asum_ref->{table}} if defined $htabsize{$asum_ref->{table}};
-            if ($situation_ref->{atomize} ne "") {
+            if ($situation_ref->{atomize} eq "") {
                # budget calculation for null DisplayItem case
                $budget_total_ref->{null} += $asum_ref->{results};
                $budget_situation_ref->{null} += $asum_ref->{results};
@@ -4246,23 +4276,20 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                $budget_situation_ref->{null_bytes} += $asum_ref->{results} * $irowsize;
                $budget_thrunode_ref->{null_bytes} += $asum_ref->{results} * $irowsize;
                $budget_node_ref->{null_bytes} += $asum_ref->{results} * $irowsize;
-               # observed multiple results with same DisplayItem in single second
-               my $nt = $asum_ref->{results};
-               if ($situation_ref->{reeval} == 0) { # pure situation
-                  $advi++;$advonline[$advi] = "Pure situation [$g] node [$f] duplicate atomize [$asum_ref->{atom}] DisplayItem [$situation_ref->{atomize}] $nt times at local second $h";
-                  $advcode[$advi] = "EVENTAUDIT1010W";
-                  $advimpact[$advi] = $advcx{$advcode[$advi]};
-                  $advsit[$advi] = "TEMS";
-                  $advsitx{$g} = 1;
-               } else {                             # sampled situation
-                  $advi++;$advonline[$advi] = "Sampled situation [$g] node [$f] duplicate atomize [$asum_ref->{atom}] DisplayItem [$situation_ref->{atomize}] $nt times at local second $h";
-                  $advcode[$advi] = "EVENTAUDIT1011W";
-                  $advimpact[$advi] = $advcx{$advcode[$advi]};
-                  $advsit[$advi] = "TEMS";
-                  $advsitx{$g} = 1;
+               my $situation_null_ref = $situation_nullx{$g};
+               if (!defined $situation_null_ref) {
+                  my %situation_nullref = (
+                                             reeval => $situation_ref->{reeval},
+                                             instances => [],
+                                          );
+                  $situation_null_ref = \%situation_nullref;
+                  $situation_nullx{$g} = \%situation_nullref;
                }
+               my @inull = [$asum_ref->{aseconds},$asum_ref->{results},$f,$situation_ref->{atomize},$asum_ref->{atom}];
+               push @{$situation_null_ref->{instances}},@inull;
+               $null_ct += 1;
             }
-            if ($situation_ref->{atomize} eq "") {
+            if ($situation_ref->{atomize} ne "") {
                # budget calculation for dup DisplayItem case
                # This is the case where there were duplicates in DisplayItem for same seconds
                $budget_total_ref->{dup} += $asum_ref->{results};
@@ -4273,19 +4300,18 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                $budget_situation_ref->{dup_bytes} += $asum_ref->{results} * $irowsize;
                $budget_thrunode_ref->{dup_bytes} += $asum_ref->{results} * $irowsize;
                $budget_node_ref->{dup_bytes} += $asum_ref->{results} * $irowsize;
-               if ($situation_ref->{reeval} == 0) { # pure situation
-                  $advi++;$advonline[$advi] = "Pure Situation [$g] node [$f] multiple results [$asum_ref->{results}] at local second $h - but no DisplayItem set";
-                  $advcode[$advi] = "EVENTAUDIT1012W";
-                  $advimpact[$advi] = $advcx{$advcode[$advi]};
-                  $advsit[$advi] = "TEMS";
-                  $advsitx{$g} = 1;
-               } else {                             # sampled situation
-                  $advi++;$advonline[$advi] = "Sampled Situation [$g] node [$f] multiple results [$asum_ref->{results}] at local second $h - but no DisplayItem set";
-                  $advcode[$advi] = "EVENTAUDIT1015W";
-                  $advimpact[$advi] = $advcx{$advcode[$advi]};
-                  $advsit[$advi] = "TEMS";
-                  $advsitx{$g} = 1;
+               my $situation_dup_ref = $situation_dupx{$g};
+               if (!defined $situation_dup_ref) {
+                  my %situation_dupref = (
+                                            reeval => $situation_ref->{reeval},
+                                            instances => [],
+                                         );
+                  $situation_dup_ref = \%situation_dupref;
+                  $situation_dupx{$g} = \%situation_dupref;
                }
+               my @idup = [$asum_ref->{aseconds},$asum_ref->{results},$f,$situation_ref->{atomize},$asum_ref->{atom}];
+               push @{$situation_dup_ref->{instances}},@idup;
+               $dup_ct += 1;
             }
          }
       }
@@ -4307,17 +4333,18 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
             $budget_situation_ref->{pure_merge_bytes} += $tsum_ref->{results} * $irowsize;
             $budget_thrunode_ref->{pure_merge_bytes} += $tsum_ref->{results} * $irowsize;
             $budget_node_ref->{pure_merge_bytes} += $tsum_ref->{results} * $irowsize;
-            # observed multiple identical results in single second
-            my $nt = $tsum_ref->{results};
-            my $ii = $tsum_ref->{tseconds};
-            my $pi = $tsum_ref->{gbltmstmp};
-            if ($situation_ref->{reeval} == 0) { # pure situation
-               $advi++;$advonline[$advi] = "Pure situation [$g] node [$f] duplicate atomize [$tsum_ref->{atom}] DisplayItem [$situation_ref->{atomize}] $nt times at same TEMS second $ii [$pi]";
-               $advcode[$advi] = "EVENTAUDIT1013W";
-               $advimpact[$advi] = $advcx{$advcode[$advi]};
-               $advsit[$advi] = "TEMS";
-               $advsitx{$g} = 1;
+            my $situation_merge_ref = $situation_mergex{$g};
+            if (!defined $situation_merge_ref) {
+               my %situation_mergeref = (
+                                         reeval => $situation_ref->{reeval},
+                                         instances => [],
+                                      );
+               $situation_merge_ref = \%situation_mergeref;
+               $situation_mergex{$g} = \%situation_mergeref;
             }
+            my @imerge = [$tsum_ref->{tseconds},$tsum_ref->{results},$f,$situation_ref->{atomize},$tsum_ref->{atom}];
+            push @{$situation_merge_ref->{instances}},@imerge;
+            $merge_ct += 1;
          }
       }
 
@@ -4331,7 +4358,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
             if ($situation_ref->{reeval} != 0) {
                print STDERR "working on loop 3/sampled sitation logic " .  __LINE__ .  " $hi\n" if $opt_v == 1;
                my $displayitem_prob = 1;
-               my $displayitem_sec = 1;
+               my $displayitem_sec = "";
                my $tems_sec = 1;
                foreach my $i (keys %{$atomize_ref->{adetails}}) {
                   my $adetail_ref = $atomize_ref->{adetails}{$i};
@@ -4343,23 +4370,29 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                   my @aresult1 = split("[;]",$adetail_ref->{allresults}[0]);
                   $aresult1[1] =~ /(\S+)=(.*)/;
                   my $test1 = $1;
-                  $aresult1[2] =~ /(\S+)=(.*)/;
+                  my @aresult2 = split("[;]",$adetail_ref->{allresults}[1]);
+                  $aresult2[0] =~ /(\S+)=(.*)/;
                   my $test2 = $1;
                   if ($test1 eq $test2) {
                      $displayitem_prob = $adetail_ref->{results};
                      $displayitem_sec  = $i;
-                     last;
+                  }
+                  if ($displayitem_sec ne "") {
+                     my $situation_miss_ref = $situation_missx{$g};
+                     if (!defined $situation_miss_ref) {
+                        my %situation_missref = (
+                                                   reeval => $situation_ref->{reeval},
+                                                   instances => [],
+                                                );
+                        $situation_miss_ref = \%situation_missref;
+                        $situation_missx{$g} = \%situation_missref;
+                     }
+                     my @imiss = [$adetail_ref->{aseconds},$adetail_ref->{results},$f,$situation_ref->{atomize},$h];
+                     push @{$situation_miss_ref->{instances}},@imiss;
+                     $miss_ct += 1;
                   }
                }
                print STDERR "finished multi-row checking " .  __LINE__ .  " $hi\n" if $opt_v == 1;
-               if ($displayitem_prob > 1) {
-                  my $pi = $displayitem_sec;
-                  $advi++;$advonline[$advi] = "Situation $g on node $f showing $displayitem_prob events at same local second $pi - missing DisplayItem";
-                  $advcode[$advi] = "EVENTAUDIT1002E";
-                  $advimpact[$advi] = $advcx{$advcode[$advi]};
-                  $advsit[$advi] = "TEMS";
-                  $advsitx{$g} = 1;
-               }
             }
          }
          $hi = 0;
@@ -4408,6 +4441,10 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                $budget_situation_ref->{event} += 1;
                $budget_thrunode_ref->{event} += 1;
                $budget_node_ref->{event} += 1;
+               $budget_total_ref->{open} += 1;
+               $budget_situation_ref->{open} += 1;
+               $budget_thrunode_ref->{open} += 1;
+               $budget_node_ref->{open} += 1;
             } else {                                            # sampled situation
                print STDERR "Sampled event loop 4 [$i]" .  __LINE__ .  " $hi\n" if $opt_v == 1;
                # calculate open versus close for sampled events and thus calculate open time
@@ -4424,13 +4461,18 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                         $budget_situation_ref->{event} += 1;
                         $budget_thrunode_ref->{event} += 1;
                         $budget_node_ref->{event} += 1;
+                        $budget_total_ref->{open} += 1;
+                        $budget_situation_ref->{open} += 1;
+                        $budget_thrunode_ref->{open} += 1;
+                        $budget_node_ref->{open} += 1;
                         $budget_total_ref->{transitions} += 1;
                         $budget_situation_ref->{transitions} += 1;
                         $budget_thrunode_ref->{transitions} += 1;
                         $budget_node_ref->{transitions} += 1;
-                        if ($tdetail_ref->{tseconds} ne $tdetail_ref->{aseconds}) {
-                           $budget_node_ref->{timediff} += get_epoch($tdetail_ref->{tseconds}) - get_epoch($tdetail_ref->{aseconds});
-                        }
+                        my $itimediff = get_epoch($tdetail_ref->{tseconds}) - get_epoch($tdetail_ref->{aseconds});
+                        $budget_node_ref->{difftimes}{$itimediff} += 1;
+                        my @idiffdet = [$g,$h,$itimediff,$tdetail_ref->{gbltmstmp}];
+                        push @{$budget_node_ref->{diffdet}},@idiffdet;
                         $detail_state = 2;
                      } elsif ($detail_last eq "N") {
                         $tdetail_ref->{nn} += 1;          # record N followed by N, keep waiting for Y
@@ -4539,6 +4581,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
       }
    }
 }
+
+
 print STDERR "finished loop 1" .  __LINE__ . "\n" if $opt_v == 1;
 
 my %situationx;
@@ -4609,65 +4653,86 @@ my $node_ref = $nodex{$f};
    }
 }
 
-
-my $total_count = 0;
-my $total_open = 0;
-my $total_close = 0;
-my $total_sampled = 0;
-my $total_pure = 0;
-my $total_transitions = 0;
-my $total_yy = 0;
-my $total_nn = 0;
 my $res_rate;
 my $ppc;
 
-foreach $g (keys %situationx) {
-my $situationx_ref = $situationx{$g};
-$total_count += $situationx_ref->{count};
-$total_open += $situationx_ref->{open};
-$total_close += $situationx_ref->{close};
-$total_sampled += $situationx_ref->{sampled_ct};
-   $total_pure += $situationx_ref->{pure_ct};
-   $total_transitions += $situationx_ref->{transitions};
-   $total_yy += $situationx_ref->{yy};
-   $total_nn += $situationx_ref->{nn};
+my $total_delay_ct = 0;
+my $total_delay_overmin_ct = 0;
+my $total_delay_overmin_sum = 0;
+my $total_delay_avg = 0;
+
+foreach my $f (sort { $budget_nodex{$b}->{result_bytes} <=> $budget_nodex{$a}->{result_bytes}} keys %budget_nodex ) {
+   my $node_ref = $budget_nodex{$f};
+   my $delay_ct;
+   my $delay_sum;
+   my $delay_min;
+   my $delay_max;
+   my $delay_mode;
+   my $det1 = 1;
+   foreach my $g (sort  {$node_ref->{difftimes}{$b} <=> $node_ref->{difftimes}{$a}} keys %{$node_ref->{difftimes}}) {
+      if ($det1 == 1) {
+         $delay_mode = $g;
+         $delay_max = $g;
+         $delay_min = $g;
+      }
+      $det1 = 0;
+      $delay_min = $g if $g < $delay_min;
+      $delay_max = $g if $g > $delay_max;
+      $delay_ct += $node_ref->{difftimes}{$g};
+      $delay_sum += $g * $node_ref->{difftimes}{$g};
+   }
+   next if $det1 == 1;
+   $node_ref->{diffmin} = $delay_min;
+   my $res_pc = 0;
+   $res_pc = $delay_sum / $delay_ct if $delay_ct > 0;
+   $ppc = sprintf '%.2f', $res_pc;
+   $node_ref->{pdiff} = "[" . $delay_ct . "/" .$delay_min . "/" . $delay_mode . "/" . $ppc . "/" . $delay_max . "]";
+   $total_delay_ct += $delay_ct;
+   foreach my $g (sort  {$node_ref->{difftimes}{$b} <=> $node_ref->{difftimes}{$a}} keys %{$node_ref->{difftimes}}) {
+      next if $g <= $delay_min;
+      $total_delay_overmin_ct += $node_ref->{difftimes}{$g};
+      $total_delay_overmin_sum += $g * $node_ref->{difftimes}{$g};
+   }
 }
 
-$rptkey = "EVENTREPORT000";$advrptx{$rptkey} = 1;         # record report key
-$hdri++;$hdr[$hdri]="$rptkey: Event/Result Summary Budget Report";
-$hdri++;$hdr[$hdri]="Duration: $event_dur Seconds";
-$res_rate = ($budget_total_ref->{event}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Total Open/Close Events: $budget_total_ref->{event} $ppc/min";
-$res_rate = ($budget_total_ref->{results}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Total Results: $budget_total_ref->{results} $ppc/min";
-my $ppc_event_rate = $ppc;
 
+
+$rptkey = "EVENTREPORT000";$advrptx{$rptkey} = 1;         # record report key
+$cnt++;$oline[$cnt]="$rptkey: Event/Result Summary Budget Report\n";
+$cnt++;$oline[$cnt]="Duration: $event_dur Seconds\n";
+$res_rate = ($budget_total_ref->{event}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
+$cnt++;$oline[$cnt]="Total Open/Close Events: $budget_total_ref->{event} $ppc/min\n";
+$res_rate = ($budget_total_ref->{results}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
+$cnt++;$oline[$cnt]="Total Results: $budget_total_ref->{results} $ppc/min\n";
+my $ppc_event_rate = $ppc;
 $res_rate = ($budget_total_ref->{result_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 my $worry_rate = ($res_rate*100)/500;
 my $wpc = sprintf '%.2f%%', $worry_rate;
-
-$hdri++;$hdr[$hdri]="Total Result Bytes: $budget_total_ref->{result_bytes} $ppc K/min Worry[$wpc]";
+$cnt++;$oline[$cnt]="Total Result Bytes: $budget_total_ref->{result_bytes} $ppc K/min Worry[$wpc]\n";
 my $ppc_result_rate = $ppc;
 my $ppc_worry_pc = $wpc;
-
 $res_rate = ($budget_total_ref->{samp_confirm}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Sampled Results Confirm: $budget_total_ref->{samp_confirm} $ppc/min";
+$cnt++;$oline[$cnt]="Sampled Results Confirm: $budget_total_ref->{samp_confirm} $ppc/min\n";
 my $ppc_confirm_rate = $ppc;
-
 $res_rate = ($budget_total_ref->{samp_confirm_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 my $pcrate = ($budget_total_ref->{samp_confirm_bytes}*100)/$budget_total_ref->{result_bytes} if $budget_total_ref->{result_bytes} > 0;my $prpc = sprintf '%.2f', $pcrate;
-$hdri++;$hdr[$hdri]="Sampled Results Confirm Bytes: $budget_total_ref->{samp_confirm_bytes} $ppc K/min, $prpc% of total results";
-
+$cnt++;$oline[$cnt]="Sampled Results Confirm Bytes: $budget_total_ref->{samp_confirm_bytes} $ppc K/min, $prpc% of total results\n";
+my $confirm_pc = $prpc;
 $res_rate = ($budget_total_ref->{miss}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Miss DisplayItem: $budget_total_ref->{miss} $ppc/min";
+$cnt++;$oline[$cnt]="Miss DisplayItem: $budget_total_ref->{miss} $ppc/min\n";
 $res_rate = ($budget_total_ref->{dup}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Duplicate DisplayItem: $budget_total_ref->{dup} $ppc/min";
+$cnt++;$oline[$cnt]="Duplicate DisplayItem: $budget_total_ref->{dup} $ppc/min\n";
 $res_rate = ($budget_total_ref->{dup_bytes}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Null DisplayItem: $budget_total_ref->{null} $ppc/min";
+$cnt++;$oline[$cnt]="Null DisplayItem: $budget_total_ref->{null} $ppc/min\n";
 $res_rate = ($budget_total_ref->{pure_merge}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$hdri++;$hdr[$hdri]="Pure Merged Results: $budget_total_ref->{pure_merge} $ppc/min";
-$hdri++;$hdr[$hdri]="Open/Open transitions: $budget_total_ref->{yy}";
-$hdri++;$hdr[$hdri]="Close/Close transitions: $budget_total_ref->{nn}";
+$cnt++;$oline[$cnt]="Pure Merged Results: $budget_total_ref->{pure_merge} $ppc/min\n";
+$cnt++;$oline[$cnt]="Open/Open transitions: $budget_total_ref->{yy}\n";
+$cnt++;$oline[$cnt]="Close/Close transitions: $budget_total_ref->{nn}\n";
+$res_rate = ($total_delay_overmin_sum)/($total_delay_overmin_ct) if $total_delay_overmin_ct > 0;$ppc = sprintf '%.2f', $res_rate;
+$cnt++;$oline[$cnt]="Delay Estimate opens[$total_delay_ct] over_minimum [$total_delay_overmin_ct] over_average [$ppc seconds]\n";
+$total_delay_avg = $ppc;
+
+
 
 # pass to calculate Transitions/Agent/Hour  rate
 # goal is to identify situations with many transitions, indicate
@@ -4681,6 +4746,229 @@ foreach $g (keys %budget_situationx) {
       $situation_ref->{trans_rate} = $res_rate/$ct if $ct > 0;
    }
 }
+
+if ($null_ct > 0) {
+   $rptkey = "EVENTREPORT001";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Multiple results in one second but DisplayItem missing or null atoms found\n";
+   $cnt++;$oline[$cnt]="Situation,Type,Agent_Second,Results,Agent,Atomize,Atom,\n";
+   foreach my $f (sort { $a cmp $b } keys %situation_nullx ) {  # By situation name
+      my $situation_null_ref = $situation_nullx{$f};
+      $advsitx{$f} = 1;
+      my $ptype = "Sampled";
+      $ptype = "Pure" if $situation_null_ref->{reeval} == 0;
+      foreach $g ( @{$situation_null_ref->{instances}}) {
+         my $isec = @{$g}[0];
+         my $iresults = @{$g}[1];
+         my $inode = @{$g}[2];
+         my $atomize = @{$g}[3];
+         my $atom = @{$g}[4];
+         $outline = $f . ",";
+         $outline .= $ptype . ",";
+         $outline .= $isec . ",";
+         $outline .= $iresults . ",";
+         $outline .= $inode . ",";
+         $outline .= $atomize . ",";
+         $outline .= $atom . ",";
+         $cnt++;$oline[$cnt]="$outline\n";
+      }
+   }
+   my $situation_ct = scalar keys %situation_nullx;
+   $advi++;$advonline[$advi] = "Situations [$situation_ct] lost events because DisplayItem missing or null Atoms - see $rptkey for Report";
+   $advcode[$advi] = "EVENTAUDIT1010W";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
+}
+
+if ($dup_ct > 0) {
+   $rptkey = "EVENTREPORT002";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Multiple results in one second and DisplayItem defined\n";
+   $cnt++;$oline[$cnt]="Situation,Type,Agent_Second,Results,Agent,Atomize,Atom,\n";
+   foreach my $f (sort { $a cmp $b } keys %situation_dupx ) {  # By situation name
+      my $situation_dup_ref = $situation_dupx{$f};
+      $advsitx{$f} = 1;
+      my $ptype = "Sampled";
+      $ptype = "Pure" if $situation_dup_ref->{reeval} == 0;
+      foreach $g ( @{$situation_dup_ref->{instances}}) {
+         my $isec = @{$g}[0];
+         my $iresults = @{$g}[1];
+         my $inode = @{$g}[2];
+         my $atomize = @{$g}[3];
+         my $atom = @{$g}[4];
+         $outline = $f . ",";
+         $outline .= $ptype . ",";
+         $outline .= $isec . ",";
+         $outline .= $iresults . ",";
+         $outline .= $inode . ",";
+         $outline .= $atomize . ",";
+         $outline .= $atom . ",";
+         $cnt++;$oline[$cnt]="$outline\n";
+      }
+   }
+   my $situation_ct = scalar keys %situation_dupx;
+   $advi++;$advonline[$advi] = "Situations [$situation_ct] lost events because DisplayItem has duplicate atoms - see $rptkey for Report";
+   $advcode[$advi] = "EVENTAUDIT1012W";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
+}
+
+if ($dnull_ct > 0) {
+   $rptkey = "EVENTREPORT003";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Results at Agent with DisplayItem and null Atom\n";
+   $cnt++;$oline[$cnt]="Situation,Type,Agent_Second,Results,Agent,Atomize,Atom,\n";
+   foreach my $f (sort { $a cmp $b } keys %situation_dnullx ) {  # By situation name
+      my $situation_dnull_ref = $situation_dnullx{$f};
+      $advsitx{$f} = 1;
+      my $ptype = "Sampled";
+      $ptype = "Pure" if $situation_dnull_ref->{reeval} == 0;
+      foreach $g ( @{$situation_dnull_ref->{instances}}) {
+         my $isec = @{$g}[0];
+         my $iresults = @{$g}[1];
+         my $inode = @{$g}[2];
+         my $atomize = @{$g}[3];
+         my $atom = @{$g}[4];
+         $outline = $f . ",";
+         $outline .= $ptype . ",";
+         $outline .= $isec . ",";
+         $outline .= $iresults . ",";
+         $outline .= $inode . ",";
+         $outline .= $atomize . ",";
+         $outline .= $atom . ",";
+         $cnt++;$oline[$cnt]="$outline\n";
+      }
+   }
+   my $situation_ct = scalar keys %situation_dnullx;
+   $advi++;$advonline[$advi] = "Situations [$situation_ct] lost events because DisplayItem had Null atoms - see $rptkey for Report";
+   $advcode[$advi] = "EVENTAUDIT1009W";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
+}
+
+if ($merge_ct > 0) {
+   $rptkey = "EVENTREPORT004";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Situations with Multiple results at TEMS with same DisplayItem at same second\n";
+   $cnt++;$oline[$cnt]="Situation,Type,Agent_Second,Results,Agent,Atomize,Atom,\n";
+   foreach my $f (sort { $a cmp $b } keys %situation_mergex ) {  # By situation name
+      my $situation_merge_ref = $situation_mergex{$f};
+      $advsitx{$f} = 1;
+      my $ptype = "Sampled";
+      $ptype = "Pure" if $situation_merge_ref->{reeval} == 0;
+      foreach $g ( @{$situation_merge_ref->{instances}}) {
+         my $isec = @{$g}[0];
+         my $iresults = @{$g}[1];
+         my $inode = @{$g}[2];
+         my $atomize = @{$g}[3];
+         my $atom = @{$g}[4];
+         $outline = $f . ",";
+         $outline .= $ptype . ",";
+         $outline .= $isec . ",";
+         $outline .= $iresults . ",";
+         $outline .= $inode . ",";
+         $outline .= $atomize . ",";
+         $outline .= $atom . ",";
+         $cnt++;$oline[$cnt]="$outline\n";
+      }
+   }
+   my $situation_ct = scalar keys %situation_mergex;
+   $advi++;$advonline[$advi] = "Situations [$situation_ct] lost [merged] events Multiple Events with same DisplayItem at same TEMS second - see $rptkey for Report";
+   $advcode[$advi] = "EVENTAUDIT1009W";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
+}
+
+if ($miss_ct > 0) {
+   $rptkey = "EVENTREPORT005";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Situations with Multiple results at Agent with same DisplayItem at same second\n";
+   $cnt++;$oline[$cnt]="Situation,Type,Agent_Second,Results,Agent,Atomize,Atom,\n";
+   foreach my $f (sort { $a cmp $b } keys %situation_missx ) {  # By situation name
+      my $situation_miss_ref = $situation_missx{$f};
+      $advsitx{$f} = 1;
+      my $ptype = "Sampled";
+      $ptype = "Pure" if $situation_miss_ref->{reeval} == 0;
+      foreach $g ( @{$situation_miss_ref->{instances}}) {
+         my $isec = @{$g}[0];
+         my $iresults = @{$g}[1];
+         my $inode = @{$g}[2];
+         my $atomize = @{$g}[3];
+         my $atom = @{$g}[4];
+         $outline = $f . ",";
+         $outline .= $ptype . ",";
+         $outline .= $isec . ",";
+         $outline .= $iresults . ",";
+         $outline .= $inode . ",";
+         $outline .= $atomize . ",";
+         $outline .= $atom . ",";
+         $cnt++;$oline[$cnt]="$outline\n";
+      }
+   }
+   my $situation_ct = scalar keys %situation_missx;
+   $advi++;$advonline[$advi] = "Situations [$situation_ct] with multiple results at agent with same DisplayItem at same second - see $rptkey for Report";
+   $advcode[$advi] = "EVENTAUDIT1009W";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
+}
+
+
+$rptkey = "EVENTREPORT006";$advrptx{$rptkey} = 1;         # record report key
+$cnt++;$oline[$cnt]="\n";
+$cnt++;$oline[$cnt]="$rptkey: Timestamps too close together - possible duplicate agents\n";
+$cnt++;$oline[$cnt]="Situation,Reval,Atomize,Atom,Timestamp_Prev,Timestamp_Current,Agent_Second,\n";
+my %tooclosex;
+foreach my $f (sort { $a cmp $b } keys %nodex ) {
+   my $node_ref = $nodex{$f};
+   foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
+      my $situation_ref = $node_ref->{situations}{$g};
+      my $sx = $sitx{$g};
+      if ($sit_reeval[$sx] > 0) {
+         foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
+            my $atomize_ref = $situation_ref->{atoms}{$h};
+            foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{adetails}}) {
+               my $adetail_ref = $atomize_ref->{adetails}{$i};
+               my $tt_ct = scalar keys %{$adetail_ref->{astamps}};
+               next if $tt_ct <= 1;
+               foreach my $j (sort {$a cmp $b} keys %{$adetail_ref->{astamps}}) {
+                  my $table_ref =  $adetail_ref->{astamps}{$j};
+                  my $ts_ct = scalar keys %{$table_ref};
+                  next if $ts_ct <= 1;
+                  my $lagt = 0;
+                  foreach my $l (sort {$a <=> $b} keys %{$table_ref}) {
+                     if ($lagt == 0) {
+                        $lagt = $l;
+                        next;
+                     }
+                     if ((get_epoch($l) - get_epoch($lagt)) < $sit_reeval[$sx]) {
+                        $tooclosex{$g} = 1;
+                        $outline = $f . ",";
+                        $outline .= $sit_reeval[$sx] . ",";
+                        $outline .= $sit_atomize[$sx] . ",";
+                        $outline .= $h . ",";
+                        $outline .= $g . ",";
+                        $outline .= $lagt . ",";
+                        $outline .= $l . ",";
+                        $outline .= $adetail_ref->{lcltmstmp} . ",";
+                        $cnt++;$oline[$cnt]="$outline\n";
+                     }
+                  }
+               }
+            }
+         }
+      }
+   }
+}
+my $tooclose_ct = scalar keys %tooclosex;
+if ($tooclose_ct > 0) {
+   my $situation_ct = scalar keys %situation_mergex;
+   $advi++;$advonline[$advi] = "Sampled situations [$tooclose_ct] with events too close for sampling definition - see $rptkey for Report";
+   $advcode[$advi] = "EVENTAUDIT1016W";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
+}
+
+
 
 my %donesit;
 $rptkey = "EVENTREPORT007";$advrptx{$rptkey} = 1;         # record report key
@@ -4741,7 +5029,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
 
 
 
-$rptkey = "EVENTREPORT001";$advrptx{$rptkey} = 1;         # record report key
+$rptkey = "EVENTREPORT011";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $cnt++;$oline[$cnt]="$rptkey: Event/Results Budget Situations Report by Result Bytes\n";
 $cnt++;$oline[$cnt]="Situation,Table,Rowsize,Reeval,Event,Event%,Event/min,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmBytes,PureMerge,PureMergeBytes,transitions,nodes,PDT\n";
@@ -4821,10 +5109,10 @@ foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situati
 }
 
 
-$rptkey = "EVENTREPORT002";$advrptx{$rptkey} = 1;         # record report key
+$rptkey = "EVENTREPORT012";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $cnt++;$oline[$cnt]="$rptkey: Budget Report by Thrunode\n";
-$cnt++;$oline[$cnt]="Thrunode,Event,Event%,Event/min,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmbytes,PureMerge,PureMergeBytes,transitions\n";
+$cnt++;$oline[$cnt]="Thrunode,Event,Event%,Event/min,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmbytes,PureMerge,PureMergeBytes,transitions,\n";
 foreach my $f (sort { $a cmp $b} keys %budget_thrunodex ) {
    my $thrunode_ref = $budget_thrunodex{$f};
    $outline = $f . ",";
@@ -4858,10 +5146,10 @@ foreach my $f (sort { $a cmp $b} keys %budget_thrunodex ) {
 
 
 
-$rptkey = "EVENTREPORT003";$advrptx{$rptkey} = 1;         # record report key
+$rptkey = "EVENTREPORT013";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $cnt++;$oline[$cnt]="$rptkey: Budget Report by Node\n";
-$cnt++;$oline[$cnt]="Node,Event,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmbytes,PureMerge,PureMergeBytes,transitions,AvgTimeDiff,\n";
+$cnt++;$oline[$cnt]="Node,Event,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmbytes,PureMerge,PureMergeBytes,transitions,delay[count/min/mode/avg/max],\n";
 foreach my $f (sort { $budget_nodex{$b}->{result_bytes} <=> $budget_nodex{$a}->{result_bytes}} keys %budget_nodex ) {
    my $node_ref = $budget_nodex{$f};
    $outline = $f . ",";
@@ -4891,17 +5179,43 @@ foreach my $f (sort { $budget_nodex{$b}->{result_bytes} <=> $budget_nodex{$a}->{
    $outline .= $node_ref->{pure_merge} . ",";
    $outline .= $node_ref->{pure_merge_bytes} . ",";
    $outline .= $node_ref->{transitions} . ",";
-   $res_rate = 0;
-   $res_rate = $node_ref->{timediff}/ $node_ref->{event} if  $node_ref->{event} > 0;
-   $ppc = sprintf '%.2f', $res_pc;
-   $outline .= $ppc . ",";
+   $outline .= $node_ref->{pdiff} . ",";
    $cnt++;$oline[$cnt]="$outline\n";
 }
+
+
+
+$rptkey = "EVENTREPORT016";$advrptx{$rptkey} = 1;         # record report key
+$cnt++;$oline[$cnt]="\n";
+$cnt++;$oline[$cnt]="$rptkey: Delay Report by Node and Situation\n";
+$cnt++;$oline[$cnt]="Node,Situation,Atomize,Delay,Min_delay,\n";
+foreach my $f ( sort { $a cmp $b } keys %budget_nodex ) {
+   my $budget_node_ref = $budget_nodex{$f};
+   next if !defined $budget_node_ref->{diffmin};
+   foreach my $d (@{$budget_node_ref->{diffdet}}) {
+      my $isitname = @{$d}[0];
+      my $iatomize = @{$d}[1];
+      my $idiff = @{$d}[2];
+      my $igbltmstmp = @{$d}[3];
+      next if $idiff <= $budget_node_ref->{diffmin} + 1;
+      my $pdiff = $idiff - $budget_node_ref->{diffmin};
+      $outline = $f . ",";
+      $outline .= $isitname . ",";
+      $outline .= $iatomize . ",";
+      $outline .= $pdiff . ",";
+      $outline .= $budget_node_ref->{diffmin} . ",";
+      $outline .= $igbltmstmp . ",";
+      $cnt++;$oline[$cnt]="$outline\n";
+   }
+}
+
+
+
 
 my $node999_total = 0;
 my $time999_total = 0;
 
-$rptkey = "EVENTREPORT004";$advrptx{$rptkey} = 1;         # record report key
+$rptkey = "EVENTREPORT017";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $outline = "$rptkey: Extreme event arrival report SEQ999";
 $cnt++;$oline[$cnt]="$outline\n";
@@ -4931,7 +5245,7 @@ if ($time999_total > 0) {
    $advsit[$advi] = "TEMS";
 }
 
-$rptkey = "EVENTREPORT005";$advrptx{$rptkey} = 1;         # record report key
+$rptkey = "EVENTREPORT019";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $outline = "$rptkey: Segmented arrival report SEQ998";
 $cnt++;$oline[$cnt]="$outline\n";
@@ -4952,7 +5266,7 @@ foreach $g ( sort { $situationx{$b}->{ct998} <=> $situationx{$a}->{ct998}}  keys
    $cnt++;$oline[$cnt]="$outline\n";
 }
 
-$rptkey = "EVENTREPORT006";$advrptx{$rptkey} = 1;         # record report key
+$rptkey = "EVENTREPORT020";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $outline = "$rptkey: Deltastat X (Problem) Report";
 $cnt++;$oline[$cnt]="$outline\n";
@@ -4982,7 +5296,7 @@ if ($bad_ct > 0) {
 
 if ($opt_time == 1) {
 
-   $rptkey = "EVENTREPORT009";$advrptx{$rptkey} = 1;         # record report key
+   $rptkey = "EVENTREPORT020";$advrptx{$rptkey} = 1;         # record report key
    $cnt++;$oline[$cnt]="\n";
    $cnt++;$oline[$cnt]="$rptkey: Incoming workload sorted by time\n";
    $cnt++;$oline[$cnt]="Agent_Time,Count,Results,\n";
@@ -4994,7 +5308,7 @@ if ($opt_time == 1) {
       $cnt++;$oline[$cnt]="$outline\n";
    }
 
-   $rptkey = "EVENTREPORT010";$advrptx{$rptkey} = 1;         # record report key
+   $rptkey = "EVENTREPORT021";$advrptx{$rptkey} = 1;         # record report key
    $cnt++;$oline[$cnt]="\n";
    $cnt++;$oline[$cnt]="$rptkey: Incoming workload sorted by Time and Thrunode\n";
    $cnt++;$oline[$cnt]="Agent_Time,Thrunode,Count,Results,\n";
@@ -5010,7 +5324,7 @@ if ($opt_time == 1) {
       }
    }
 
-   $rptkey = "EVENTREPORT011";$advrptx{$rptkey} = 1;         # record report key
+   $rptkey = "EVENTREPORT022";$advrptx{$rptkey} = 1;         # record report key
    $cnt++;$oline[$cnt]="\n";
    $cnt++;$oline[$cnt]="$rptkey: Incoming workload sorted by Time and Node\n";
    $cnt++;$oline[$cnt]="Agent_Time,Node,Count,Results,\n";
@@ -5026,7 +5340,7 @@ if ($opt_time == 1) {
       }
    }
 
-   $rptkey = "EVENTREPORT012";$advrptx{$rptkey} = 1;         # record report key
+   $rptkey = "EVENTREPORT023";$advrptx{$rptkey} = 1;         # record report key
    $cnt++;$oline[$cnt]="\n";
    $cnt++;$oline[$cnt]="$rptkey: Incoming workload sorted by Time and Situation\n";
    $cnt++;$oline[$cnt]="Agent_Time,Node,Count,Results,\n";
@@ -5045,52 +5359,9 @@ if ($opt_time == 1) {
 }
 
 
-
-
-
-
-#   foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
-#      my $situation_ref = $node_ref->{situations}{$g};
-#      foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
-#      my $atomize_ref = $situation_ref->{atoms}{$h};
-#         foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{tdetails}}) {
-#            my $tdetail_ref = $atomize_ref->{tdetails}{$i};
-#            $outline = $g . ",";
-#            $outline .= $f . ",";
-#            $outline .= $tdetail_ref->{thrunode} . ",";
-#            $outline .= $tdetail_ref->{lcltmstmp} . ",";
-#            $outline .= $tdetail_ref->{gbltmstmp} . ",";
-#            $outline .= $tdetail_ref->{deltastat} . ",";
-#            $outline .= $situation_ref->{reeval} . ",";
-#            $outline .= $tdetail_ref->{results} . ",";
-#            $outline .= $situation_ref->{atomize} . ",";
-#            $outline .= $h . ",";
-#            $outline .= $tdetail_ref->{l} . ",";
-#            $cnt++;$oline[$cnt]="$outline\n";
-#            my @rarry = @{$tdetail_ref->{allresults}};
-#            if (($#rarry > 0) or  ($opt_results == 1)){
-#               for (my $ri=0;$ri<= $#rarry;$ri++) {
-#                  my $rc = $ri + 1;
-#                  if (substr($rarry[$ri],0,1) eq "*") {
-#                     my $div_point = index($rarry[$ri],";");
-#                     $outline = ",,,,,,,P,";
-#                     $outline .= substr($rarry[$ri],0,$div_point) . ",";
-#                     $cnt++;$oline[$cnt]="$outline\n";
-#                     $rarry[$ri] = substr($rarry[$ri],$div_point+1);
-#                  }
-#                  $outline = ",,,,,,," . $ri . ",";
-#                  $outline .= $rarry[$ri] . ",";
-#                  $cnt++;$oline[$cnt]="$outline\n";
-#               }
-#            }
-#         }
-#      }
-#   }
-#}
-
 my $newtabsize_ct = scalar keys %newtabsizex;
 if ($newtabsize_ct > 0) {
-   $rptkey = "EVENTREPORT008";$advrptx{$rptkey} = 1;         # record report key
+   $rptkey = "EVENTREPORT998";$advrptx{$rptkey} = 1;         # record report key
    $cnt++;$oline[$cnt]="\n";
    $cnt++;$oline[$cnt]="$rptkey: List of estimated table sizes\n";
    $cnt++;$oline[$cnt]="Table,Count,\n";
@@ -5101,15 +5372,13 @@ if ($newtabsize_ct > 0) {
    }
 }
 
-
-
 $rptkey = "EVENTREPORT999";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 my $ititle = "Detailed report sorted by Node/Situation/Time - for situations recorded in Advisories";
 $ititle = "Full report sorted by Node/Situation/Time" if $opt_allresults == 1;
 
 $cnt++;$oline[$cnt]="$rptkey: $ititle\n";
-$cnt++;$oline[$cnt]="Situation,Node,Thrunode,Agent_Time,TEMS_Time,Deltastat,Reeval,Results,Atomize,DisplayItem\n";
+$cnt++;$oline[$cnt]="Situation,Node,Thrunode,Agent_Time,TEMS_Time,Deltastat,Reeval,Results,Atomize,DisplayItem,LineNumber,PDT\n";
 foreach my $f (sort { $a cmp $b } keys %nodex ) {
    my $node_ref = $nodex{$f};
    foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
@@ -5230,10 +5499,11 @@ if ($opt_sum != 0) {
    $sumline .= $max_impact . " ";
    $sumline .= $padvi . " ";
    $sumline .= $event_dur . " seconds ";
-   $sumline .= $budget_total_ref->{event} . " events" . "[$ppc_event_rate/min] ";
-   $sumline .= $budget_total_ref->{samp_confirm} . " confirms" . "[$ppc_confirm_rate/min] ";
-   $sumline .= $budget_total_ref->{result_bytes} . " results" . "[$ppc_result_rate/min] ";
+   $sumline .= $budget_total_ref->{event} . " events" . "[$ppc_event_rate/min] Confirm[$confirm_pc%]";
+   $sumline .= $budget_total_ref->{result_bytes} . " results" . "[$ppc_result_rate" . "K/min] ";
+   $sumline .= $budget_total_ref->{result_bytes} . " results" . "[$ppc_result_rate" . "K/min] ";
    $sumline .= " worry" . "[$ppc_worry_pc] ";
+   $sumline .= " delay[$total_delay_avg] ";
    my $sumfn = $opt_odir . "eventaud.txt";
    open SUM, ">$sumfn" or die "Unable to open summary file $sumfn\n";
    print SUM "$sumline\n";
@@ -5304,6 +5574,7 @@ sub setbudget {
    if (!defined $budget_total_ref) {
       my %budget_totalref = (
                                event => 0,
+                               open => 0,
                                results => 0,
                                result_bytes => 0,
                                miss => 0,
@@ -5329,6 +5600,7 @@ sub setbudget {
    if (!defined $budget_situation_ref) {
       my %budget_situationref = (
                                    event => 0,
+                                   open => 0,
                                    results => 0,
                                    result_bytes => 0,
                                    miss => 0,
@@ -5372,6 +5644,7 @@ sub setbudget {
    if (!defined $budget_thrunode_ref) {
       my %budget_thrunoderef = (
                                   event => 0,
+                                  open => 0,
                                   results => 0,
                                   result_bytes => 0,
                                   miss => 0,
@@ -5397,6 +5670,7 @@ sub setbudget {
    if (!defined $budget_node_ref) {
       my %budget_noderef = (
                                event => 0,
+                               open => 0,
                                results => 0,
                                result_bytes => 0,
                                miss => 0,
@@ -5413,7 +5687,10 @@ sub setbudget {
                                yy => 0,
                                nn => 0,
                                trans_rate => 0,
-                               timediff => 0,
+                               difftimes => {},
+                               diffdet => [],
+                               pdiff => "",
+                               diffmin => 0,
                             );
       $budget_node_ref = \%budget_noderef;
       $budget_nodex{$inode} = \%budget_noderef;
@@ -5510,6 +5787,7 @@ sub newstsh {
    }
    $node_ref->{count} += 1;
    $node_ref->{open} += 1 if $ideltastat eq "Y";
+   $budget_total_ref->{open} += 1 if $ideltastat eq "Y";
    $node_ref->{close} += 1 if $ideltastat eq "N";
    $node_ref->{thrunodes}{$inode} += 1;
    my $situation_ref = $node_ref->{situations}{$isitname};
@@ -5593,12 +5871,13 @@ sub newstsh {
    # about events going open/closed so only work with the open status records
    my $adetail_ref = ();
    if ($ideltastat eq "Y") {
-      my $dkey = $ilcltmstmp;
+      my $dkey = substr($ilcltmstmp,0,13) . "000";
       $adetail_ref = $atomize_ref->{adetails}{$dkey};
       if (!defined $adetail_ref) {
          my %adetailref = (
                             deltastat => $ideltastat,
                             gbltmstmp => $igbltmstmp,
+                            lcltmstmp => $ilcltmstmp,
                             aseconds => $a_seconds,
                             tseconds => $t_seconds,
                             l => $ill,
@@ -5617,27 +5896,36 @@ sub newstsh {
                             samp_dup => 0,
                             samp_null => 0,
                             thrunode => $inode,
-                            tdet => {},
+                            astamps => {},
                          );
          $adetail_ref = \%adetailref;
          $atomize_ref->{adetails}{$dkey} = \%adetailref;
       }
       $adetail_ref->{eventh} += 1 if substr($iresults,0,1) eq "*";
       my @segres = split("(?<!~)~(?!~)",$iresults); # split string by single ~ and not several ~ characters in a row
-      $adetail_ref->{results} += $#segres + 1;
+      $adetail_ref->{results} += $#segres;
+      $adetail_ref->{results} += 1 if substr($segres[0],0,1) ne "*";
       # Collect all results for later usage
       foreach my $r (@segres) {
          push @{$adetail_ref->{allresults}},$r;
          # record the attribute group table name
          # needed to handle when multiples are present
+         my $iattrg = "";;
          my @tresult1 = split("[;]",$r);
          foreach my $s (@tresult1) {
             next if substr($s,0,1) eq "*";
             $s =~ /(\S+)\.(\S+)=(.*)/;
-            my $iattrg = $1;
+            $iattrg = $1;
             $adetail_ref->{attrgs}{$iattrg} = 1 if defined $iattrg;
             $adetail_ref->{table} = $iattrg if defined $iattrg;
             last;
+         }
+         my $ts = index($r,".TIMESTAMP=");
+         if ($ts != 1) {
+            my $pstring = substr($r,$ts);
+            $pstring =~ /TIMESTAMP=(\d+)/;
+            my $istamp = $1;
+            $adetail_ref->{astamps}{$iattrg}{$istamp} = 1 if defined $istamp;
          }
       }
    }
@@ -5686,7 +5974,6 @@ sub newstsh {
                              samp_miss => 0,
                              samp_dup => 0,
                              samp_null => 0,
-                             adet => {},
                              thrunode => $inode,
                              debug => [],
                           );
@@ -5697,8 +5984,6 @@ sub newstsh {
          my @debugi = [__LINE__,$isitname,$ill,$inode];
          push @{$tdetail_ref->{debug}},\@debugi;
       }
-      $adetail_ref->{tdet} = $tdetail_ref;
-      $tdetail_ref->{adet} = $adetail_ref;
       $tdetail_ref->{count} += 1;
       $tdetail_ref->{epoch} = get_epoch($igbltmstmp);
       $tdetail_ref->{result1} = substr($iresults,0,1);
@@ -6324,6 +6609,8 @@ sub get_epoch {
 # 1.12000  : Limit result output unless advisories by default, add -addresults
 #          : Add in long tail sampled confirm results
 #          : Add in hash of table sizes
+# 1.13000  : Add delay times to node report, and report global average
+#          : Add TIMESTAMP related reports and resolve issues against regression set
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -6622,60 +6909,253 @@ a distinguishing attribute. Sampled situations can not take
 advantage of the Pure Event One Row configuration like pure situations.
 --------------------------------------------------------------
 
+EVENTAUDIT1016W
+Text: Sampled situations [$tooclose_ct] with events too close for sampling definition
+
+Meaning: Sampled situation will only take a sample at most once every
+defined sampling interval. This report shows violation of the case.
+
+One observed circumstance is when a situation is composed with
+mixed attribute groups one which is Pure [no sampling interval]
+and one that is Sampled. This is called a cooerced condition
+and does not produce correct results.
+
+Another observed circumstance is when agents are running with
+duplicate agent names. This can be on the same system or on
+multiple systems reporting to the same remote TEMS. That is
+a very bad practice since ITM depends on unique names for agents.
+This report can help detect such cases.
+
+Recovery plan: Correct any situations with cooerced situation
+formula. Reconfigure any agents with duplicate names. Contact
+IBM Support if you need help in this area.
+--------------------------------------------------------------
+
 EVENTREPORT000
 Text: Summary lines
 
 Sample:
-EVENTREPORT000: Summary report
-Duration 4813 seconds
-Event Status History count 7361 91.76/min
-Event Status History open 6442 80.31/min
-Event Status History close 919 11.46/min
-Event Status History transitions 1197 14.92/min
-Event Status History Open->Open transitions 0
-Event Status History Close->Close transitions 0
-Event Result History sampled 22075 275.19/min
-Event Result History pure 182 2.27/min
+EVENTREPORT000: Event/Result Summary Budget Report
+Duration: 86233 Seconds
+Total Open/Close Events: 6196 4.31/min
+Total Results: 337643 234.93/min
+Total Result Bytes: 479050709 325.51 K/min Worry[65.10%]
+Sampled Results Confirm: 331013 230.32/min
+Sampled Results Confirm Bytes: 462552715 314.30 K/min, 96.56% of total results
+Miss DisplayItem: 1352 0.94/min
+Duplicate DisplayItem: 2780 1.93/min
+Null DisplayItem: 86 4230.39/min
+Pure Merged Results: 1112 0.77/min
+Open/Open transitions: 0
+Close/Close transitions: 0
+Delay Estimate opens[1894] over_minimum [125] over_average [1.18 seconds]
 
-Meaning: One quick note, if negative numbers are seen, there
+Meaning: se for a quick summary of condition.
+
+If negative numbers are seen, there
 are likely a lot of event status seen with the same time stamp.
 
-Recovery plan:  Use for a quick summary of condition.
+Recovery plan:  none
 ----------------------------------------------------------------
 
 EVENTREPORT001
-Text: Event Summary sorted by Event Status Count
+Text: Multiple results in one second but DisplayItem missing or null atoms found
 
 Sample:
-Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Atoms,Nodes,Transitions,Tr/hour,PDT
-boi_logscrp_g06c_win,5549,75.17%,69.18,5533,16,145,0.66%,1.81,0,0.00%,0.00,,1,14,31,23.19,*IF *VALUE K06_LOGFILEMONITOR_SCRIPT.RC *NE '17' *UNTIL ( *TTL 0:00:05:00 ),
-boi_prcmis_xuxc_ctrlmsprc,222,1.47%,2.77,108,114,4816,21.82%,60.04,0,0.00%,0.00,UNIXPS.UCOMMAND,6,2,216,161.56,*IF *MISSING Process.Process_Command_U *EQ ('*p_ctmsu*','*p_ctmrt*','*p_ctmns*','*p_ctmtr*','*p_ctmwd*','*p_ctmca*') *UNTIL ( *TTL 0:00:05:00 ),
+Situation,Type,Agent_Second,Results,Agent,Atomize,Atom,
+kph_ees_wmb_Total_Backouts,Sampled,1140612203045000,11,PACNHB20_BROKER:HB20:KQIB,,,
+kph_ees_wmb_Total_Backouts,Sampled,1140612202545000,4,PACNHB21_BROKER:HB21:KQIB,,,
+kph_ees_wmb_Total_Backouts,Sampled,1140612202009000,5,PAMBSB20_BROKER:SB20:KQIB,,,
 
+Meaning: This is captured at the agent when there are multiple results present
+and the atomize value is null. There may or may not be a DisplayItem value defined
+in the situation.
+
+In many cases this causes potential events to be hidden since TEMS will only
+generate an event for each unique combination of agent/situation/Displayitem.
+In cases like this one will be chosen essentially at randome and displayed.
+
+See EVENTREPORT007 which will display the first two results of one such case
+along with a display of which attributes differ.
+
+Recovery plan: If the hidden results are important and should be creating
+events, edit the situation formula and add a identifying DisplayItem.
+----------------------------------------------------------------
+
+EVENTREPORT002
+Text: Multiple results in one second and DisplayItem defined
+
+Sample:
+Situation,Type,Agent_Second,Results,Agent,Atomize,Atom,
+all_erralrt_x072_aix,Pure,1140612184535000,8,nzapap59:07,K07K07ERL0.DESCRIPTIO,PATH HAS FAILED,
+all_erralrt_x072_aix,Pure,1140612185035000,10,nzapap59:07,K07K07ERL0.DESCRIPTIO,PATH HAS FAILED,
+all_erralrt_x072_aix,Pure,1140612204536000,16,nzapap59:07,K07K07ERL0.DESCRIPTIO,PATH HAS FAILED,
+
+Meaning: This is captured at the agent when there are multiple results present
+and the DisplayItem is defined but the atomize values are identical.
+
+In most cases this causes potential events to be hidden since TEMS will only
+generate an event for each unique combination of agent/situation/Displayitem.
+In cases like this one will be chosen essentially at randome and displayed.
+
+See EVENTREPORT007 which will display the first two results of one such case
+along with a display of which attributes differ.
+
+Recovery plan: If the hidden results are important and should be creating
+events, edit the situation formula and Change the DisplayItem to one that
+will provide a unique identifier. For example on a Unix OS Agent Process
+formula the Process ID will could be used.
+----------------------------------------------------------------
+
+EVENTREPORT003
+Text: Results at Agent with DisplayItem and null Atom
+
+Sample:
+Situation,Type,Agent_Second,Results,Agent,Atomize,Atom,
+all_logscrp_x07w_aix_v2,Sampled,1140613104051000,1,czapie22_czapie23:07,K07K07LGS0.LOGFILE,,
+all_logscrp_x07w_aix_v2,Sampled,1140612200344000,1,ktazd2787:07,K07K07LGS0.LOGFILE,,
+all_logscrp_x07w_aix_v2,Sampled,1140613092857000,1,ktazd3305:07,K07K07LGS0.LOGFILE,,
+
+Meaning: This is captured at the agent when there are multiple results present
+and the DisplayItem is defined and some atomize values are null.
+
+In most cases this causes potential events to be hidden since TEMS will only
+generate an event for each unique combination of agent/situation/Displayitem.
+In cases like this one will be chosen essentially at randome and displayed.
+
+See EVENTREPORT007 which will display the first two results of one such case
+along with a display of which attributes differ.
+
+Recovery plan: If the hidden results are important and should be creating
+events, edit the situation formula and Change the DisplayItem to one that
+will provide a unique identifier. For example on a Unix OS Agent Process
+formula the Process ID will could be used.
+----------------------------------------------------------------
+
+EVENTREPORT004
+Text: Situations with Multiple results at TEMS with same DisplayItem at same second
+
+Sample:
+Situation,Type,Agent_Second,Results,Agent,Atomize,Atom,
+all_erralrt_x072_aix,Pure,1140612184535000,8,nzapap59:07,K07K07ERL0.DESCRIPTIO,PATH HAS FAILED,
+all_erralrt_x072_aix,Pure,1140612185035000,10,nzapap59:07,K07K07ERL0.DESCRIPTIO,PATH HAS FAILED,
+all_erralrt_x072_aix,Pure,1140612204536000,13,nzapap59:07,K07K07ERL0.DESCRIPTIO,PATH HAS FAILED,
+
+Meaning: This is captured at the TEMS when there are multiple results present
+and the DisplayItem is defined and atomize values are identical.
+
+In most cases this causes potential events to be hidden since TEMS will only
+generate an event for each unique combination of agent/situation/Displayitem.
+In cases like this one will be chosen essentially at randome and displayed.
+
+See EVENTREPORT007 which will display the first two results of one such case
+along with a display of which attributes differ.
+
+Recovery plan: If the hidden results are important and should be creating
+events, edit the situation formula and Change the DisplayItem to one that
+will provide a unique identifier. For example on a Unix OS Agent Process
+formula the Process ID will could be used.
+----------------------------------------------------------------
+
+EVENTREPORT005
+Text: Situations with Multiple results at Agent with same DisplayItem at same second
+
+Sample:
+to be added and clarified.
+
+Meaning: This is captured at the TEMS when there are multiple results present
+and the DisplayItem is defined and atomize values are identical.
+
+In most cases this causes potential events to be hidden since TEMS will only
+generate an event for each unique combination of agent/situation/Displayitem.
+In cases like this one will be chosen essentially at randome and displayed.
+
+See EVENTREPORT007 which will display the first two results of one such case
+along with a display of which attributes differ.
+
+Recovery plan: If the hidden results are important and should be creating
+events, edit the situation formula and Change the DisplayItem to one that
+will provide a unique identifier. For example on a Unix OS Agent Process
+formula the Process ID will could be used.
+----------------------------------------------------------------
+
+EVENTREPORT006
+Text: Timestamps too close together - possible duplicate agents
+
+Sample:
+to be added and clarified.
+
+Meaning: to be written
+
+Recovery plan: to be written.
+----------------------------------------------------------------
+
+EVENTREPORT007
+Text: Detailed Attribute differences on first two merged results
+
+Sample:
+Situation,Node,Agent_Time,Reeval,Results,Atom,Atomize,Attribute_Differences
+boi_lstnr_grzw_oraext,ASM1:boi_bsswpda1:RZ,1180219084239999,300,2,KRZAGTLSNR.LSNRNAME,LISTENER_SCAN1,KRZAGTLSNR.CONNERRMSG 1[TNS-12560: TNS:protocol adapter error\n] 2[TNS-12541: TNS:no listener\n],KRZAGTLSNR.CONNERROR 1[12560] 2[12541],KRZAGTLSNR.HOSTNAME 1[10.71.73.106] 2[ ],KRZAGTLSNR.PORT 1[1924] 2[-1],KRZAGTLSNR.PROTOCOL 1[TCPS] 2[IPC],KRZAGTLSNR.SERVICEKEY 1[ ] 2[LISTENER_SCAN1],KRZAGTLSNR.TESTTIME 1[1180219083635000] 2[1180219083636000],,
+boi_serresp_gynw_boiwas9,AppSrv01SOA:boi_vm000000467:KYNS,1180219091622999,90,2,KYNSERVLT.SERVER_NAM,SOAServer1,KYNSERVLT.APPL_NAME 1[projections-webservices-ear] 2[BIL Quotes NBQ UI EAR],KYNSERVLT.AVG_RT 1[936000] 2[1030000],KYNSERVLT.SVLT_NAME 1[webservices] 2[NBQ_SPRING_SERVLET],KYNSERVLT.WAR_NAME 1[projections-webservices-1.0.war] 2[projections-nbq-1.0.war],,
+
+Meaning: When you see an advisory on merged results, this report
+will show what attributes were different for the first two result
+instances. Only a single case of situation/agent is shown although
+multiple cases are usually involved. In some cases this will let you
+decide what the DisplayItem should be.
+
+Recovery plan: Correct the situaton so results transform into
+individual situation events with proper use of DisplayItem.
+----------------------------------------------------------------
+
+
+
+EVENTREPORT011
+Text: Event/Results Budget Situations Report by Result Bytes
+
+Sample
+Situation,Table,Rowsize,Reeval,Event,Event%,Event/min,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmBytes,PureMerge,PureMergeBytes,transitions,nodes,PDT
+kph_soa_Slow_Transactions,AGGREGATS,3368,300,1232,19.88%,0.86,85715,288688120,60.26%,32,107776,58,195344,0,0,85065,286498920,56,188608,1232,4,*IF *VALUE Aggregates.Group_Level *EQ Transaction *AND *VALUE Aggregates.Total_Time_Deviation *GT 100,
+kph_soa_Failed_Transactions,AGGREGATS,3368,300,106,1.71%,0.07,11693,39382024,8.22%,28,94304,50,168400,0,0,11609,39099112,47,158296,106,1,*IF *VALUE Aggregates.Group_Level *EQ Transaction *AND *VALUE Aggregates.Percent_Failed *GT 50,
+kph_soa_Transaction_Rate_W,TOINTSIT,500,300,706,11.39%,0.49,56320,28160000,5.88%,333,166500,990,495000,0,0,55179,27589500,12,6000,706,4,*IF *VALUE Interaction_Situations.Display_Format *EQ '${DestinationContext.ComponentName} - ${DestinationContext.ServerName}' *AND *VALUE Interaction_Situations.Metric_Name *EQ DeviationTransactionRate *AND *VALUE Interaction_Situations.Metric_Value *GT 50 *AND *VALUE Interaction_Situations.Metric_Value *LE 100,
 Meaning: Report what situation created the most situation events
 
-Sorted in reverse number by the number of event status observed. This report
-only counts Open [Y] and Close [Y] status and ignores others such as Start [S]
-and Stop [P] because those are not associated with specific agents.
-Sorted in reverse number by the number of event results observed. This report
+Sorted in reverse number by the number of result bytes observed. This report
+only counts Open [Y] and ignores others because those are not associated with
+specific agents.
 
-Situation    : Situation Name. This can be the name index in case TNAME Fullname is used
-Count        : Number of situation results
-Count%       : Per Cent of total situation results
-Count/min    : Rate per minute of situation results
-Open         : Number of Open events
-Close        : Number of Close events
-Sampled      : Number of sampled results
-Sampled%     : Per Cent of sampled results
-Sampled/min  : Rare of sampled results
-Pure         : Number of pure results
-Pure%        : Per Cent of pure results
-Pure/min     : Rate of pure result
-Atomize      : Number of different Atomize values
-Atoms        : Count of different atomize values
-Nodes        : Number of reporting nodes [agents]
-Transitions  : Transitions from one open/close to another
-Tr/hour      : Rate of transitions per hour
-PDT          : Situation Formula [predicate]
+Situation,Table,Rowsize,Reeval,Event,Event%,Event/min,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmBytes,PureMerge,PureMergeBytes,transitions,nodes,PDT
+kph_soa_Slow_Transactions,AGGREGATS,3368,300,1232,19.88%,0.86,85715,288688120,60.26%,32,107776,58,195344,0,0,85065,286498920,56,188608,1232,4,*IF *VALUE Aggregates.Group_Level *EQ Transaction *AND *VALUE Aggregates.Total_Time_Deviation *GT 100,
+kph_soa_Failed_Transactions,AGGREGATS,3368,300,106,1.71%,0.07,11693,39382024,8.22%,28,94304,50,168400,0,0,11609,39099112,47,158296,106,1,*IF *VALUE Aggregates.Group_Level *EQ Transaction *AND *VALUE Aggregates.Percent_Failed *GT 50,
+kph_soa_Transaction_Rate_W,TOINTSIT,500,300,706,11.39%,0.49,56320,28160000,5.88%,333,166500,990,495000,0,0,55179,27589500,12,6000,706,4,*IF *VALUE Interaction_Situations.Display_Format *EQ '${DestinationContext.ComponentName} - ${DestinationContext.ServerName}' *AND *VALUE Interaction_Situations.Metric_Name *EQ DeviationTransactionRate *AND *VALUE Interaction_Situations.Metric_Value *GT 50 *AND *VALUE Interaction_Situations.Metric_Value *LE 100,
+
+PureMerge,PureMergeBytes,transitions,nodes,PDT
+Situation        : Situation Name. This can be the name index in case TNAME Fullname is used
+Table            : Attribute Table Name
+Rowsize          : Estimated result row size
+Reeval           : Reevaluation or sampling time in seconds. Zero means a Pure situation
+Event            : Number of new situation events
+Event%           : Per Cent of total Events observed
+Results          : Number of situation result rows
+ResultBytes      : Estimated number of size of all result rows
+Results%         : Per Cent of total result row sizes
+Miss             : Results missed because no DisplayItem
+MissBytes        : Estimated size of all Missed events
+Dup              : Results missed because DisplayItem with duplicate atomize values
+DupBytes         : Estimated size of all Duplicate atomize value cases
+Null             : Results missed because DisplayItem had a null atomize
+NullBytes        : Estimated size of all Null Atomize values
+Miss             : Results missed because no DisplayItem
+MissBytes        : Estimated size of all Missed events
+Miss             : Results missed because no DisplayItem
+MissBytes        : Estimated size of all Missed events
+SampConfirm      : Results which confirm each open Sampled Situation event
+SampConfirmBytes : Estimated size of all confirm results
+PureMerge        : Results which were merged by TEMS because Pure situation results arrived at same second at TEMS
+PureMergeBytes   : Estimated size of all merged Pure Situation Results
+Transitions      : Transitions from one open to close or reverse
+Nodes            : Number of reporting nodes [agents]
+PDT              : Situation Formula [predicate]
 
 There are savings to be had be reducing the number of situations event statuses.
 The benefit is both at the remote TEMS and the hub TEMS.
@@ -6684,29 +7164,150 @@ Recovery plan:  Review report and improve TEMS efficiency by eliminating
 or redesigning the situation workloads.
 ----------------------------------------------------------------
 
-EVENTREPORT002
-Text: Event Summary sorted by Event Status Samples
+EVENTREPORT012
+Text: Budget Report by Thrunode
 
-Sample:
-Situation,Count,Count%,Count/min,Open,Close,Sampled,Sampled%,Sampled/min,Pure,Pure%,Pure/min,Atomize,Atoms,Nodes,Transitions,Tr/hour,PDT
-boi_prcmis_xuxc_ctrlmsprc,222,1.47%,2.77,108,114,4816,21.82%,60.04,0,0.00%,0.00,UNIXPS.UCOMMAND,6,2,216,161.56,*IF *MISSING Process.Process_Command_U *EQ ('*p_ctmsu*','*p_ctmrt*','*p_ctmns*','*p_ctmtr*','*p_ctmwd*','*p_ctmca*') *UNTIL ( *TTL 0:00:05:00 ),
-boi_heartbeat_gemi_tivmon,107,0.73%,1.33,54,53,4354,19.72%,54.28,0,0.00%,0.00,,1,1,107,80.03,*IF *VALUE Universal_Time.Seconds *GE 0 *UNTIL ( *TTL 0:00:00:30 ),
-
-
-Meaning: Report what situation created the most situation event statuses.
-
-is different from EVENTREPORT002 by estimating incoming results. A single
-situation open event will result in multiple results since the agent periodically
-resends result rows in order to "confirm" the condition is still true.
+Sample
+Thrunode,Event,Event%,Event/min,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmbytes,PureMerge,PureMergeBytes,transitions,
+ASYS:CMS,1,0.02%,0.00,123,8856,0.00%,0,0,0,0,0,0,122,8784,0,0,
+CSYS:CMS,14,0.23%,0.01,2733,894607,0.19%,0,0,0,0,0,0,2725,892358,0,0,
+HUB_2990BU,1,0.02%,0.00,795,397500,0.08%,0,0,0,0,0,0,794,397000,0,0,
 
 See EVENTREPORT001 for definitions of the Columns
 
-There are major savings to be had be reducing the number of incoming
-situation results at a remote TEMS. The benefit is mostly at the
-TEMS receiving results, usually the remote TEMS.
+Meaning: Much like EVENTREPORT011 but is shows how results are arriving from different remote TEMSes
+This is only interesting when Event Audit is run on a hub TEMS.
+
+If the is a large imbalance it may be useful to balanace the agents between
+the different remote TEMSes/
 
 Recovery plan:  Review report and improve TEMS efficiency by eliminating
 or redesigning the situation workloads.
+----------------------------------------------------------------
+
+EVENTREPORT013
+Text: Budget Report by Node
+
+Sample
+EVENTREPORT013: Budget Report by Node
+Node,Event,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmbytes,PureMerge,PureMergeBytes,transitions,delay[count/min/mode/avg/max],
+czzpms1e:TO,640,10.33%,0.45,44613,127303980,26.57%,94,49868,245,128236,0,0,44085,126277092,4,7736,640,[322/0/0/0.05/1],
+czzpms1f:TO,721,11.64%,0.50,65138,123932008,25.87%,103,212108,347,460300,0,0,64561,123024020,105,324960,721,[361/0/0/0.16/1],
+
+See EVENTREPORT001 for definitions of the Columns
+
+Meaning: Much like EVENTREPORT011 but is shows how results are arriving from different Agents.
+
+If there is a large imbalance, it may be useful to review the heavy agent
+contributors to work to reduce there workload.
+
+Recovery plan:  Review report and improve TEMS efficiency by eliminating
+or redesigning the situation workloads.
+----------------------------------------------------------------
+
+EVENTREPORT016
+Text: Delay Report by Node and Situation
+
+Sample
+EVENTREPORT016: Delay Report by Node and Situation
+Node,Situation,Atomize,Delay,Min_delay,
+DEV3_Member1:wzadwa3:KYNS,kph_wasappsvr_gync_was_base,DEV3_Member1,12,0,1140612170134001,
+DEV3_Member2:wzadwa3:KYNS,kph_wasappsvr_gync_was_base,DEV3_Member2,12,0,1140612170134000,
+
+
+Meaning: This reports cases where the delay between agent producing the data is more than
+one second. Typical well running environments show 0 or 1 second measurements. This could
+indicate a remote TEMS under stress, or a agent system under stress or network issues or
+even a clock time difference between agent and TEMS.
+
+Recovery plan:  Investigate TEMS and agent and take corrective actions.
+----------------------------------------------------------------
+
+EVENTREPORT017
+Text: Extreme event arrival report SEQ999
+
+Sample:
+Situation,Count,Nodes,Times
+CIB_UNIX_Disk_RW_Pct_H,2325,132,1171221040312999[35] 1171221035712999[33] ...
+CIB_UNIX_Page_Scan_Pct_H,2215,307,1171221032108999[47] 1171221031908999[44] ...
+
+Situation    : Situation Name. This can be the name index in case TNAME Fullname is used
+Count        : Number of extreme arrival events
+Nodes        : Number of nodes where extreme arrival observed
+Times        : Time [local time at agent when data filtered] and count of how many seen
+
+Meaning: TEMS creates a time stamp for arriving situation event statuses.
+CYYMMDDHHMMSSTTT The last three characters are a sequence number. When more than
+1000 situation events arive in a single second, the fixed number 999 is used.
+
+This is sometimes normal such as during a TEMS startup. However if the
+condition is frequent, it usually means the TEMS is being overwhelmed with
+situation result data and may become unstable. Situations should report on
+rare events and not common conditions.
+
+For example the second situation CIB_UNIX_Page_Scan_Pct_H formula was
+
+*IF *VALUE Unix_Memory.Page_Scan *GE 30
+
+At this site, the condition was so common at 307 agents that situation events were
+constantly opening and closing. This caused excessive workload at the TEMS and
+was one factor that caused TEMS instability.
+
+Recovery plan: Redesign the situation to avoid these extreme cases.
+----------------------------------------------------------------
+
+EVENTREPORT019
+Text: Segmented arrival report SEQ998
+
+Sample:
+[add later]
+
+Situation    : Situation Name. This can be the name index in case TNAME Fullname is used
+Count        : Number of extreme arrival events
+Nodes        : Number of nodes where extreme arrival observed
+Times        : Time [local time at agent when data filtered] and count of how many seen
+
+Meaning: TEMS creates a time stamp for arriving situation event statuses.
+CYYMMDDHHMMSSTTT The last three characters are a sequence number.
+
+There are rare cases where situation result data has to be segmented into multiple rows.
+In this case the last sequence number is 998. This condition is not well understood and
+is also pretty rare. Thus a report section was added to aid studying issue.
+
+Recovery plan: Work to understand why segmented arrival is occurring.
+----------------------------------------------------------------
+
+EVENTREPORT020
+Text: Deltastat X (Problem) Report
+
+Sample:
+Situation,Count,Nodes,Times
+ddb_fss_xuxc_ws,3,
+
+Meaning: This Situation had some serious error can could not run.
+TEMS assigns a status of X and does not run it.
+
+Recovery plan: Correct the situaton so it works. The diagnostic log
+will contain details about the error.
+----------------------------------------------------------------
+
+EVENTREPORT998
+Text: List of estimated table sizes
+
+Sample:
+Table,Count,
+K07K07ERL0,26,
+QMEVENTC,4,
+TOINTSIT,215,
+
+Meaning: The Event Audit program has a large built in table of
+Attibute Row Table sizes. These are ones which were discovered
+in the TSITSTSH information but were not in the table. Over time
+product tables will be added. There can also be Agent Builder or
+Universal Agent tables spotted which are used defined. By default
+the size is assumed to be 500 bytes if not found.
+
+Recovery plan: information only
 ----------------------------------------------------------------
 
 EVENTREPORT999
@@ -6743,91 +7344,6 @@ DisplayItem  : The attribute used for atomize in attribute_group_table.attribute
 
 Recovery plan:  Use report to help understand the summary reports.
 ----------------------------------------------------------------
-
-EVENTREPORT004
-Text: Extreme event arrival report SEQ999
-
-Sample:
-Situation,Count,Nodes,Times
-CIB_UNIX_Disk_RW_Pct_H,2325,132,1171221040312999[35] 1171221035712999[33] ...
-CIB_UNIX_Page_Scan_Pct_H,2215,307,1171221032108999[47] 1171221031908999[44] ...
-
-Situation    : Situation Name. This can be the name index in case TNAME Fullname is used
-Count        : Number of extreme arrival events
-Nodes        : Number of nodes where extreme arrival observed
-Times        : Time [local time at agent when data filtered] and count of how many seen
-
-Meaning: TEMS creates a time stamp for arriving situation event statuses.
-CYYMMDDHHMMSSTTT The last three characters are a sequence number. When more than
-1000 situation events arive in a single second, the fixed number 999 is used.
-
-This is sometimes normal such as during a TEMS startup. However if the
-condition is frequent, it usually means the TEMS is being overwhelmed with
-situation result data and may become unstable. Situations should report on
-rare events and not common conditions.
-
-For example the second situation CIB_UNIX_Page_Scan_Pct_H formula was
-
-*IF *VALUE Unix_Memory.Page_Scan *GE 30
-
-At this site, the condition was so common at 307 agents that situation events were
-constantly opening and closing. This caused excessive workload at the TEMS and
-was one factor that caused TEMS instability.
-
-Recovery plan: Redesign the situation to avoid these extreme cases.
-----------------------------------------------------------------
-
-EVENTREPORT005
-Text: Segmented arrival report SEQ998
-
-Sample:
-[add later]
-
-Situation    : Situation Name. This can be the name index in case TNAME Fullname is used
-Count        : Number of extreme arrival events
-Nodes        : Number of nodes where extreme arrival observed
-Times        : Time [local time at agent when data filtered] and count of how many seen
-
-Meaning: TEMS creates a time stamp for arriving situation event statuses.
-CYYMMDDHHMMSSTTT The last three characters are a sequence number.
-
-There are rare cases where situation result data has to be segmented into multiple rows.
-In this case the last sequence number is 998. This condition is not well understood and
-is also pretty rare. Thus a report section was added to aid studying issue.
-
-Recovery plan: Work to understand why segmented arrival is occurring.
-----------------------------------------------------------------
-
-EVENTREPORT006
-Text: Deltastat X report
-
-Sample:
-Situation,Count,Nodes,Times
-ddb_fss_xuxc_ws,3,
-
-Meaning: This Situation had some serious error can could not run.
-TEMS assigns a status of X and does not run it.
-
-Recovery plan: Correct the situaton so it works. The diagnostic log
-will contain details about the error.
-----------------------------------------------------------------
-
-EVENTREPORT007
-Text: Detailed Attribute differences on first two merged results
-
-Sample:
-Situation,Node,Agent_Time,Reeval,Results,Atom,Atomize,Attribute_Differences
-boi_lstnr_grzw_oraext,ASM1:boi_bsswpda1:RZ,1180219084239999,300,2,KRZAGTLSNR.LSNRNAME,LISTENER_SCAN1,KRZAGTLSNR.CONNERRMSG 1[TNS-12560: TNS:protocol adapter error\n] 2[TNS-12541: TNS:no listener\n],KRZAGTLSNR.CONNERROR 1[12560] 2[12541],KRZAGTLSNR.HOSTNAME 1[10.71.73.106] 2[ ],KRZAGTLSNR.PORT 1[1924] 2[-1],KRZAGTLSNR.PROTOCOL 1[TCPS] 2[IPC],KRZAGTLSNR.SERVICEKEY 1[ ] 2[LISTENER_SCAN1],KRZAGTLSNR.TESTTIME 1[1180219083635000] 2[1180219083636000],,
-boi_serresp_gynw_boiwas9,AppSrv01SOA:boi_vm000000467:KYNS,1180219091622999,90,2,KYNSERVLT.SERVER_NAM,SOAServer1,KYNSERVLT.APPL_NAME 1[projections-webservices-ear] 2[BIL Quotes NBQ UI EAR],KYNSERVLT.AVG_RT 1[936000] 2[1030000],KYNSERVLT.SVLT_NAME 1[webservices] 2[NBQ_SPRING_SERVLET],KYNSERVLT.WAR_NAME 1[projections-webservices-1.0.war] 2[projections-nbq-1.0.war],,
-
-Meaning: When you see an advisory on merged results, this report
-will show what attributes were different for the first two result
-instances. Only a single case of situation/agent is shown although
-multiple cases are usually involved. In some cases this will let you
-decide what the DisplayItem should be.
-
-Recovery plan: Correct the situaton so results transform into
-individual situation events with proper use of DisplayItem.
 ----------------------------------------------------------------
 
 EVENTREPORT003
@@ -6960,6 +7476,32 @@ Recovery plan:  Used to research workload in depth.
 
 EVENTREPORT016
 Text: Incoming workload sorted by Time and Situation
+
+Sample:
+no be added
+
+Meaning: Detailed report on counts and result rows overall by time
+
+Needs the -time option to be produced. Rather a lot of output.
+
+Recovery plan:  Used to research workload in depth.
+----------------------------------------------------------------
+
+EVENTREPORT017
+Text: Multiple results in one second but DisplayItem missing or null atoms found
+
+Sample:
+no be added
+
+Meaning: Detailed report on counts and result rows overall by time
+
+Needs the -time option to be produced. Rather a lot of output.
+
+Recovery plan:  Used to research workload in depth.
+----------------------------------------------------------------
+
+EVENTREPORT018
+Text: Multiple results in one second DisplayItem defined
 
 Sample:
 no be added
