@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.13000";
+my $gVersion = "1.14000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -4691,7 +4691,7 @@ foreach my $f (sort { $budget_nodex{$b}->{result_bytes} <=> $budget_nodex{$a}->{
    foreach my $g (sort  {$node_ref->{difftimes}{$b} <=> $node_ref->{difftimes}{$a}} keys %{$node_ref->{difftimes}}) {
       next if $g <= $delay_min;
       $total_delay_overmin_ct += $node_ref->{difftimes}{$g};
-      $total_delay_overmin_sum += $g * $node_ref->{difftimes}{$g};
+      $total_delay_overmin_sum += $node_ref->{difftimes}{$g} * ($g - $delay_min);
    }
 }
 
@@ -4923,34 +4923,36 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
    foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
       my $situation_ref = $node_ref->{situations}{$g};
       my $sx = $sitx{$g};
-      if ($sit_reeval[$sx] > 0) {
-         foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
-            my $atomize_ref = $situation_ref->{atoms}{$h};
-            foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{adetails}}) {
-               my $adetail_ref = $atomize_ref->{adetails}{$i};
-               my $tt_ct = scalar keys %{$adetail_ref->{astamps}};
-               next if $tt_ct <= 1;
-               foreach my $j (sort {$a cmp $b} keys %{$adetail_ref->{astamps}}) {
-                  my $table_ref =  $adetail_ref->{astamps}{$j};
-                  my $ts_ct = scalar keys %{$table_ref};
-                  next if $ts_ct <= 1;
-                  my $lagt = 0;
-                  foreach my $l (sort {$a <=> $b} keys %{$table_ref}) {
-                     if ($lagt == 0) {
-                        $lagt = $l;
-                        next;
-                     }
-                     if ((get_epoch($l) - get_epoch($lagt)) < $sit_reeval[$sx]) {
-                        $tooclosex{$g} = 1;
-                        $outline = $f . ",";
-                        $outline .= $sit_reeval[$sx] . ",";
-                        $outline .= $sit_atomize[$sx] . ",";
-                        $outline .= $h . ",";
-                        $outline .= $g . ",";
-                        $outline .= $lagt . ",";
-                        $outline .= $l . ",";
-                        $outline .= $adetail_ref->{lcltmstmp} . ",";
-                        $cnt++;$oline[$cnt]="$outline\n";
+      if (defined $sx) {
+         if ($sit_reeval[$sx] > 0) {
+            foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
+               my $atomize_ref = $situation_ref->{atoms}{$h};
+               foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{adetails}}) {
+                  my $adetail_ref = $atomize_ref->{adetails}{$i};
+                  my $tt_ct = scalar keys %{$adetail_ref->{astamps}};
+                  next if $tt_ct <= 1;
+                  foreach my $j (sort {$a cmp $b} keys %{$adetail_ref->{astamps}}) {
+                     my $table_ref =  $adetail_ref->{astamps}{$j};
+                     my $ts_ct = scalar keys %{$table_ref};
+                     next if $ts_ct <= 1;
+                     my $lagt = 0;
+                     foreach my $l (sort {$a <=> $b} keys %{$table_ref}) {
+                        if ($lagt == 0) {
+                           $lagt = $l;
+                           next;
+                        }
+                        if ((get_epoch($l) - get_epoch($lagt)) < $sit_reeval[$sx]) {
+                           $tooclosex{$g} = 1;
+                           $outline = $f . ",";
+                           $outline .= $sit_reeval[$sx] . ",";
+                           $outline .= $sit_atomize[$sx] . ",";
+                           $outline .= $h . ",";
+                           $outline .= $g . ",";
+                           $outline .= $lagt . ",";
+                           $outline .= $l . ",";
+                           $outline .= $adetail_ref->{lcltmstmp} . ",";
+                           $cnt++;$oline[$cnt]="$outline\n";
+                        }
                      }
                   }
                }
@@ -5905,11 +5907,12 @@ sub newstsh {
       $adetail_ref->{results} += $#segres;
       $adetail_ref->{results} += 1 if substr($segres[0],0,1) ne "*";
       # Collect all results for later usage
+#$DB::single=2 if $adetail_ref->{l} == 38;
       foreach my $r (@segres) {
          push @{$adetail_ref->{allresults}},$r;
          # record the attribute group table name
          # needed to handle when multiples are present
-         my $iattrg = "";;
+         my $iattrg = "";
          my @tresult1 = split("[;]",$r);
          foreach my $s (@tresult1) {
             next if substr($s,0,1) eq "*";
@@ -6610,6 +6613,7 @@ sub get_epoch {
 #          : Add in hash of table sizes
 # 1.13000  : Add delay times to node report, and report global average
 #          : Add TIMESTAMP related reports and resolve issues against regression set
+# 1.14000  : Correct delay over minimum time logic
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
