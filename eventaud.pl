@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.14000";
+my $gVersion = "1.15000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -4163,11 +4163,15 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
              my $imiss = $adetail_ref->{results} - 1;
              $irowsize = $budget_situation_ref->{rowsize};
              $budget_total_ref->{results} += $adetail_ref->{results};
+             $budget_total_ref->{nfwd_results} += $adetail_ref->{results} if $situation_ref->{tfwd} == 0;
              $budget_situation_ref->{results} += $adetail_ref->{results};
+             $budget_situation_ref->{nfwd_results} += $adetail_ref->{results} if $situation_ref->{tfwd} == 0;
              $budget_thrunode_ref->{results} += $adetail_ref->{results};
              $budget_node_ref->{results} += $adetail_ref->{results};
              $budget_total_ref->{result_bytes} += $adetail_ref->{results} * $irowsize;
+             $budget_total_ref->{nfwd_result_bytes} += $adetail_ref->{results} * $irowsize if $situation_ref->{tfwd} == 0;
              $budget_situation_ref->{result_bytes} += $adetail_ref->{results} * $irowsize;
+             $budget_situation_ref->{nfwd_result_bytes} += $adetail_ref->{results} * $irowsize if $situation_ref->{tfwd} == 0;
              $budget_thrunode_ref->{result_bytes} += $adetail_ref->{results} * $irowsize;
              $budget_node_ref->{result_bytes} += $adetail_ref->{results} * $irowsize;
              $budget_situation_ref->{nodes}{$f} += 1;
@@ -4515,11 +4519,15 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                         $budget_thrunode_ref->{samp_confirm_bytes} += $evals * $irowsize;
                         $budget_node_ref->{samp_confirm_bytes} += $evals * $irowsize;
                         $budget_total_ref->{results} += $evals;
+                        $budget_total_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 0;
                         $budget_situation_ref->{results} += $evals;
+                        $budget_situation_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 0;
                         $budget_thrunode_ref->{results} += $evals;
                         $budget_node_ref->{results} += $evals;
                         $budget_total_ref->{result_bytes} += $evals * $irowsize;
+                        $budget_total_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 0;
                         $budget_situation_ref->{result_bytes} += $evals * $irowsize;
+                        $budget_situation_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 0;
                         $budget_thrunode_ref->{result_bytes} += $evals * $irowsize;
                         $budget_node_ref->{result_bytes} += $evals * $irowsize;
                         $detail_state = 1;
@@ -4554,11 +4562,15 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                   $budget_thrunode_ref->{samp_confirm_bytes} += $evals * $irowsize;
                   $budget_node_ref->{samp_confirm_bytes} += $evals * $irowsize;
                   $budget_total_ref->{results} += $evals;
+                  $budget_total_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 0;
                   $budget_situation_ref->{results} += $evals;
+                  $budget_situation_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 0;
                   $budget_thrunode_ref->{results} += $evals;
                   $budget_node_ref->{results} += $evals;
                   $budget_total_ref->{result_bytes} += $evals * $irowsize;
+                  $budget_total_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 0;
                   $budget_situation_ref->{result_bytes} += $evals * $irowsize;
+                  $budget_situation_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 0;
                   $budget_thrunode_ref->{result_bytes} += $evals * $irowsize;
                   $budget_node_ref->{result_bytes} += $evals * $irowsize;
                   for (my $e = 0; $e<=$evals;$e++) {
@@ -4699,27 +4711,45 @@ foreach my $f (sort { $budget_nodex{$b}->{result_bytes} <=> $budget_nodex{$a}->{
 
 $rptkey = "EVENTREPORT000";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="$rptkey: Event/Result Summary Budget Report\n";
+
 $cnt++;$oline[$cnt]="Duration: $event_dur Seconds\n";
+
 $res_rate = ($budget_total_ref->{event}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $cnt++;$oline[$cnt]="Total Open/Close Events: $budget_total_ref->{event} $ppc/min\n";
+
 $res_rate = ($budget_total_ref->{results}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $cnt++;$oline[$cnt]="Total Results: $budget_total_ref->{results} $ppc/min\n";
 my $ppc_event_rate = $ppc;
+
+$res_rate = ($budget_total_ref->{nfwd_results}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
+my $npc = 0;
+my $nes_rate = ($budget_total_ref->{nfwd_results}*100)/$budget_total_ref->{results} if $budget_total_ref->{results} > 0;$npc = sprintf '%.2f', $nes_rate;
+$cnt++;$oline[$cnt]="Total Non-Forwarded Results: $budget_total_ref->{nfwd_results} $ppc/min [$npc%]\n";
+
 $res_rate = ($budget_total_ref->{result_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 my $worry_rate = ($res_rate*100)/500;
 my $wpc = sprintf '%.2f%%', $worry_rate;
 $cnt++;$oline[$cnt]="Total Result Bytes: $budget_total_ref->{result_bytes} $ppc K/min Worry[$wpc]\n";
+
+$npc = 0;
+$nes_rate = ($budget_total_ref->{nfwd_result_bytes}*100)/$budget_total_ref->{result_bytes} if $budget_total_ref->{result_bytes} > 0;$npc = sprintf '%.2f', $nes_rate;
 my $ppc_result_rate = $ppc;
 my $ppc_worry_pc = $wpc;
+$res_rate = ($budget_total_ref->{nfwd_result_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
+$cnt++;$oline[$cnt]="Total Non-Forwarded Result Bytes: $budget_total_ref->{nfwd_result_bytes} $ppc/min [$npc%]\n";
+
 $res_rate = ($budget_total_ref->{samp_confirm}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $cnt++;$oline[$cnt]="Sampled Results Confirm: $budget_total_ref->{samp_confirm} $ppc/min\n";
+
 my $ppc_confirm_rate = $ppc;
 $res_rate = ($budget_total_ref->{samp_confirm_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 my $pcrate = ($budget_total_ref->{samp_confirm_bytes}*100)/$budget_total_ref->{result_bytes} if $budget_total_ref->{result_bytes} > 0;my $prpc = sprintf '%.2f', $pcrate;
 $cnt++;$oline[$cnt]="Sampled Results Confirm Bytes: $budget_total_ref->{samp_confirm_bytes} $ppc K/min, $prpc% of total results\n";
+
 my $confirm_pc = $prpc;
 $res_rate = ($budget_total_ref->{miss}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $cnt++;$oline[$cnt]="Miss DisplayItem: $budget_total_ref->{miss} $ppc/min\n";
+
 $res_rate = ($budget_total_ref->{dup}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $cnt++;$oline[$cnt]="Duplicate DisplayItem: $budget_total_ref->{dup} $ppc/min\n";
 $res_rate = ($budget_total_ref->{dup_bytes}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
@@ -5083,7 +5113,7 @@ foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situati
       $advsit[$advi] = "TEMS";
       $advsitx{$g} = 1;
    }
-   if ($situation_ref->{tfwd} ne "") {   # is this event forwarded
+   if ($situation_ref->{tfwd} eq "") {   # is this event forwarded
       if ($sit_forwarded > 0) {          # are any events forwarded
          if (substr($g,0,8) ne "UADVISOR") {
             $advi++;$advonline[$advi] = "Situation $g showing $situation_ref->{event} event statuses over $node_ct agents - but event not forwarded";
@@ -5590,6 +5620,8 @@ sub setbudget {
                                samp_confirm_bytes => 0,
                                transitions => 0,
                                trans_rate => 0,
+                               nfwd_results => 0,
+                               nfwd_result_bytes => 0,
                                yy => 0,
                                nn => 0,
                             );
@@ -5621,6 +5653,8 @@ sub setbudget {
                                    pdt => "",
                                    transitions => 0,
                                    trans_rate => 0,
+                                   nfwd_results => 0,
+                                   nfwd_result_bytes => 0,
                                    nodes => {},
                                    yy => 0,
                                    nn => 0,
@@ -5907,7 +5941,6 @@ sub newstsh {
       $adetail_ref->{results} += $#segres;
       $adetail_ref->{results} += 1 if substr($segres[0],0,1) ne "*";
       # Collect all results for later usage
-#$DB::single=2 if $adetail_ref->{l} == 38;
       foreach my $r (@segres) {
          push @{$adetail_ref->{allresults}},$r;
          # record the attribute group table name
@@ -6614,6 +6647,7 @@ sub get_epoch {
 # 1.13000  : Add delay times to node report, and report global average
 #          : Add TIMESTAMP related reports and resolve issues against regression set
 # 1.14000  : Correct delay over minimum time logic
+# 1.15000  : Enabled 1004W Advisory, added Non-Forward result count and bytes.
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
