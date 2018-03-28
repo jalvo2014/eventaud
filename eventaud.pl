@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.15000";
+my $gVersion = "1.16000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -194,6 +194,8 @@ my $budget_samp_hidden_null_displayitem_bytes = 0;
 # produce output report
 my @oline = ();
 my $cnt = -1;
+my @sline = ();                              # summary lines
+my $sumi = -1;
 
 my $hdri = -1;                               # some header lines for report
 my @hdr = ();                                #
@@ -201,21 +203,17 @@ my @hdr = ();                                #
 # allow user to set impact
 my %advcx = (
               "EVENTAUDIT1001W" => "75",
-              "EVENTAUDIT1002E" => "100",
               "EVENTAUDIT1003W" => "20",
-              "EVENTAUDIT1004W" => "70",
+              "EVENTAUDIT1004W" => "40",
               "EVENTAUDIT1005W" => "10",
               "EVENTAUDIT1006W" => "10",
               "EVENTAUDIT1007W" => "80",
               "EVENTAUDIT1008E" => "100",
               "EVENTAUDIT1009W" => "50",
               "EVENTAUDIT1010W" => "25",
-              "EVENTAUDIT1011W" => "50",
-              "EVENTAUDIT1012W" => "65",
+              "EVENTAUDIT1011W" => "65",
+              "EVENTAUDIT1012W" => "85",
               "EVENTAUDIT1013W" => "50",
-              "EVENTAUDIT1014W" => "65",
-              "EVENTAUDIT1015W" => "65",
-              "EVENTAUDIT1016W" => "85",
            );
 
 # Following table can be used to calculate result
@@ -4022,9 +4020,8 @@ logit(0,"EVENTAUDIT000I - ITM_Situation_Information $gVersion $args_start");
 
 my $arg_start = join(" ",@ARGV);
 
-$hdri++;$hdr[$hdri]="Situation Status History Audit Report $gVersion\n";
+$hdri++;$hdr[$hdri]="Situation Status History Audit Report $gVersion";
 $hdri++;$hdr[$hdri] = "Runtime parameters: $args_start";
-$hdri++;$hdr[$hdri]="\n";
 
 # process two sources of situation event status data
 # much of the setup work is performed there
@@ -4710,56 +4707,56 @@ foreach my $f (sort { $budget_nodex{$b}->{result_bytes} <=> $budget_nodex{$a}->{
 
 
 $rptkey = "EVENTREPORT000";$advrptx{$rptkey} = 1;         # record report key
-$cnt++;$oline[$cnt]="$rptkey: Event/Result Summary Budget Report\n";
+$sumi++;$sline[$sumi]="$rptkey: Event/Result Summary Budget Report\n";
 
-$cnt++;$oline[$cnt]="Duration: $event_dur Seconds\n";
+$sumi++;$sline[$sumi]="Duration: $event_dur Seconds\n";
 
 $res_rate = ($budget_total_ref->{event}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$cnt++;$oline[$cnt]="Total Open/Close Events: $budget_total_ref->{event} $ppc/min\n";
+$sumi++;$sline[$sumi]="Total Open/Close Events: $budget_total_ref->{event} $ppc/min\n";
 
 $res_rate = ($budget_total_ref->{results}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$cnt++;$oline[$cnt]="Total Results: $budget_total_ref->{results} $ppc/min\n";
+$sumi++;$sline[$sumi]="Total Results: $budget_total_ref->{results} $ppc/min\n";
 my $ppc_event_rate = $ppc;
 
 $res_rate = ($budget_total_ref->{nfwd_results}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 my $npc = 0;
 my $nes_rate = ($budget_total_ref->{nfwd_results}*100)/$budget_total_ref->{results} if $budget_total_ref->{results} > 0;$npc = sprintf '%.2f', $nes_rate;
-$cnt++;$oline[$cnt]="Total Non-Forwarded Results: $budget_total_ref->{nfwd_results} $ppc/min [$npc%]\n";
+$sumi++;$sline[$sumi]="Total Non-Forwarded Results: $budget_total_ref->{nfwd_results} $ppc/min [$npc%]\n";
 
 $res_rate = ($budget_total_ref->{result_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 my $worry_rate = ($res_rate*100)/500;
 my $wpc = sprintf '%.2f%%', $worry_rate;
-$cnt++;$oline[$cnt]="Total Result Bytes: $budget_total_ref->{result_bytes} $ppc K/min Worry[$wpc]\n";
+$sumi++;$sline[$sumi]="Total Result Bytes: $budget_total_ref->{result_bytes} $ppc K/min Worry[$wpc]\n";
 
 $npc = 0;
 $nes_rate = ($budget_total_ref->{nfwd_result_bytes}*100)/$budget_total_ref->{result_bytes} if $budget_total_ref->{result_bytes} > 0;$npc = sprintf '%.2f', $nes_rate;
 my $ppc_result_rate = $ppc;
 my $ppc_worry_pc = $wpc;
 $res_rate = ($budget_total_ref->{nfwd_result_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$cnt++;$oline[$cnt]="Total Non-Forwarded Result Bytes: $budget_total_ref->{nfwd_result_bytes} $ppc/min [$npc%]\n";
+$sumi++;$sline[$sumi]="Total Non-Forwarded Result Bytes: $budget_total_ref->{nfwd_result_bytes} $ppc/min [$npc%]\n";
 
 $res_rate = ($budget_total_ref->{samp_confirm}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$cnt++;$oline[$cnt]="Sampled Results Confirm: $budget_total_ref->{samp_confirm} $ppc/min\n";
+$sumi++;$sline[$sumi]="Sampled Results Confirm: $budget_total_ref->{samp_confirm} $ppc/min\n";
 
 my $ppc_confirm_rate = $ppc;
 $res_rate = ($budget_total_ref->{samp_confirm_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 my $pcrate = ($budget_total_ref->{samp_confirm_bytes}*100)/$budget_total_ref->{result_bytes} if $budget_total_ref->{result_bytes} > 0;my $prpc = sprintf '%.2f', $pcrate;
-$cnt++;$oline[$cnt]="Sampled Results Confirm Bytes: $budget_total_ref->{samp_confirm_bytes} $ppc K/min, $prpc% of total results\n";
+$sumi++;$sline[$sumi]="Sampled Results Confirm Bytes: $budget_total_ref->{samp_confirm_bytes} $ppc K/min, $prpc% of total results\n";
 
 my $confirm_pc = $prpc;
 $res_rate = ($budget_total_ref->{miss}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$cnt++;$oline[$cnt]="Miss DisplayItem: $budget_total_ref->{miss} $ppc/min\n";
+$sumi++;$sline[$sumi]="Missing DisplayItem: $budget_total_ref->{miss} $ppc/min\n";
 
 $res_rate = ($budget_total_ref->{dup}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$cnt++;$oline[$cnt]="Duplicate DisplayItem: $budget_total_ref->{dup} $ppc/min\n";
+$sumi++;$sline[$sumi]="Duplicate DisplayItem: $budget_total_ref->{dup} $ppc/min\n";
 $res_rate = ($budget_total_ref->{dup_bytes}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$cnt++;$oline[$cnt]="Null DisplayItem: $budget_total_ref->{null} $ppc/min\n";
+$sumi++;$sline[$sumi]="Null DisplayItem: $budget_total_ref->{null} $ppc/min\n";
 $res_rate = ($budget_total_ref->{pure_merge}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-$cnt++;$oline[$cnt]="Pure Merged Results: $budget_total_ref->{pure_merge} $ppc/min\n";
-$cnt++;$oline[$cnt]="Open/Open transitions: $budget_total_ref->{yy}\n";
-$cnt++;$oline[$cnt]="Close/Close transitions: $budget_total_ref->{nn}\n";
+$sumi++;$sline[$sumi]="Pure Merged Results: $budget_total_ref->{pure_merge} $ppc/min\n";
+$sumi++;$sline[$sumi]="Open/Open transitions: $budget_total_ref->{yy}\n";
+$sumi++;$sline[$sumi]="Close/Close transitions: $budget_total_ref->{nn}\n";
 $res_rate = ($total_delay_overmin_sum)/($total_delay_overmin_ct) if $total_delay_overmin_ct > 0;$ppc = sprintf '%.2f', $res_rate;
-$cnt++;$oline[$cnt]="Delay Estimate opens[$total_delay_ct] over_minimum [$total_delay_overmin_ct] over_average [$ppc seconds]\n";
+$sumi++;$sline[$sumi]="Delay Estimate opens[$total_delay_ct] over_minimum [$total_delay_overmin_ct] over_average [$ppc seconds]\n";
 $total_delay_avg = $ppc;
 
 
@@ -4804,7 +4801,7 @@ if ($null_ct > 0) {
       }
    }
    my $situation_ct = scalar keys %situation_nullx;
-   $advi++;$advonline[$advi] = "Situations [$situation_ct] lost events because DisplayItem missing or null Atoms - see $rptkey for Report";
+   $advi++;$advonline[$advi] = "Situations [$situation_ct] lost events because DisplayItem missing or null Atoms - see $rptkey";
    $advcode[$advi] = "EVENTAUDIT1010W";
    $advimpact[$advi] = $advcx{$advcode[$advi]};
    $advsit[$advi] = "TEMS";
@@ -4837,8 +4834,8 @@ if ($dup_ct > 0) {
       }
    }
    my $situation_ct = scalar keys %situation_dupx;
-   $advi++;$advonline[$advi] = "Situations [$situation_ct] lost events because DisplayItem has duplicate atoms - see $rptkey for Report";
-   $advcode[$advi] = "EVENTAUDIT1012W";
+   $advi++;$advonline[$advi] = "Situations [$situation_ct] lost events because DisplayItem has duplicate atoms - see $rptkey";
+   $advcode[$advi] = "EVENTAUDIT1011W";
    $advimpact[$advi] = $advcx{$advcode[$advi]};
    $advsit[$advi] = "TEMS";
 }
@@ -4870,7 +4867,7 @@ if ($dnull_ct > 0) {
       }
    }
    my $situation_ct = scalar keys %situation_dnullx;
-   $advi++;$advonline[$advi] = "Situations [$situation_ct] lost events because DisplayItem had Null atoms - see $rptkey for Report";
+   $advi++;$advonline[$advi] = "Situations [$situation_ct] lost events because DisplayItem had Null atoms - see $rptkey";
    $advcode[$advi] = "EVENTAUDIT1009W";
    $advimpact[$advi] = $advcx{$advcode[$advi]};
    $advsit[$advi] = "TEMS";
@@ -4903,8 +4900,8 @@ if ($merge_ct > 0) {
       }
    }
    my $situation_ct = scalar keys %situation_mergex;
-   $advi++;$advonline[$advi] = "Situations [$situation_ct] lost [merged] events Multiple Events with same DisplayItem at same TEMS second - see $rptkey for Report";
-   $advcode[$advi] = "EVENTAUDIT1009W";
+   $advi++;$advonline[$advi] = "Situations [$situation_ct] lost [merged] events Multiple Events with same DisplayItem at same TEMS second - see $rptkey";
+   $advcode[$advi] = "EVENTAUDIT1013W";
    $advimpact[$advi] = $advcx{$advcode[$advi]};
    $advsit[$advi] = "TEMS";
 }
@@ -4936,7 +4933,7 @@ if ($miss_ct > 0) {
       }
    }
    my $situation_ct = scalar keys %situation_missx;
-   $advi++;$advonline[$advi] = "Situations [$situation_ct] with multiple results at agent with same DisplayItem at same second - see $rptkey for Report";
+   $advi++;$advonline[$advi] = "Situations [$situation_ct] with multiple results at agent with same DisplayItem at same second - see $rptkey";
    $advcode[$advi] = "EVENTAUDIT1009W";
    $advimpact[$advi] = $advcx{$advcode[$advi]};
    $advsit[$advi] = "TEMS";
@@ -4994,8 +4991,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
 my $tooclose_ct = scalar keys %tooclosex;
 if ($tooclose_ct > 0) {
    my $situation_ct = scalar keys %situation_mergex;
-   $advi++;$advonline[$advi] = "Sampled situations [$tooclose_ct] with events too close for sampling definition - see $rptkey for Report";
-   $advcode[$advi] = "EVENTAUDIT1016W";
+   $advi++;$advonline[$advi] = "Sampled situations [$tooclose_ct] with events too close for sampling definition - see $rptkey";
+   $advcode[$advi] = "EVENTAUDIT1012W";
    $advimpact[$advi] = $advcx{$advcode[$advi]};
    $advsit[$advi] = "TEMS";
 }
@@ -5061,6 +5058,9 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
 
 
 
+my %nfwdsitx;
+
+
 $rptkey = "EVENTREPORT011";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $cnt++;$oline[$cnt]="$rptkey: Event/Results Budget Situations Report by Result Bytes\n";
@@ -5115,13 +5115,7 @@ foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situati
    }
    if ($situation_ref->{tfwd} eq "") {   # is this event forwarded
       if ($sit_forwarded > 0) {          # are any events forwarded
-         if (substr($g,0,8) ne "UADVISOR") {
-            $advi++;$advonline[$advi] = "Situation $g showing $situation_ref->{event} event statuses over $node_ct agents - but event not forwarded";
-            $advcode[$advi] = "EVENTAUDIT1004W";
-            $advimpact[$advi] = $advcx{$advcode[$advi]};
-            $advsit[$advi] = "TEMS";
-            $advsitx{$g} = 1;
-         }
+         $nfwdsitx{$g} = 1 if substr($g,0,8) ne "UADVISOR";
       }
    }
    if ($situation_ref->{yy} > 0) {
@@ -5137,6 +5131,37 @@ foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situati
       $advimpact[$advi] = $advcx{$advcode[$advi]};
       $advsit[$advi] = "TEMS";
       $advsitx{$g} = 1;
+   }
+}
+
+my $nfwdsit_ct = scalar keys %nfwdsitx;
+
+if ( $nfwdsit_ct > 0) {
+   $rptkey = "EVENTREPORT018";$advrptx{$rptkey} = 1;         # record report key
+   $advi++;$advonline[$advi] = "Situations [$nfwdsit_ct] showing event statuses but event not forwarded - see $rptkey";
+   $advcode[$advi] = "EVENTAUDIT1004W";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
+
+
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Situations processed but not forwarded\n";
+   $cnt++;$oline[$cnt]="Situation,Count,Nodes,\n";
+   foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situationx{$a}->{result_bytes}} keys %budget_situationx ) {
+      next if $g eq "_total_";
+      $advsitx{$g} = 1;
+      my $situation_ref = $budget_situationx{$g};
+      my $node_ct = scalar keys %{$situation_ref->{nodes}};
+      if ($situation_ref->{tfwd} eq "") {   # is this event forwarded
+         if ($sit_forwarded > 0) {          # are any events forwarded
+            if (substr($g,0,8) ne "UADVISOR") {
+               $outline = $g . ",";
+               $outline .= $situation_ref->{event} . ",";
+               $outline .= $node_ct . ",";
+               $cnt++;$oline[$cnt]="$outline\n";
+            }
+         }
+      }
    }
 }
 
@@ -5467,6 +5492,11 @@ if ($opt_nohdr == 0) {
    }
    print OH "\n";
 }
+
+for (my $i=0; $i<=$sumi; $i++) {
+   print OH $sline[$i];
+}
+print OH "\n";
 
 if ($advi != -1) {
    print OH "\n";
@@ -6648,6 +6678,7 @@ sub get_epoch {
 #          : Add TIMESTAMP related reports and resolve issues against regression set
 # 1.14000  : Correct delay over minimum time logic
 # 1.15000  : Enabled 1004W Advisory, added Non-Forward result count and bytes.
+# 1.16000  : Rework logic so Summary report shows before Advisories
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -6655,9 +6686,9 @@ __END__
 EVENTAUDIT1001W
 Text: Situation Status on unknown situation <situation> on node <agent>
 
-Meaning: There are rare cases where situations keep running
-at an agent even though the situation was deleted. This causes
-excessive work.
+Meaning: There are rare cases where situations run at an agent
+even though the situation was deleted. This causes excessive work
+at the least and confusion at the worst.
 
 Recovery plan: If the TEMS and TEMA [Agent Support Library] are
 at maintenance level ITM 630 FP2 or higher, recyle the agent
@@ -6665,23 +6696,12 @@ and the condition will be resolved. Otherwise contact IBM Support
 for assistance.
 --------------------------------------------------------------
 
-EVENTAUDIT1002E
-Text: Situation <situation> on node <agent> showing <count> events at same second - missing DisplayItem
-
-Meaning: The agent is returning multiple events for this situation.
-Because of the missing DisplayItem setting, only a single event
-will be created. This causes poor monitoring since some events
-are not created.
-
-Recovery plan: Add DisplayItem to the situation.
---------------------------------------------------------------
-
 EVENTAUDIT1003W
 Text: Situation <situation> on showing <rate> open<->close transitions per hour over <count> agents
 
 Meaning: A situation that shows a lot of transitions from open [Y]
-to closed [N] and many times is not good. Best situations show go
-open and stay open until the condition is closed and then stay closed.
+to closed [N] and many times is not good situation. The best situations
+show open and stay open until the condition is closed and then stay closed.
 
 The impact is that the remote TEMS needs to create and transmit
 situation events constantly. The condition also suggests that
@@ -6700,13 +6720,14 @@ a process to correct that condition.
 --------------------------------------------------------------
 
 EVENTAUDIT1004W
-Text: Situation <situation> showing <count> event statuses over <count> agents - but event not forwarded
+Text: Situations [count] showing event statuses but event not forwarded - see EVENTREPORT008
 
-Meaning: The situation is creating a lot of situation event statuses.
-However the event is not forwarded to an event receiver. This may be
+Meaning: The situations are creating a lot of situation event statuses.
+However the events is not forwarded to an event receiver. This may be
 normal if no event receiver is used. However if there is an event
 receiver like Netcool/Omnibus, this could be a hidden drag on ITM
-processing that is hurting performance with no benefit.
+processing that is hurting performance with no benefit. In some cases
+this has been measured at 75% or more of the TEMS incoming workload.
 
 Recovery plan: Review these such situations and see if they are still
 needed. If not, stop them and probably delete them.
@@ -6754,7 +6775,7 @@ Recovery plan: Rework the situations to produce fewer events.
 EVENTAUDIT1008E
 Text: Situations [count] had lodge failures [count]
 
-Meaning: Some situation could not be started cause they
+Meaning: Some situation could not be started because they
 had a severe error such as an unknown attribute or a
 test value that exceeded the allowed length.
 
@@ -6791,14 +6812,16 @@ than review if the DisplayItem is needed.
 --------------------------------------------------------------
 
 EVENTAUDIT1010W
-Text: Pure situation [sitname] node [agent] duplicate atomize [atomize] DisplayItem [displaytime] at same local second count
+Text: Situations [count] lost events because DisplayItem missing or null Atoms
 
 Meaning: In this circumstance only a single Situation Event
 will be created, even though multiple results are present.
 Often this is just fine and the extra situation events can
 be ignored with no business value.
 
-If you want separate situation events the TEMSes that
+See Report EVENTREPORT001 for details.
+
+If you want separate Pure situation events at the TEMSes that
 agents connect to, there is a TEMS configuration to
 force one event per result and is documented in this
 document:
@@ -6811,39 +6834,13 @@ situation per result
 --------------------------------------------------------------
 
 EVENTAUDIT1011W
-Text: Sampled situation [sitname] node [agent] duplicate atomize [atomize] DisplayItem [displaytime] at same local second count
-
-Meaning: The situation has a DisplayItem set. By design
-the DisplayItem must be a different value for each returned
-result. If that is violated you will get only a single event
-where multiple events would normally be expected.
-
-In some cases this is an agent logic issue. Agents should
-only present DisplayItems that give that uniqueness
-guarantee. If that is not true, you may have to select
-another DisplayItem setting.
-
-In some unusual cases, the Sampled Situation Open [Y] and the
-Close [N] record is recorded at the same second. That isn't a
-DisplayItem issue but instead a potential workload issue of too
-much work arriving too fast.
-
-You sometimes see quite large numbers, like thousands. At the TEMS
-these cannot be processed so fast and in the REPORT999 log you will
-only see quite a smaller number processed per TEMS second.
-
-Recovery plan: Change the DisplayItem to an attribute that satisfies
-the uniqueness requirement. You may want to contact IBM and see
-about problems with a given agent and presenting a DisplayItem that
-does not distinquish between result rows in all cases.
---------------------------------------------------------------
-
-EVENTAUDIT1012W
-Text: Pure Situation [sitname] node [agent] multiple results [count] in same local second $h but no DisplayItem set
+Text: Situations [count] lost events because DisplayItem has duplicate atoms
 
 Meaning: Situation can return multiple result rows.
 
 This occurs when occurs when results are returned rapidly.
+
+See EVENTREPORT002 for details;.
 
 In this case, no DisplayItem has been set, even though multiple
 results have been seen in the same second. That means that not
@@ -6867,90 +6864,13 @@ http://www.ibm.com/support/docview.wss?uid=swg21445309
 
 --------------------------------------------------------------
 
-EVENTAUDIT1013W
-Text: Pure situation [sitname] node [agent] duplicate atomize [value] DisplayItem [atomize] count times at same TEMS second $h
-
-Meaning: Situation can return multiple result rows.
-
-In Pure situations that occurs when results are returned
-rapidly and they the same atomize value. In default configuration
-this will cause the TEMS to apparently suppress all but one of
-the situation events. The effect is that fewer situation events
-will be created than expected.
-
-Creating so many events is sort of a violation of ITM philosophy
-that events should be rare and exceptional. If they are flooding in
-at more than one per second they can hardly considered rare. This
-will cause substantial workload at the agent, the remote TEMS,
-the hub TEMS, the TEPS and the event receiver. One way to approach
-a resolution is to change the formula so events are rare.
-
-In some such cases, a different DisplayItem may be chosen to enforce
-separate events. Please know that may create a TEMS process storage
-issue and requires a periodic TEMS recycle to clear.
-
-As a good alternative, here a technote which will enforce
-one result = one event logic in such cases. Each TEMS that receives
-such events will need that configuration. It apples to all results
-coming from a specific attribute table.
-
-ITM Pure Situation events and Event Merging Logic
-http://www.ibm.com/support/docview.wss?uid=swg21445309
-
-Recovery plan: If desired, configure the TEMS is to enforce
-one result = one row logic.
---------------------------------------------------------------
-
-EVENTAUDIT1014W
-
-Text: Sampled situation [sitname] node [agent] duplicate atomize [value] DisplayItem [atomize] count times at same TEMS second $h
-
-Meaning: Situation can return multiple result rows.
-
-This is most often seen seen if a DisplayItem is chosen which
-does not distingish between multiple events returned.
-
-Beyond that, sampled situations, it is rare to experience his since
-sampled situations have a minimum sampling time of 30 seconds.
-However it has been seen when multiple situations running at an
-agent have a *SIT in the formula with the same situaton.
-
-Recovery plan: Add proper DisplayItem to situation definition
-[Advanced button, DisplayItem in Situation Editor] to specify
-a distinguishing attribute.
---------------------------------------------------------------
-
-EVENTAUDIT1015W
-Text: Sampled Situation [sitname] node [agent] multiple results [count] in same local second $h but no DisplayItem set
-
-Meaning: Situation can return multiple result rows.
-
-This means cases where a situation evaluation [like disks with
-less than N% free] returns multiple results.
-
-In this case, no DisplayItem has been set, even though multiple
-results have been seen in the same second. That means that not
-all potential situation events will be created.
-
-In some unusual cases, the Sampled Situation Open [Y] and the
-Close [N] record is recorded at the same second. That isn't a
-DisplayItem issue but instead a potential workload issue of too
-much work arriving too fast.
-
-Incidentally, a DisplayItem is the [up to] first 128 bytes of
-another attribute.
-
-Recovery plan: Add proper DisplayItem to situation definition
-[Advanced button, DisplayItem in Situation Editor] to specify
-a distinguishing attribute. Sampled situations can not take
-advantage of the Pure Event One Row configuration like pure situations.
---------------------------------------------------------------
-
-EVENTAUDIT1016W
+EVENTAUDIT1012W
 Text: Sampled situations [$tooclose_ct] with events too close for sampling definition
 
 Meaning: Sampled situation will only take a sample at most once every
 defined sampling interval. This report shows violation of the case.
+
+See EVENTREPORT006 for details
 
 One observed circumstance is when a situation is composed with
 mixed attribute groups one which is Pure [no sampling interval]
@@ -6968,26 +6888,58 @@ formula. Reconfigure any agents with duplicate names. Contact
 IBM Support if you need help in this area.
 --------------------------------------------------------------
 
+EVENTAUDIT1013W
+Text: Situations [count] lost [merged] events Multiple Events with same DisplayItem at same TEMS second
+
+Meaning: When results are processed at the TEMS and
+there are multiple ones with same agent, same Situation
+and same DisplayItem at the same second TEMS can hide
+potential situations.
+
+With Sampled Situations, this is rare unless there are
+multiple agents with same name running on the same
+agent. That of course must be avoided.
+
+
+With Pure situations, events can arrive in a flood and
+this can happen. The TEMS can be configured to force
+one result = one event:
+
+ITM Pure Situation events and Event Merging Logic
+http://www.ibm.com/support/docview.wss?uid=swg21445309
+
+Of course you should always consider whether going through
+this effort is actually required in such a case, multiple
+identical events being processed at the same time should
+be reviewed for whether the monitoring is actually necessary.
+
+Recovery plan: Review Pure situation for reasonableness and used
+the TEMS configuration if required. For Sampled events, determine
+if DisplayItem is giving reasonable results and change if necessary.
+--------------------------------------------------------------
+
 EVENTREPORT000
 Text: Summary lines
 
 Sample:
 EVENTREPORT000: Event/Result Summary Budget Report
-Duration: 86233 Seconds
-Total Open/Close Events: 6196 4.31/min
-Total Results: 337643 234.93/min
-Total Result Bytes: 479050709 325.51 K/min Worry[65.10%]
-Sampled Results Confirm: 331013 230.32/min
-Sampled Results Confirm Bytes: 462552715 314.30 K/min, 96.56% of total results
-Miss DisplayItem: 1352 0.94/min
-Duplicate DisplayItem: 2780 1.93/min
-Null DisplayItem: 86 4230.39/min
-Pure Merged Results: 1112 0.77/min
+Duration: 86273 Seconds
+Total Open/Close Events: 3346 2.33/min
+Total Results: 264979 184.28/min
+Total Non-Forwarded Results: 276 0.19/min [0.10%]
+Total Result Bytes: 92873773 63.08 K/min Worry[12.62%]
+Total Non-Forwarded Result Bytes: 64005 0.04/min [0.07%]
+Sampled Results Confirm: 261862 182.12/min
+Sampled Results Confirm Bytes: 83964934 57.03 K/min, 90.41% of total results
+Missing DisplayItem: 2839 1.97/min
+Duplicate DisplayItem: 49 0.03/min
+Null DisplayItem: 3025 97.60/min
+Pure Merged Results: 70 0.05/min
 Open/Open transitions: 0
 Close/Close transitions: 0
-Delay Estimate opens[1894] over_minimum [125] over_average [1.18 seconds]
+Delay Estimate opens[633] over_minimum [228] over_average [1.86 seconds]
 
-Meaning: se for a quick summary of condition.
+Meaning: A quick overall summary of condition.
 
 If negative numbers are seen, there
 are likely a lot of event status seen with the same time stamp.
@@ -7024,12 +6976,11 @@ Text: Multiple results in one second and DisplayItem defined
 
 Sample:
 Situation,Type,Agent_Second,Results,Agent,Atomize,Atom,
-all_erralrt_x072_aix,Pure,1140612184535000,8,nzapap59:07,K07K07ERL0.DESCRIPTIO,PATH HAS FAILED,
-all_erralrt_x072_aix,Pure,1140612185035000,10,nzapap59:07,K07K07ERL0.DESCRIPTIO,PATH HAS FAILED,
-all_erralrt_x072_aix,Pure,1140612204536000,16,nzapap59:07,K07K07ERL0.DESCRIPTIO,PATH HAS FAILED,
+test_k45_lib_error,Sampled,1120215005726000,3,auusfidb4:45,K45POBJST.ERRCODE,25,
+test_k45_lib_error,Sampled,1120215005726000,3,auusfidp4:45,K45POBJST.ERRCODE,25,
 
 Meaning: This is captured at the agent when there are multiple results present
-and the DisplayItem is defined but the atomize values are identical.
+and the DisplayItem is defined but the atomize values are duplicated.
 
 In most cases this causes potential events to be hidden since TEMS will only
 generate an event for each unique combination of agent/situation/Displayitem.
@@ -7538,6 +7489,21 @@ Recovery plan:  Used to research workload in depth.
 ----------------------------------------------------------------
 
 EVENTREPORT018
+Text: Situations processed but not forwarded
+
+Sample:
+Situation,Count,Nodes,
+SysPerf_avg_process_usage,159,43,
+SysPerf_processor_usage,811,64,
+ESM_PRF_linux_processcpu_usage,99,14,
+
+Meaning: Some situation events are forwarded but not these ones. This
+may be excess work if no one is reviewing the situation events.
+
+Recovery plan:  Consider forwarding the event or stopping the situation.
+----------------------------------------------------------------
+
+EVENTREPORT019
 Text: Multiple results in one second DisplayItem defined
 
 Sample:
