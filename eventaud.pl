@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.16000";
+my $gVersion = "1.17000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -52,6 +52,8 @@ my $g;
 my $h;
 
 my %sitsx;                      # track most recent situation start time
+
+my %missatomx;
 
 my %nodex;
 
@@ -214,6 +216,7 @@ my %advcx = (
               "EVENTAUDIT1011W" => "65",
               "EVENTAUDIT1012W" => "85",
               "EVENTAUDIT1013W" => "50",
+              "EVENTAUDIT1014E" => "90",
            );
 
 # Following table can be used to calculate result
@@ -5429,6 +5432,24 @@ if ($newtabsize_ct > 0) {
    }
 }
 
+my $missatom_ct = scalar keys %missatomx;
+if ($missatom_ct > 0) {
+   $rptkey = "EVENTREPORT024";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Situations using unknown DisplayItems\n";
+   $cnt++;$oline[$cnt]="Situation,DisplayItem,\n";
+   foreach my $f (sort { $a cmp $b } keys %missatomx ) {
+      $outline = $f . ",";
+      $outline .= $missatomx{$f} . ",";
+      $cnt++;$oline[$cnt]="$outline\n";
+   }
+   $advi++;$advonline[$advi] = "Situations [$missatom_ct] had DisplayItem configured which was not in results - See report $rptkey";
+   $advcode[$advi] = "EVENTAUDIT1014E";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
+}
+
+
 $rptkey = "EVENTREPORT999";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 my $ititle = "Detailed report sorted by Node/Situation/Time - for situations recorded in Advisories";
@@ -5991,6 +6012,9 @@ sub newstsh {
             $pstring =~ /TIMESTAMP=(\d+)/;
             my $istamp = $1;
             $adetail_ref->{astamps}{$iattrg}{$istamp} = 1 if defined $istamp;
+         }
+         if ($situation_ref->{atomize} ne "") {
+            $missatomx{$isitname} = $situation_ref->{atomize} if index($r,$situation_ref->{atomize}) == -1;
          }
       }
    }
@@ -6679,6 +6703,7 @@ sub get_epoch {
 # 1.14000  : Correct delay over minimum time logic
 # 1.15000  : Enabled 1004W Advisory, added Non-Forward result count and bytes.
 # 1.16000  : Rework logic so Summary report shows before Advisories
+# 1.17000  : Detect cases where DisplayItem is not in proper form.
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -6916,6 +6941,20 @@ be reviewed for whether the monitoring is actually necessary.
 Recovery plan: Review Pure situation for reasonableness and used
 the TEMS configuration if required. For Sampled events, determine
 if DisplayItem is giving reasonable results and change if necessary.
+--------------------------------------------------------------
+
+EVENTAUDIT1014E
+Text: Situations [count] had DisplayItem configured which was not in results
+
+Meaning: Situations had a DisplayItem set. However in the
+result attributes coming back, none had that DisplayItem.
+As a result the DisplayItem was effectively null which
+can result in hidden events.
+
+This was seen when clients were constructing situations
+manually instead of using the Situation Editor.
+
+Recovery plan: Correct Situation to supply a correct Displayitem.
 --------------------------------------------------------------
 
 EVENTREPORT000
@@ -7514,4 +7553,17 @@ Meaning: Detailed report on counts and result rows overall by time
 Needs the -time option to be produced. Rather a lot of output.
 
 Recovery plan:  Used to research workload in depth.
+----------------------------------------------------------------
+
+EVENTREPORT024
+Text: Situations using unknown DisplayItems
+
+Sample:
+Situation,DisplayItem,
+ccp_fss_ulzf_suse,KLZDISK.MOUNTPT,
+
+Meaning: Detailed report on situations which used unknown DisplayItems.
+In this example case the agent was actually returning LNXDISK.MOUNTPT=/
+
+Recovery plan:  Correct the situations.
 ----------------------------------------------------------------
