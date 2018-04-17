@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.17000";
+my $gVersion = "1.18000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -4100,7 +4100,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
          $advcode[$advi] = "EVENTAUDIT1001W";
          $advimpact[$advi] = $advcx{$advcode[$advi]};
          $advsit[$advi] = "TEMS";
-         $advsitx{$g} = 1;
+         next;
       }
 
       foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) { # Next by atomize value - which might be null
@@ -4482,10 +4482,11 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                         $tdetail_ref->{nn} += 1;          # record N followed by N, keep waiting for Y
                         $atomize_ref->{nn} += 1;
                         $situation_ref->{nn} += 1;
-                        $budget_total_ref->{yy} += 1;
-                        $budget_situation_ref->{yy} += 1;
-                        $budget_thrunode_ref->{yy} += 1;
-                        $budget_node_ref->{yy} += 1;
+                        $budget_total_ref->{nn} += 1;
+                        $budget_situation_ref->{nn} += 1;
+                        $budget_thrunode_ref->{nn} += 1;
+                        $budget_node_ref->{nn} += 1;
+                        $budget_situation_ref->{nnnodes}{$f} = 1;
                      }
                   } elsif ($detail_state == 2) {    # waiting for N record
                      if ($tdetail_ref->{deltastat} eq "N") {
@@ -4535,10 +4536,11 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                         $tdetail_ref->{yy} += 1;          # record Y followed by Y, keep waiting for N
                         $atomize_ref->{yy} += 1;
                         $situation_ref->{yy} += 1;
-                        $budget_total_ref->{nn} += 1;
-                        $budget_situation_ref->{nn} += 1;
-                        $budget_thrunode_ref->{nn} += 1;
-                        $budget_node_ref->{nn} += 1;
+                        $budget_total_ref->{yy} += 1;
+                        $budget_situation_ref->{yy} += 1;
+                        $budget_thrunode_ref->{yy} += 1;
+                        $budget_node_ref->{yy} += 1;
+                        $budget_situation_ref->{yynodes}{$f} = 1;
                      }
                   }
                   $detail_last = $tdetail_ref->{deltastat};
@@ -4752,14 +4754,20 @@ $sumi++;$sline[$sumi]="Missing DisplayItem: $budget_total_ref->{miss} $ppc/min\n
 
 $res_rate = ($budget_total_ref->{dup}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Duplicate DisplayItem: $budget_total_ref->{dup} $ppc/min\n";
-$res_rate = ($budget_total_ref->{dup_bytes}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
+
+$res_rate = ($budget_total_ref->{null_bytes}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Null DisplayItem: $budget_total_ref->{null} $ppc/min\n";
+
 $res_rate = ($budget_total_ref->{pure_merge}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Pure Merged Results: $budget_total_ref->{pure_merge} $ppc/min\n";
+
 $sumi++;$sline[$sumi]="Open/Open transitions: $budget_total_ref->{yy}\n";
+
 $sumi++;$sline[$sumi]="Close/Close transitions: $budget_total_ref->{nn}\n";
+
 $res_rate = ($total_delay_overmin_sum)/($total_delay_overmin_ct) if $total_delay_overmin_ct > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Delay Estimate opens[$total_delay_ct] over_minimum [$total_delay_overmin_ct] over_average [$ppc seconds]\n";
+
 $total_delay_avg = $ppc;
 
 
@@ -4942,12 +4950,8 @@ if ($miss_ct > 0) {
    $advsit[$advi] = "TEMS";
 }
 
-
-$rptkey = "EVENTREPORT006";$advrptx{$rptkey} = 1;         # record report key
-$cnt++;$oline[$cnt]="\n";
-$cnt++;$oline[$cnt]="$rptkey: Timestamps too close together - possible duplicate agents\n";
-$cnt++;$oline[$cnt]="Situation,Reval,Atomize,Atom,Timestamp_Prev,Timestamp_Current,Agent_Second,\n";
 my %tooclosex;
+my $tooclose_ct = 0;
 foreach my $f (sort { $a cmp $b } keys %nodex ) {
    my $node_ref = $nodex{$f};
    foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
@@ -4973,15 +4977,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                         }
                         if ((get_epoch($l) - get_epoch($lagt)) < $sit_reeval[$sx]) {
                            $tooclosex{$g} = 1;
-                           $outline = $f . ",";
-                           $outline .= $sit_reeval[$sx] . ",";
-                           $outline .= $sit_atomize[$sx] . ",";
-                           $outline .= $h . ",";
-                           $outline .= $g . ",";
-                           $outline .= $lagt . ",";
-                           $outline .= $l . ",";
-                           $outline .= $adetail_ref->{lcltmstmp} . ",";
-                           $cnt++;$oline[$cnt]="$outline\n";
+                           $tooclose_ct += 1;
                         }
                      }
                   }
@@ -4991,7 +4987,58 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
       }
    }
 }
-my $tooclose_ct = scalar keys %tooclosex;
+
+
+if ($tooclose_ct > 0) {
+   $rptkey = "EVENTREPORT006";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Timestamps too close together - possible duplicate agents\n";
+   $cnt++;$oline[$cnt]="Situation,Reval,Atomize,Atom,Timestamp_Prev,Timestamp_Current,Agent_Second,\n";
+   foreach my $f (sort { $a cmp $b } keys %nodex ) {
+      my $node_ref = $nodex{$f};
+      foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
+         my $situation_ref = $node_ref->{situations}{$g};
+         my $sx = $sitx{$g};
+         if (defined $sx) {
+            if ($sit_reeval[$sx] > 0) {
+               foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
+                  my $atomize_ref = $situation_ref->{atoms}{$h};
+                  foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{adetails}}) {
+                     my $adetail_ref = $atomize_ref->{adetails}{$i};
+                     my $tt_ct = scalar keys %{$adetail_ref->{astamps}};
+                     next if $tt_ct <= 1;
+                     foreach my $j (sort {$a cmp $b} keys %{$adetail_ref->{astamps}}) {
+                        my $table_ref =  $adetail_ref->{astamps}{$j};
+                        my $ts_ct = scalar keys %{$table_ref};
+                        next if $ts_ct <= 1;
+                        my $lagt = 0;
+                        foreach my $l (sort {$a <=> $b} keys %{$table_ref}) {
+                           if ($lagt == 0) {
+                              $lagt = $l;
+                              next;
+                           }
+                           if ((get_epoch($l) - get_epoch($lagt)) < $sit_reeval[$sx]) {
+                              $outline = $f . ",";
+                              $outline .= $sit_reeval[$sx] . ",";
+                              $outline .= $sit_atomize[$sx] . ",";
+                              $outline .= $h . ",";
+                              $outline .= $g . ",";
+                              $outline .= $lagt . ",";
+                              $outline .= $l . ",";
+                              $outline .= $adetail_ref->{lcltmstmp} . ",";
+                              $cnt++;$oline[$cnt]="$outline\n";
+                           }
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      }
+   }
+}
+
+$tooclose_ct = scalar keys %tooclosex;
 if ($tooclose_ct > 0) {
    my $situation_ct = scalar keys %situation_mergex;
    $advi++;$advonline[$advi] = "Sampled situations [$tooclose_ct] with events too close for sampling definition - see $rptkey";
@@ -5010,6 +5057,7 @@ $cnt++;$oline[$cnt]="Situation,Node,Agent_Time,Reeval,Results,Atom,Atomize,Attri
 foreach my $f (sort { $a cmp $b } keys %nodex ) {
    my $node_ref = $nodex{$f};
    foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
+      next if !defined $advsitx{$g};
       my $situation_ref = $node_ref->{situations}{$g};
       foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
       my $atomize_ref = $situation_ref->{atoms}{$h};
@@ -5063,6 +5111,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
 
 my %nfwdsitx;
 
+my $yy_nn_ct = 0;
 
 $rptkey = "EVENTREPORT011";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
@@ -5121,20 +5170,7 @@ foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situati
          $nfwdsitx{$g} = 1 if substr($g,0,8) ne "UADVISOR";
       }
    }
-   if ($situation_ref->{yy} > 0) {
-      $advi++;$advonline[$advi] = "Situation $g showing $situation_ref->{yy} open->open transitions over $node_ct agents";
-      $advcode[$advi] = "EVENTAUDIT1005W";
-      $advimpact[$advi] = $advcx{$advcode[$advi]};
-      $advsit[$advi] = "TEMS";
-      $advsitx{$g} = 1;
-   }
-   if ($situation_ref->{nn} > 0) {
-      $advi++;$advonline[$advi] = "Situation $g showing $situation_ref->{nn} close->close transitions over $node_ct agents";
-      $advcode[$advi] = "EVENTAUDIT1006W";
-      $advimpact[$advi] = $advcx{$advcode[$advi]};
-      $advsit[$advi] = "TEMS";
-      $advsitx{$g} = 1;
-   }
+   $yy_nn_ct += $situation_ref->{yy} + $situation_ref->{nn};
 }
 
 my $nfwdsit_ct = scalar keys %nfwdsitx;
@@ -5450,6 +5486,67 @@ if ($missatom_ct > 0) {
 }
 
 
+if ($yy_nn_ct > 0) {
+   my $yysit_ct = 0;
+   my $nnsit_ct = 0;
+   $rptkey = "EVENTREPORT025";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Situations showing Open->Open and Close->Close Statuses\n";
+   $cnt++;$oline[$cnt]="Situation,Type,Count,Node_ct,Nodes,\n";
+
+   foreach my $g (sort { $budget_situationx{$b}->{nn} <=> $budget_situationx{$a}->{nn}} keys %budget_situationx ) {
+      next if $g eq "_total_";
+      my $situation_ref = $budget_situationx{$g};
+      my $pnodes;
+      my $pnode_ct;
+      if ($situation_ref->{nn} > 0) {
+         $nnsit_ct += 1;
+         $outline = $g . ",";
+         $outline .= "NN" . ",";
+         $outline .= $situation_ref->{nn} . ",";
+         $pnode_ct = scalar keys %{$situation_ref->{nnnodes}};
+         $outline .= $pnode_ct . ",";
+         $pnodes = "";
+         foreach my $h (sort { $a cmp $b } keys %{$situation_ref->{nnnodes}}) {
+            $pnodes .= $h . " ";
+         }
+         chop $pnodes;
+         $outline .= $pnodes . ",";
+         $cnt++;$oline[$cnt]="$outline\n";
+         $advsitx{$g} = 1;
+      }
+      if ($situation_ref->{yy} > 0) {
+         $yysit_ct += 1;
+         $outline = $g . ",";
+         $outline .= "YY" . ",";
+         $outline .= $situation_ref->{yy} . ",";
+         $pnode_ct = scalar keys %{$situation_ref->{yynodes}};
+         $outline .= $pnode_ct . ",";
+         $pnodes = "";
+         foreach my $h (sort { $a cmp $b } keys %{$situation_ref->{yynodes}}) {
+            $pnodes .= $h . " ";
+         }
+         chop $pnodes;
+         $outline .= $pnodes . ",";
+         $cnt++;$oline[$cnt]="$outline\n";
+         $advsitx{$g} = 1;
+      }
+   }
+   if ($yysit_ct > 0) {
+      $advi++;$advonline[$advi] = "Situations [$yysit_ct] showing open->open transitions - see $rptkey";
+      $advcode[$advi] = "EVENTAUDIT1005W";
+      $advimpact[$advi] = $advcx{$advcode[$advi]};
+      $advsit[$advi] = "TEMS";
+   }
+   if ($nnsit_ct > 0) {
+      $advi++;$advonline[$advi] = "Situations [$nnsit_ct] showing close->close transitions - see $rptkey";
+      $advcode[$advi] = "EVENTAUDIT1006W";
+      $advimpact[$advi] = $advcx{$advcode[$advi]};
+      $advsit[$advi] = "TEMS";
+   }
+}
+
+
 $rptkey = "EVENTREPORT999";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 my $ititle = "Detailed report sorted by Node/Situation/Time - for situations recorded in Advisories";
@@ -5709,6 +5806,8 @@ sub setbudget {
                                    nodes => {},
                                    yy => 0,
                                    nn => 0,
+                                   yynodes => {},
+                                   nnnodes => {},
                                    bad => 0,
                                 );
       $budget_situation_ref = \%budget_situationref;
@@ -6704,6 +6803,9 @@ sub get_epoch {
 # 1.15000  : Enabled 1004W Advisory, added Non-Forward result count and bytes.
 # 1.16000  : Rework logic so Summary report shows before Advisories
 # 1.17000  : Detect cases where DisplayItem is not in proper form.
+# 1.18000  : Don't tag unknown situations for detailed report section.
+#          : Skip report006 if no too_close timestamps
+#          : Add report025 for close-close and open-open transitions
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -6759,28 +6861,31 @@ needed. If not, stop them and probably delete them.
 --------------------------------------------------------------
 
 EVENTAUDIT1005W
-Text: Situation <situation> showing <count> open->open transitions over <count> agents
+Text: Situations [count] showing open->open transitions
 
-Meaning: Normal transitions are open->close->open. Most of
-the time is is left-over events from before the TEMS was
-most recently recycled. Here are some additional causes
+Meaning: Normal transitions are open->close->open. Some causes:
 
 1) Missing DisplayItem
 2) Duplicate Agent name cases
-3) Agent recycled after a crash.
+3) Agent recycled
+4) TEMS recycled and Y is from an earlier startup
+
+Details are in EVENTREPORT025.
 
 Recovery plan: Review these such cases and resolve any issues.
 --------------------------------------------------------------
 
 EVENTAUDIT1006W
-Text: Situation <situation> showing <count> close->close transitions over <count> agents
+Text: Situations [count] showing close->close transitions
 
 Meaning: Normal transitions are open->close->open. Some causes:
 1) Overloaded agent. An agent that does not not repeat results
 after 3 sampling intervals will have situation auto-closed by TEMS.
 2) Duplicate Agent name cases
 3) Agent recycled after a crash.
-4) TEMS recycled and Y is from an earlier startup
+4) TEMS recycled and N is from an earlier startup
+
+Details are in EVENTREPORT025.
 
 Recovery plan: Review these such cases and resolve any issues.
 --------------------------------------------------------------
@@ -7566,4 +7671,32 @@ Meaning: Detailed report on situations which used unknown DisplayItems.
 In this example case the agent was actually returning LNXDISK.MOUNTPT=/
 
 Recovery plan:  Correct the situations.
+----------------------------------------------------------------
+
+EVENTREPORT025
+Text: Situations using unknown DisplayItems
+
+Sample:
+EVENTREPORT025: Situations showing Open->Open and Close->Close Statuses
+Situation,Type,Count,Node_ct,Nodes,
+CONTECAR_Proceso_Caido,NN,3,1,spcitm:2P,
+DNS_Response_Time_Critical,NN,25,1,SPRCADSB:3Z,
+DNS_Total_Dyn_Update_Warning,NN,1,1,SPRCADSP:3Z,
+JMX_HeapMemoryUsageHigh,YY,1,1,TOSTTS-CNR:spcitm:1J,
+JMX_HeapMemoryUsageHigh,NN,79,7,GEOROUTING-CNR:spcitm:1J GEOROUTING-SPC:spcitm:1J IPASERVER:spcitm:1J  ....
+
+Meaning: Repeated Close [N] or Open [Y] statuses in sampled situations
+can be normal. This will be seen for example if an agent is recycled
+
+If this occurs a lot, it may indicate several bad possibilities:
+
+A) Agent is having problems and connecting over and over again
+B) Duplicate Agents are installed and reporting to the same
+remote TEMS. This can be on different systems or even on the
+same system.
+C) There can be an agent malconfiguration, such as conflicting
+use of KDEB_INTERFACELIST exclusive/anonymous bind and occasionally
+a rare use of KDCB0_HOSTNAME which overrides KDEB_INTERFACELIST.
+
+Recovery plan: Investigate the agents involved and correct issues.
 ----------------------------------------------------------------
