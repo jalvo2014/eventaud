@@ -7674,10 +7674,9 @@ Recovery plan:  Correct the situations.
 ----------------------------------------------------------------
 
 EVENTREPORT025
-Text: Situations using unknown DisplayItems
+Text: Situations showing Open->Open and Close->Close Statuses
 
 Sample:
-EVENTREPORT025: Situations showing Open->Open and Close->Close Statuses
 Situation,Type,Count,Node_ct,Nodes,
 CONTECAR_Proceso_Caido,NN,3,1,spcitm:2P,
 DNS_Response_Time_Critical,NN,25,1,SPRCADSB:3Z,
