@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.18000";
+my $gVersion = "1.19000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -631,7 +631,7 @@ my %htabsize = (
    'KPX30FILES'  => '1028',
    'KPX36INTER'  => '180',
    'KPX35INTER'  => '76',
-   'KPX14LOGIC'  => '1156',
+   'KPX14LOGIC'  => '1076',
    'KPX29LOGIC'  => '1204',
    'KPX52MPIOA'  => '528',
    'KPX51MPIOS'  => '528',
@@ -651,7 +651,7 @@ my %htabsize = (
    'KPX11SYSTE'  => '80',
    'KPX56TADDM'  => '152',
    'KPX37TCP'    => '88',
-   'KPX02TOP50'  => '2472',
+   'KPX02TOP50'  => '2460',
    'KPX03TOP50'  => '2472',
    'KPX20VIRTU'  => '100',
    'KPX28VOLUM'  => '276',
@@ -787,18 +787,18 @@ my %htabsize = (
    'KORRBST'     => '401',
    'KORRBSTX'    => '423',
    'KORSRVR'     => '2795',
-   'KORSRVRE'    => '468',
+   'KORSRVRE'    => '324',
    'KORSRVRD'    => '246',
    'KORSESSD'    => '2270',
    'KORSESDX'    => '2238',
    'KORSESSS'    => '254',
    'KORSGA'      => '388',
    'KORSTATD'    => '455',
-   'KORSTATE'    => '572',
+   'KORSTATE'    => '368',
    'KORSTATS'    => '1060',
    'KORSTASX'    => '1052',
    'KORTS'       => '556',
-   'KORTSX'      => '566',
+   'KORTSX'      => '524',
    'KORTBRSW'    => '283',
    'KORTRANS'    => '1916',
    'KORUNDOS'    => '256',
@@ -4475,8 +4475,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                         $budget_node_ref->{transitions} += 1;
                         my $itimediff = get_epoch($tdetail_ref->{tseconds}) - get_epoch($tdetail_ref->{aseconds});
                         $budget_node_ref->{difftimes}{$itimediff} += 1;
-                        my @idiffdet = [$g,$h,$itimediff,$tdetail_ref->{gbltmstmp}];
-                        push @{$budget_node_ref->{diffdet}},@idiffdet;
+                        my @idiffdet = [$g,$h,$itimediff,$tdetail_ref->{gbltmstmp},$tdetail_ref->{l}];
+                        push @{$budget_node_ref->{diffdet}},\@idiffdet;
                         $detail_state = 2;
                      } elsif ($detail_last eq "N") {
                         $tdetail_ref->{nn} += 1;          # record N followed by N, keep waiting for Y
@@ -4993,7 +4993,7 @@ if ($tooclose_ct > 0) {
    $rptkey = "EVENTREPORT006";$advrptx{$rptkey} = 1;         # record report key
    $cnt++;$oline[$cnt]="\n";
    $cnt++;$oline[$cnt]="$rptkey: Timestamps too close together - possible duplicate agents\n";
-   $cnt++;$oline[$cnt]="Situation,Reval,Atomize,Atom,Timestamp_Prev,Timestamp_Current,Agent_Second,\n";
+   $cnt++;$oline[$cnt]="Node,Situation,Reval,Atomize,Atom,Timestamp_Prev,Timestamp_Current,Agent_Second,\n";
    foreach my $f (sort { $a cmp $b } keys %nodex ) {
       my $node_ref = $nodex{$f};
       foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
@@ -5019,10 +5019,10 @@ if ($tooclose_ct > 0) {
                            }
                            if ((get_epoch($l) - get_epoch($lagt)) < $sit_reeval[$sx]) {
                               $outline = $f . ",";
+                              $outline .= $g . ",";
                               $outline .= $sit_reeval[$sx] . ",";
                               $outline .= $sit_atomize[$sx] . ",";
                               $outline .= $h . ",";
-                              $outline .= $g . ",";
                               $outline .= $lagt . ",";
                               $outline .= $l . ",";
                               $outline .= $adetail_ref->{lcltmstmp} . ",";
@@ -5112,6 +5112,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
 my %nfwdsitx;
 
 my $yy_nn_ct = 0;
+my $vol_ct = 0;
 
 $rptkey = "EVENTREPORT011";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
@@ -5158,13 +5159,7 @@ foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situati
    my $duragent = $event_dur * $node_ct;
    $res_rate = ($situation_ref->{transitions}*3600)/($duragent) if $duragent > 0;
    $ppc = sprintf '%.2f', $res_rate;
-   if ($res_rate >= 1) {
-      $advi++;$advonline[$advi] = "Situation $g on showing $ppc open<->close transitions per hour per agent over $node_ct agents";
-      $advcode[$advi] = "EVENTAUDIT1003W";
-      $advimpact[$advi] = $advcx{$advcode[$advi]};
-      $advsit[$advi] = "TEMS";
-      $advsitx{$g} = 1;
-   }
+   $vol_ct += 1 if $res_rate >= 1;
    if ($situation_ref->{tfwd} eq "") {   # is this event forwarded
       if ($sit_forwarded > 0) {          # are any events forwarded
          $nfwdsitx{$g} = 1 if substr($g,0,8) ne "UADVISOR";
@@ -5284,15 +5279,16 @@ foreach my $f (sort { $budget_nodex{$b}->{result_bytes} <=> $budget_nodex{$a}->{
 $rptkey = "EVENTREPORT016";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $cnt++;$oline[$cnt]="$rptkey: Delay Report by Node and Situation\n";
-$cnt++;$oline[$cnt]="Node,Situation,Atomize,Delay,Min_delay,\n";
+$cnt++;$oline[$cnt]="Node,Situation,Atomize,Delay,Min_delay,GBLTMSTMP,Line,\n";
 foreach my $f ( sort { $a cmp $b } keys %budget_nodex ) {
    my $budget_node_ref = $budget_nodex{$f};
    next if !defined $budget_node_ref->{diffmin};
    foreach my $d (@{$budget_node_ref->{diffdet}}) {
-      my $isitname = @{$d}[0];
-      my $iatomize = @{$d}[1];
-      my $idiff = @{$d}[2];
-      my $igbltmstmp = @{$d}[3];
+      my $isitname = $d->[0]->[0];
+      my $iatomize = $d->[0]->[1];
+      my $idiff = $d->[0]->[2];
+      my $igbltmstmp = $d->[0]->[3];
+      my $iline = $d->[0]->[4];
       next if $idiff <= $budget_node_ref->{diffmin} + 1;
       my $pdiff = $idiff - $budget_node_ref->{diffmin};
       $outline = $f . ",";
@@ -5301,6 +5297,7 @@ foreach my $f ( sort { $a cmp $b } keys %budget_nodex ) {
       $outline .= $pdiff . ",";
       $outline .= $budget_node_ref->{diffmin} . ",";
       $outline .= $igbltmstmp . ",";
+      $outline .= $iline . ",";
       $cnt++;$oline[$cnt]="$outline\n";
    }
 }
@@ -5544,6 +5541,34 @@ if ($yy_nn_ct > 0) {
       $advimpact[$advi] = $advcx{$advcode[$advi]};
       $advsit[$advi] = "TEMS";
    }
+}
+
+if ($vol_ct > 0) {
+   $rptkey = "EVENTREPORT026";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Situations showing high Open<->Close rate\n";
+   $cnt++;$oline[$cnt]="Situation,Reeval,Rate,Node_ct,PDT\n";
+
+   foreach my $g (sort {$a  cmp $b} keys %budget_situationx ) {
+      next if $g eq "_total_";
+      my $situation_ref = $budget_situationx{$g};
+      my $node_ct = scalar keys %{$situation_ref->{nodes}};
+      my $duragent = $event_dur * $node_ct;
+      $res_rate = ($situation_ref->{transitions}*3600)/($duragent) if $duragent > 0;
+      next if $res_rate < 1;
+      $ppc = sprintf '%.2f', $res_rate;
+      $outline = $g . ",";
+      $outline .=  $situation_ref->{reeval} . ",";
+      $outline .=  $ppc . ",";
+      $outline .=  $node_ct . ",";
+      $outline .=  $situation_ref->{pdt} . ",";
+      $cnt++;$oline[$cnt]="$outline\n";
+      $advsitx{$g} = 1;
+   }
+   $advi++;$advonline[$advi] = "Situations [$vol_ct] showing more than 1 open<->close transitions per hour per agent - see $rptkey";
+   $advcode[$advi] = "EVENTAUDIT1003W";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
 }
 
 
@@ -6806,6 +6831,7 @@ sub get_epoch {
 # 1.18000  : Don't tag unknown situations for detailed report section.
 #          : Skip report006 if no too_close timestamps
 #          : Add report025 for close-close and open-open transitions
+# 1.19000  : Correct delay calculation
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -7698,4 +7724,32 @@ use of KDEB_INTERFACELIST exclusive/anonymous bind and occasionally
 a rare use of KDCB0_HOSTNAME which overrides KDEB_INTERFACELIST.
 
 Recovery plan: Investigate the agents involved and correct issues.
+----------------------------------------------------------------
+
+EVENTREPORT026
+Text: Situations showing high Open<->Close rate
+
+Sample:
+Situation,Reeval,Rate,Node_ct,PDT
+Linux_Disk_Space_Critical,600,1.45,1,*IF ( ( *VALUE Linux_Disk.Mount_Point *EQ '/' *AND *VALUE Linux_Disk.Space_Used_Percent *GE 98 ) *OR ( *VALUE Linux_Disk.Mount_Point *EQ '/opt' *AND *VALUE Linux_Disk.Space_Used_Percent *GE 98 ) *OR ( *SCAN Linux_Disk.Mount_Point *EQ '/opt/IBM' *AND *VALUE Linux_Disk.Space_Used_Percent *GE 98 *AND *VALUE Linux_Disk.System_Name *NE tnm01alp ) *OR ( *VALUE Linux_Disk.Mount_Point *EQ '/tmp' *AND *VALUE Linux_Disk.Space_Used_Percent *GE 98 ) *OR ( *VALUE Linux_Disk.Mount_Point *EQ '/var' *AND *VALUE Linux_Disk.Space_Used_Percent *GE 98 ) *OR ( *VALUE Linux_Disk.Mount_Point *EQ '/home' *AND *VALUE Linux_Disk.Space_Used_Percent *GE 95 ) ),
+CPU_Greater_Than_50_Pct,300,1.81,2,*IF *VALUE Linux_CPU.CPU_ID *EQ Aggregate *AND *VALUE Linux_CPU.Idle_CPU *LE 50.00,
+
+Meaning: The situations named are steadily going open and then closed.
+This is an indication that the condition is not rare and is not
+being fixed. If no one cares enough to fix the issue, the situation
+formula should be altered to something meaningful or just stopped
+and deleted as waste of time.
+
+You do see some active helper situations, like whether the time
+as at a certain point. This is often not best practice. You have
+to ask yourself why would you ever want to wait for an alert - if
+it is Rare, Exceptional and Fixable.
+
+If you want to record data at fixed points in time, like every
+15 minutes, consider using historical data collection which is
+works exactly that way and does not bog down the TEMSes if the
+data is collected at the agents.
+
+Recovery plan: Investigate the situations involved and determine
+if they are really useful.
 ----------------------------------------------------------------
