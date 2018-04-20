@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.19000";
+my $gVersion = "1.20000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -138,6 +138,7 @@ my $opt_nohdr;                  # skip printing header
 my $opt_allresults;                # when 1 show maximum detail report
 my $opt_time;                   # when 1 add in all results to each all line report
 my $opt_days;                   # How many days to look backward, default 2 days
+my $opt_dgrace;
 
 
 # following structures used to calculate a result/event budget
@@ -217,6 +218,7 @@ my %advcx = (
               "EVENTAUDIT1012W" => "85",
               "EVENTAUDIT1013W" => "50",
               "EVENTAUDIT1014E" => "90",
+              "EVENTAUDIT1015W" => "75",
            );
 
 # Following table can be used to calculate result
@@ -4405,6 +4407,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
          my $detail_state = 1;   # wait for initial Y record
          my $detail_start;
          my $detail_end;
+         my $detail_lag = 0;
          my $detail_last = "";
          my $detail_results = 0;
          my $time_ref;
@@ -4456,6 +4459,14 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                   if ($detail_state == 1) {   # waiting for Y record
                      if ($tdetail_ref->{deltastat} eq "Y") {
                         $detail_start = $tdetail_ref->{epoch};
+                        if ($detail_lag > 0) {
+                           $budget_situation_ref->{yny_ct} += 1;
+                           my $stime = $detail_start - $detail_lag;
+                           my $sval = int(($stime+($situation_ref->{reeval}/2))/$situation_ref->{reeval});
+                           my $sdiff = $stime - $sval*$situation_ref->{reeval};
+                           $budget_situation_ref->{yny}{$sdiff} += 1 if abs($sdiff) > $opt_dgrace;
+                        }
+                        $detail_lag = $detail_start;
                         $detail_results = $tdetail_ref->{results};
                         $atomize_ref->{sampled_ct} += 1;
                         $situation_ref->{sampled_ct} += 1;
@@ -4491,6 +4502,14 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                   } elsif ($detail_state == 2) {    # waiting for N record
                      if ($tdetail_ref->{deltastat} eq "N") {
                         $detail_end = $tdetail_ref->{epoch};
+                        if ($detail_lag > 0) {
+                           $budget_situation_ref->{yny_ct} += 1;
+                           my $stime = $detail_end - $detail_lag;
+                           my $sval = int(($stime+($situation_ref->{reeval}/2))/$situation_ref->{reeval});
+                           my $sdiff = $stime - $sval*$situation_ref->{reeval};
+                           $budget_situation_ref->{yny}{$sdiff} += 1 if abs($sdiff) > $opt_dgrace;
+                        }
+                        $detail_lag = $detail_end;
                         $tdetail_ref->{open_time} += $detail_end - $detail_start;
                         $atomize_ref->{open_time} += $detail_end - $detail_start;
                         $situation_ref->{open_time} += $detail_end - $detail_start;
@@ -4624,6 +4643,8 @@ my $node_ref = $nodex{$f};
                                 nodes => {},
                                 nn => 0,
                                 yy => 0,
+                                yny_ct => 0,
+                                yny => {},
                                 time999 => {},
                                 time998 => {},
                                 ct999 => 0,
@@ -4683,9 +4704,10 @@ foreach my $f (sort { $budget_nodex{$b}->{result_bytes} <=> $budget_nodex{$a}->{
    my $delay_max;
    my $delay_mode;
    my $det1 = 1;
+   my %delaysx;
    foreach my $g (sort  {$node_ref->{difftimes}{$b} <=> $node_ref->{difftimes}{$a}} keys %{$node_ref->{difftimes}}) {
+      $delaysx{$g} += 1;
       if ($det1 == 1) {
-         $delay_mode = $g;
          $delay_max = $g;
          $delay_min = $g;
       }
@@ -4696,10 +4718,18 @@ foreach my $f (sort { $budget_nodex{$b}->{result_bytes} <=> $budget_nodex{$a}->{
       $delay_sum += $g * $node_ref->{difftimes}{$g};
    }
    next if $det1 == 1;
+   my $delay_ct_target = int($delay_ct/2);
+   my $delay_ct_current = 0;
+   foreach my $g (sort {$a <=> $b} keys %{$node_ref->{difftimes}}) {
+      $delay_ct_current += $node_ref->{difftimes}{$g};
+      next if $delay_ct_current < $delay_ct_target;
+      $delay_mode = $g;
+      last;
+   }
    $node_ref->{diffmin} = $delay_min;
    my $res_pc = 0;
    $res_pc = $delay_sum / $delay_ct if $delay_ct > 0;
-   $ppc = sprintf '%.2f', $res_pc;
+   $ppc = sprintf '%.0f', $res_pc;
    $node_ref->{pdiff} = "[" . $delay_ct . "/" .$delay_min . "/" . $delay_mode . "/" . $ppc . "/" . $delay_max . "]";
    $total_delay_ct += $delay_ct;
    foreach my $g (sort  {$node_ref->{difftimes}{$b} <=> $node_ref->{difftimes}{$a}} keys %{$node_ref->{difftimes}}) {
@@ -5118,7 +5148,9 @@ $rptkey = "EVENTREPORT011";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $cnt++;$oline[$cnt]="$rptkey: Event/Results Budget Situations Report by Result Bytes\n";
 $cnt++;$oline[$cnt]="Situation,Table,Rowsize,Reeval,Event,Event%,Event/min,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmBytes,PureMerge,PureMergeBytes,transitions,nodes,PDT\n";
-foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situationx{$a}->{result_bytes}} keys %budget_situationx ) {
+foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situationx{$a}->{result_bytes} ||
+                      $a cmp $b
+                    } keys %budget_situationx ) {
    next if $g eq "_total_";
    my $situation_ref = $budget_situationx{$g};
    $outline = $g . ",";
@@ -5181,7 +5213,9 @@ if ( $nfwdsit_ct > 0) {
    $cnt++;$oline[$cnt]="\n";
    $cnt++;$oline[$cnt]="$rptkey: Situations processed but not forwarded\n";
    $cnt++;$oline[$cnt]="Situation,Count,Nodes,\n";
-   foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situationx{$a}->{result_bytes}} keys %budget_situationx ) {
+   foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situationx{$a}->{result_bytes} ||
+                         $a cmp $b
+                       } keys %budget_situationx ) {
       next if $g eq "_total_";
       $advsitx{$g} = 1;
       my $situation_ref = $budget_situationx{$g};
@@ -5241,7 +5275,9 @@ $rptkey = "EVENTREPORT013";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $cnt++;$oline[$cnt]="$rptkey: Budget Report by Node\n";
 $cnt++;$oline[$cnt]="Node,Event,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmbytes,PureMerge,PureMergeBytes,transitions,delay[count/min/mode/avg/max],\n";
-foreach my $f (sort { $budget_nodex{$b}->{result_bytes} <=> $budget_nodex{$a}->{result_bytes}} keys %budget_nodex ) {
+foreach my $f (sort { $budget_nodex{$b}->{result_bytes} <=> $budget_nodex{$a}->{result_bytes} ||
+                      $a cmp $b
+                    } keys %budget_nodex ) {
    my $node_ref = $budget_nodex{$f};
    $outline = $f . ",";
    $outline .= $node_ref->{event} . ",";
@@ -5491,7 +5527,9 @@ if ($yy_nn_ct > 0) {
    $cnt++;$oline[$cnt]="$rptkey: Situations showing Open->Open and Close->Close Statuses\n";
    $cnt++;$oline[$cnt]="Situation,Type,Count,Node_ct,Nodes,\n";
 
-   foreach my $g (sort { $budget_situationx{$b}->{nn} <=> $budget_situationx{$a}->{nn}} keys %budget_situationx ) {
+   foreach my $g (sort { $budget_situationx{$b}->{nn} <=> $budget_situationx{$a}->{nn} ||
+                         $a cmp $b
+                       } keys %budget_situationx ) {
       next if $g eq "_total_";
       my $situation_ref = $budget_situationx{$g};
       my $pnodes;
@@ -5567,6 +5605,44 @@ if ($vol_ct > 0) {
    }
    $advi++;$advonline[$advi] = "Situations [$vol_ct] showing more than 1 open<->close transitions per hour per agent - see $rptkey";
    $advcode[$advi] = "EVENTAUDIT1003W";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
+}
+
+my $dyny_ct = 0;
+
+foreach my $g (sort {$a  cmp $b} keys %budget_situationx ) {
+   next if $g eq "_total_";
+   my $situation_ref = $budget_situationx{$g};
+   my $idiffs = scalar keys %{$situation_ref->{yny}};
+   $dyny_ct += 1 if $idiffs > 0;
+}
+
+if ($dyny_ct > 0) {
+   $rptkey = "EVENTREPORT027";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Sampled situations with iregular Open<->Close processing times\n";
+   $cnt++;$oline[$cnt]="Situation,Reeval,YNY_Count,Non_Zero_diffs,\n";
+
+   foreach my $g (sort {$a  cmp $b} keys %budget_situationx ) {
+      next if $g eq "_total_";
+      my $situation_ref = $budget_situationx{$g};
+      my $idiffs = scalar keys %{$situation_ref->{yny}};
+      next if $idiffs == 0;
+      my $pdiff = "";
+      foreach my $r ( sort {$a <=> $b} keys %{$situation_ref->{yny}}) {
+         $pdiff .= $r . "[" . $situation_ref->{yny}{$r} . "] ";
+      }
+      chop $pdiff;
+      $outline = $g . ",";
+      $outline .=  $situation_ref->{reeval} . ",";
+      $outline .=  $situation_ref->{yny_ct} . ",";
+      $outline .=  $pdiff . ",";
+      $cnt++;$oline[$cnt]="$outline\n";
+      $advsitx{$g} = 1;
+   }
+   $advi++;$advonline[$advi] = "Situations [$dyny_ct] showing more than open<->close irregular transitions - see $rptkey";
+   $advcode[$advi] = "EVENTAUDIT1015W";
    $advimpact[$advi] = $advcx{$advcode[$advi]};
    $advsit[$advi] = "TEMS";
 }
@@ -5833,6 +5909,8 @@ sub setbudget {
                                    nn => 0,
                                    yynodes => {},
                                    nnnodes => {},
+                                   yny_ct => 0,
+                                   yny => {},
                                    bad => 0,
                                 );
       $budget_situation_ref = \%budget_situationref;
@@ -6526,6 +6604,10 @@ sub init {
          shift(@ARGV);
          $opt_days = shift(@ARGV);
          die "-days but no number found\n" if !defined $opt_days;
+      } elsif ($ARGV[0] eq "-dgrace") {
+         shift(@ARGV);
+         $opt_dgrace = shift(@ARGV);
+         die "-dgrace but no number found\n" if !defined $opt_dgrace;
       } elsif ($ARGV[0] eq "-tsitstsh") {
          shift(@ARGV);
          $opt_tsitstsh = shift(@ARGV);
@@ -6551,6 +6633,7 @@ sub init {
    if (!defined $opt_nohdr) {$opt_nohdr = 0;}
    if (!defined $opt_o) {$opt_o = "eventaud.csv";}
    if (!defined $opt_days) {$opt_days = 7;}
+   if (!defined $opt_dgrace) {$opt_dgrace = 1;}
    if (!defined $opt_odir) {$opt_odir = "";}
 
    if (!defined $opt_workpath) {
@@ -6832,6 +6915,8 @@ sub get_epoch {
 #          : Skip report006 if no too_close timestamps
 #          : Add report025 for close-close and open-open transitions
 # 1.19000  : Correct delay calculation
+# 1.20000  : Correct delay mode calculation in node delay analysis
+#            Add irregular event processing report and advisory
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -7086,6 +7171,15 @@ This was seen when clients were constructing situations
 manually instead of using the Situation Editor.
 
 Recovery plan: Correct Situation to supply a correct Displayitem.
+--------------------------------------------------------------
+
+EVENTAUDIT1015W
+Text: Situations [count] showing more than open<->close irregular transitions
+
+Meaning: Situations evaluating irregularly. See EVENTREPORT027
+for more details.
+
+Recovery plan: Follow plan in EVENTREPORT027.
 --------------------------------------------------------------
 
 EVENTREPORT000
@@ -7752,4 +7846,32 @@ data is collected at the agents.
 
 Recovery plan: Investigate the situations involved and determine
 if they are really useful.
+
+EVENTREPORT027
+Text: Sampled situations with iregular Open<->Close processing times
+
+Sample:
+Situation,Reeval,YNY_Count,Non_Zero_diffs,
+A_Sched_Citrix_355a_430a_AllDay,300,60,-3[4] -2[9],
+A_Schedule_AspireApp_Window,300,20,-69[10],
+A_Schedule_Goxsa2140_Window,300,2,-114[1] 43[1],
+
+Meaning: The situations named show some cases where the Open to
+Close or Close to Open contradicts the sampling interval. In a
+well running TEMS, the times should always be an even multiple
+of the sampling interval.
+
+Differences could mean a TEMS under workload stress or stress
+from other processes in the same environment. If there are
+a large number of them it might indicate a duplicate agent
+condition.
+
+This has more meaning when run on a remote TEMS or a single
+hub TEMS. When a hub TEMS has remote TEMS, each are operating
+separately and the combined event history is as specific.
+
+Recovery plan: Investigate the conditions for other evidence
+of high workload. duplicate agents or other stressful conditions.
+If necessary reduce workload by rebalancing workload to other
+TEMSes or other means.
 ----------------------------------------------------------------
