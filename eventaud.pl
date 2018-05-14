@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.20000";
+my $gVersion = "1.21000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -240,6 +240,7 @@ my %htabsize = (
    'AIXMPIOSTS'  => '560',
    'AIXNETADPT'  => '1592',
    'UNIXPVOLUM'  => '552',
+   'READHIST'    => '200',
    'AIXSYSIO'    => '144',
    'UNIXVOLGRP'  => '336',
    'UNIXWPARCP'  => '432',
@@ -351,9 +352,11 @@ my %htabsize = (
    'KLZPASALRT'  => '484',
    'KLZPASCAP'   => '3062',
    'KLZCPU'      => '232',
-   'KLZCPUAVG'   => '276',
+   'KLZCPUAVG'   => '132',
    'KLZDISK'     => '692',
-   'KLZDSKIO'    => '216',
+   'KLZDSKIO'    => '192',
+   'KLZSCRPTS'   => '3952',
+   'KLZSCRRTM'   => '3544',
    'KLZDU'       => '408',
    'KLZIOEXT'    => '412',
    'KLZLPAR'     => '344',
@@ -372,7 +375,8 @@ my %htabsize = (
    'LNXALLUSR'   => '152',
    'LNXCPU'      => '156',
    'LNXCPUAVG'   => '348',
-   'LNXCPUCON'   => '312',
+   'LNXCPUCON'   => '300',
+   'LNXFILPAT'   => '1624',
    'LNXDISK'     => '488',
    'LNXDSKIO'    => '248',
    'LNXDU'       => '204',
@@ -621,7 +625,7 @@ my %htabsize = (
    'KLOLOGFRX'   => '814',
    'KLOLOGFST'   => '660',
    'KLOPOBJST'   => '360',
-   'KLOTHPLST'   => '132',
+   'KLOTHPLST'   => '96',
    'KPX55AME'    => '452',
    'KPX42ACTIV'  => '1680',
    'KPX53MPOOL'  => '144',
@@ -646,7 +650,7 @@ my %htabsize = (
    'KPX19PHYSI'  => '84',
    'KPX27PHYSI'  => '396',
    'KPX17PRINT'  => '1392',
-   'KPX24PROCE'  => '2744',
+   'KPX24PROCE'  => '2732',
    'KPX23PROCE'  => '80',
    'KPX54QOS'    => '808',
    'KPX12SYSTE'  => '68',
@@ -707,7 +711,7 @@ my %htabsize = (
    'KVA37LOGIC'  => '1204',
    'KVA52MPIOA'  => '528',
    'KVA51MPIOS'  => '528',
-   'KVA42NETWO'  => '1008',
+   'KVA42NETWO'  => '996',
    'KVA41NETWO'  => '4008',
    'KVA40NETWO'  => '1527',
    'KVA03NETWO'  => '2288',
@@ -758,6 +762,7 @@ my %htabsize = (
    'KUDTBLSPC'   => '1838',
    'KUDTABSPC'   => '1810',
    'KUD5214100'  => '1030',
+   'KUDDB2HADR'  => '1596',
    'KORPRCAS'    => '964',
    'KORADVQS'    => '2437',
    'KORALRTD'    => '708',
@@ -855,17 +860,17 @@ my %htabsize = (
    'KRZDGSTATS'  => '244',
    'KRZDGSTATU'  => '388',
    'KRZPOBJST'   => '260',
-   'KRZACTINS'   => '708',
+   'KRZACTINS'   => '784',
    'KRZRDBLOGS'  => '422',
    'KRZARCDEST'  => '624',
    'KRZARCHIVE'  => '164',
    'KRZRAMCLIT'  => '268',
-   'KRZRAMDISK'  => '724',
+   'KRZRAMDISK'  => '808',
    'KRZRAMDKGP'  => '344',
    'KRZRAMDGIO'  => '344',
    'KRZRAMDKIO'  => '384',
    'KRZRAMTMPL'  => '124',
-   'KRZRDBBGPS'  => '60',
+   'KRZRDBBGPS'  => '156',
    'KRZBUFCADE'  => '220',
    'KRZBUFCART'  => '96',
    'KRZCAFURA'   => '104',
@@ -895,8 +900,8 @@ my %htabsize = (
    'KRZDBIXAB'   => '232',
    'KRZDBIXSZ'   => '356',
    'KRZDBIDXS'   => '1844',
-   'KRZINSTINF'  => '300',
-   'KRZACTINSR'  => '144',
+   'KRZINSTINF'  => '312',
+   'KRZACTINSR'  => '216',
    'KRZINTCON'   => '276',
    'KRZRDBLAT'   => '288',
    'KRZLIBCADE'  => '136',
@@ -1013,8 +1018,8 @@ my %htabsize = (
    'KOYCACD'     => '754',
    'KOYCACS'     => '634',
    'KOYSCFG'     => '445',
-   'KOYDBD'      => '553',
-   'KOYDBS'      => '264',
+   'KOYDBD'      => '484',
+   'KOYDBS'      => '244',
    'KOYDEVD'     => '1006',
    'KOYENGD'     => '677',
    'KOYENGS'     => '280',
@@ -1025,18 +1030,18 @@ my %htabsize = (
    'KOYLOGD'     => '282',
    'KOYLOGS'     => '226',
    'KOYSDEVD'    => '898',
-   'KOYPROBD'    => '788',
+   'KOYPROBD'    => '792',
    'KOYPROBS'    => '248',
    'KOYPRCD'     => '950',
    'KOYPRCS'     => '382',
    'KOYSRVR'     => '256',
-   'KOYSEGD'     => '591',
+   'KOYSEGD'     => '584',
    'KOYSRVD'     => '570',
    'KOYSRVRE'    => '888',
    'KOYSRVS'     => '308',
    'KOYSQLD'     => '282',
    'KOYSTATD'    => '262',
-   'KOYSTATS'    => '340',
+   'KOYSTATS'    => '260',
    'KOYTSKD'     => '282',
    'KOYSQL'      => '568',
    'KOQBTCHS'    => '328',
@@ -1063,7 +1068,7 @@ my %htabsize = (
    'KOQSRVR'     => '256',
    'KOQRPOOL'    => '800',
    'KOQSRVD'     => '660',
-   'KOQSRVS'     => '646',
+   'KOQSRVS'     => '420',
    'KOQSRVCD'    => '592',
    'KOQSTATD'    => '264',
    'KOQSTATS'    => '398',
@@ -1076,7 +1081,7 @@ my %htabsize = (
    'K3ZNTDSDHC'  => '348',
    'K3ZNTDSDS'   => '304',
    'K3ZNTDSDNS'  => '584',
-   'K3ZNTDSDCA'  => '1236',
+   'K3ZNTDSDCA'  => '1816',
    'K3ZNTDSDCP'  => '340',
    'K3ZNTDSXDS'  => '232',
    'K3ZNTDSFRS'  => '508',
@@ -1541,7 +1546,7 @@ my %htabsize = (
    'KVMCLTRSRV'  => '588',
    'KVMCLTVAPS'  => '818',
    'KVMCLTRVMS'  => '556',
-   'KVMCLUSTRT'  => '820',
+   'KVMCLUSTRT'  => '868',
    'KVMDCTRS'    => '370',
    'KVMDRCLUST'  => '464',
    'KVMDSHSD'    => '548',
@@ -1566,10 +1571,10 @@ my %htabsize = (
    'KVMSERVERC'  => '272',
    'KVMSERVRDS'  => '680',
    'KVMSERVERD'  => '536',
-   'KVMSRVHBAS'  => '634',
+   'KVMSRVHBAS'  => '644',
    'KVMSVRHLTH'  => '764',
    'KVMSERVERM'  => '320',
-   'KVMSERVERN'  => '800',
+   'KVMSERVERN'  => '804',
    'KVMSRVRSAN'  => '460',
    'KVMSRVVSWI'  => '464',
    'KVMSVMDSUT'  => '528',
@@ -2058,7 +2063,7 @@ my %htabsize = (
    'KISDNS'      => '772',
    'KISFTP'      => '988',
    'KISHSTATS'   => '372',
-   'KISHTTP'     => '864',
+   'KISHTTP'     => '1304',
    'KISICMP'     => '784',
    'KISIMAP'     => '972',
    'KISLDAP'     => '1020',
@@ -2128,7 +2133,7 @@ my %htabsize = (
    'KYNSVCCOMP'  => '676',
    'KYNSERVS'    => '1188',
    'KYNSERVLT'   => '1356',
-   'KYNTHRDP'    => '960',
+   'KYNTHRDP'    => '852',
    'KYNTOPICSP'  => '1260',
    'KYNAPP'      => '1096',
    'KYNWEBSVC'   => '1088',
@@ -2193,9 +2198,9 @@ my %htabsize = (
    'KHTSWEBST'   => '1344',
    'KHTWSRS'     => '1000',
    'KD43EM'      => '846',
-   'KD43RQ'      => '146',
-   'KD43RP'      => '202',
-   'KD43RS'      => '166',
+   'KD43RQ'      => '148',
+   'KD43RP'      => '204',
+   'KD43RS'      => '168',
    'KD43SM'      => '118',
    'KD42IT'      => '1482',
    'KD42JT'      => '1614',
@@ -2219,8 +2224,10 @@ my %htabsize = (
    'KBNPOBJST'   => '360',
    'KBNDPSTAT2'  => '494',
    'KBNSYSLOG0'  => '2021',
-   'KBNDATETIM'  => '704',
+   'KBNDATETIM'  => '952',
+   'KBNDPCBATS'  => '368',
    'KBNSYSTEMU'  => '324',
+   'KBNDPCDS'    => '169',
    'KBNDPSTATU'  => '336',
    'KBNTCPSUMM'  => '392',
    'KBNTCPTABL'  => '684',
@@ -3968,6 +3975,18 @@ my %htabsize = (
    'NTFLTREND'   => '1584',
    'LOCALTIME'   => 112,
    'UTCTIME'  => 112,
+   'CLACTRMT'    =>'7452',
+   'K07K07ERS0'  => '176',
+   'K07K07FSC0'  => '736',
+   'K07K07LGS0'  => '668',
+   'K07K07NET0'  => '345',
+   'K07K07PRO0'  => '3915',
+   'K07K07TRA0'  => '332',
+   'K07K07URL0'  => '384',
+   'K07K07USE0'  => '200',
+   'K5DK5DSANP'  => '372',
+   'K5ECSCRIPT'  => '188',
+   'K24EVENTLO'  => '2864',
 );
 
 # current search list
@@ -4326,32 +4345,30 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
       foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{tsecs}}) {
          my $tsum_ref = $situation_ref->{tsecs}{$h};
          next if $tsum_ref->{results} <= 1; # ignore single results
-         if ($situation_ref->{atomize} ne "") {
-            setbudget($g,$tsum_ref->{thrunode},$f,$tsum_ref->{table});
-            $irowsize = 500;
-            $newtabsizex{$tsum_ref->{table}} += 1 if !defined $htabsize{$tsum_ref->{table}};
-            $irowsize = $htabsize{$tsum_ref->{table}} if defined $htabsize{$tsum_ref->{table}};
-            $budget_total_ref->{pure_merge} += $tsum_ref->{results};
-            $budget_situation_ref->{pure_merge} += $tsum_ref->{results};
-            $budget_thrunode_ref->{pure_merge} += $tsum_ref->{results};
-            $budget_node_ref->{pure_merge} += $tsum_ref->{results};
-            $budget_total_ref->{pure_merge_bytes} += $tsum_ref->{results} * $irowsize;
-            $budget_situation_ref->{pure_merge_bytes} += $tsum_ref->{results} * $irowsize;
-            $budget_thrunode_ref->{pure_merge_bytes} += $tsum_ref->{results} * $irowsize;
-            $budget_node_ref->{pure_merge_bytes} += $tsum_ref->{results} * $irowsize;
-            my $situation_merge_ref = $situation_mergex{$g};
-            if (!defined $situation_merge_ref) {
-               my %situation_mergeref = (
-                                         reeval => $situation_ref->{reeval},
-                                         instances => [],
-                                      );
-               $situation_merge_ref = \%situation_mergeref;
-               $situation_mergex{$g} = \%situation_mergeref;
-            }
-            my @imerge = [$tsum_ref->{tseconds},$tsum_ref->{results},$f,$situation_ref->{atomize},$tsum_ref->{atom}];
-            push @{$situation_merge_ref->{instances}},@imerge;
-            $merge_ct += 1;
+         setbudget($g,$tsum_ref->{thrunode},$f,$tsum_ref->{table});
+         $irowsize = 500;
+         $newtabsizex{$tsum_ref->{table}} += 1 if !defined $htabsize{$tsum_ref->{table}};
+         $irowsize = $htabsize{$tsum_ref->{table}} if defined $htabsize{$tsum_ref->{table}};
+         $budget_total_ref->{pure_merge} += $tsum_ref->{results};
+         $budget_situation_ref->{pure_merge} += $tsum_ref->{results};
+         $budget_thrunode_ref->{pure_merge} += $tsum_ref->{results};
+         $budget_node_ref->{pure_merge} += $tsum_ref->{results};
+         $budget_total_ref->{pure_merge_bytes} += $tsum_ref->{results} * $irowsize;
+         $budget_situation_ref->{pure_merge_bytes} += $tsum_ref->{results} * $irowsize;
+         $budget_thrunode_ref->{pure_merge_bytes} += $tsum_ref->{results} * $irowsize;
+         $budget_node_ref->{pure_merge_bytes} += $tsum_ref->{results} * $irowsize;
+         my $situation_merge_ref = $situation_mergex{$g};
+         if (!defined $situation_merge_ref) {
+            my %situation_mergeref = (
+                                      reeval => $situation_ref->{reeval},
+                                      instances => [],
+                                   );
+            $situation_merge_ref = \%situation_mergeref;
+            $situation_mergex{$g} = \%situation_mergeref;
          }
+         my @imerge = [$tsum_ref->{tseconds},$tsum_ref->{results},$f,$situation_ref->{atomize},$tsum_ref->{atom}];
+         push @{$situation_merge_ref->{instances}},@imerge;
+         $merge_ct += 1;
       }
 
       my $hi = 0;
@@ -4918,7 +4935,7 @@ if ($merge_ct > 0) {
    $rptkey = "EVENTREPORT004";$advrptx{$rptkey} = 1;         # record report key
    $cnt++;$oline[$cnt]="\n";
    $cnt++;$oline[$cnt]="$rptkey: Situations with Multiple results at TEMS with same DisplayItem at same second\n";
-   $cnt++;$oline[$cnt]="Situation,Type,Agent_Second,Results,Agent,Atomize,Atom,\n";
+   $cnt++;$oline[$cnt]="Situation,Type,TEMS_Second,Results,Agent,Atomize,Atom,\n";
    foreach my $f (sort { $a cmp $b } keys %situation_mergex ) {  # By situation name
       my $situation_merge_ref = $situation_mergex{$f};
       $advsitx{$f} = 1;
@@ -5641,7 +5658,7 @@ if ($dyny_ct > 0) {
       $cnt++;$oline[$cnt]="$outline\n";
       $advsitx{$g} = 1;
    }
-   $advi++;$advonline[$advi] = "Situations [$dyny_ct] showing more than open<->close irregular transitions - see $rptkey";
+   $advi++;$advonline[$advi] = "Situations [$dyny_ct] showing irregular open<->close transitions - see $rptkey";
    $advcode[$advi] = "EVENTAUDIT1015W";
    $advimpact[$advi] = $advcx{$advcode[$advi]};
    $advsit[$advi] = "TEMS";
@@ -6917,6 +6934,8 @@ sub get_epoch {
 # 1.19000  : Correct delay calculation
 # 1.20000  : Correct delay mode calculation in node delay analysis
 #            Add irregular event processing report and advisory
+# 1.21000  : Correct report004 merged result report
+#            Add some new/corrected table sizes and report titles
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -7174,7 +7193,7 @@ Recovery plan: Correct Situation to supply a correct Displayitem.
 --------------------------------------------------------------
 
 EVENTAUDIT1015W
-Text: Situations [count] showing more than open<->close irregular transitions
+Text: Situations [count] showing irregular open<->close transitions
 
 Meaning: Situations evaluating irregularly. See EVENTREPORT027
 for more details.
