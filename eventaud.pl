@@ -18,7 +18,7 @@
 # $DB::single=2;   # remember debug breakpoint
 #     use re 'debug';
 ## todos
-## identify multiple events at same time from sampled situations, missing atomize??
+## Add eventaud.ini, especially added table sizes
 
 #use warnings::unused; # debug used to check for unused variables
 use strict;
@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.21000";
+my $gVersion = "1.22000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -292,10 +292,10 @@ my %htabsize = (
    'IPSTATS'     => '288',
    'JOBOBJ'      => '644',
    'JOBOBJD'     => '672',
-   'KNTPASSTAT'  => '1390',
+   'KNTPASSTAT'  => '1392',
    'KNTPASMGMT'  => '526',
    'KNTPASALRT'  => '484',
-   'KNTPASCAP'   => '2998',
+   'KNTPASCAP'   => '3000',
    'NTMNTPT'     => '624',
    'MSMQIS'      => '244',
    'MSMQQUE'     => '424',
@@ -311,9 +311,9 @@ my %htabsize = (
    'NTDEVDEP'    => '668',
    'NTDEVICE'    => '1148',
    'NTEVTLOG'    => '3132',
-   'NTIPADDR'    => '614',
+   'NTIPADDR'    => '872',
    'NTJOBOBJD'   => '692',
-   'WTLOGCLDSK'  => '684',
+   'WTLOGCLDSK'  => '380',
    'WTMEMORY'    => '388',
    'NTMEMORY'    => '348',
    'NTLOGINFO'   => '1256',
@@ -360,7 +360,7 @@ my %htabsize = (
    'KLZDU'       => '408',
    'KLZIOEXT'    => '412',
    'KLZLPAR'     => '344',
-   'KLZNET'      => '365',
+   'KLZNET'      => '368',
    'KLZNFS'      => '384',
    'KLZPROC'     => '1720',
    'KLZPUSR'     => '1580',
@@ -371,7 +371,7 @@ my %htabsize = (
    'KLZSYS'      => '316',
    'KLZTCP'      => '88',
    'KLZLOGIN'    => '488',
-   'KLZVM'       => '380',
+   'KLZVM'       => '268',
    'LNXALLUSR'   => '152',
    'LNXCPU'      => '156',
    'LNXCPUAVG'   => '348',
@@ -2018,16 +2018,17 @@ my %htabsize = (
    'KUBUSERSE2'  => '64',
    'KUBUSERSES'  => '948',
    'T3SNAGENT'   => '688',
-   'T3SNAPPL'    => '560',
-   'T3SNCLIENT'  => '688',
+   'T3SNAPPL'    => '500',
+   'T3SNCLIENT'  => '628',
    'T3SNCLTAGT'  => '688',
    'T3ISMPHS'    => '708',
    'T3ISMPHSEA'  => '808',
    'T3ISMPHSE'   => '808',
    'T3SNSERVER'  => '688',
    'T3SNSVRAGT'  => '688',
-   'T3SNTRANS'   => '688',
+   'T3SNTRANS'   => '628',
    'T3AGNTMSGS'  => '1668',
+   'T3PBSTAT' => '948',
    'T4AGNTMSGS'  => '1668',
    'T4APPCS'     => '542',
    'T4SRVCS'     => '684',
@@ -2064,7 +2065,7 @@ my %htabsize = (
    'KISFTP'      => '988',
    'KISHSTATS'   => '372',
    'KISHTTP'     => '1304',
-   'KISICMP'     => '784',
+   'KISICMP'     => '724',
    'KISIMAP'     => '972',
    'KISLDAP'     => '1020',
    'KISMSTATS'   => '448',
@@ -2212,7 +2213,8 @@ my %htabsize = (
    'KBNFILESYS'  => '416',
    'KBNFIRMWA0'  => '498',
    'KBNFIRMWAR'  => '544',
-   'KBNHTTPCON'  => '676',
+   'KBNHTTPCON'  => '804',
+   'KBNMQCON' => '352',
    'KBNDPSTAT3'  => '480',
    'KBNDPSTAT0'  => '480',
    'KBNDPLOGNO'  => '1358',
@@ -2222,7 +2224,8 @@ my %htabsize = (
    'KBNDPSTAT5'  => '368',
    'KBNDPSTA17'  => '728',
    'KBNPOBJST'   => '360',
-   'KBNDPSTAT2'  => '494',
+   'KBNDPSTAT2'  => '624',
+   'KBNDSTATUS' => '1092',
    'KBNSYSLOG0'  => '2021',
    'KBNDATETIM'  => '952',
    'KBNDPCBATS'  => '368',
@@ -2232,6 +2235,10 @@ my %htabsize = (
    'KBNTCPSUMM'  => '392',
    'KBNTCPTABL'  => '684',
    'KBNHPLST'    => '132',
+   'KBNDPCENVS' => '600',
+   'KBNDPCMEM' => '344',
+   'KBNDPCUPTM' => '676',
+   'KBNDPSDS' => '169',
    'KN4IFTABLE'  => '643',
    'KN4IFTOIPM'  => '719',
    'KN4INTERFA'  => '52',
@@ -3003,10 +3010,10 @@ my %htabsize = (
    'QMCHANNEL'   => '1044',
    'QMCHANIN'    => '312',
    'QMCH_LH'     => '956',
-   'QMCHAN_ST'   => '1576',
+   'QMCHAN_ST'   => '1592',
    'QMCHAN_SUM'  => '736',
    'QMCONNOBJ'   => '1052',
-   'QMCURSTAT'   => '2132',
+   'QMCURSTAT'   => '2404',
    'QMERRLOG'    => '3820',
    'QMEVENTL'    => '1668',
    'QMLSSTATUS'  => '1180',
@@ -3028,7 +3035,7 @@ my %htabsize = (
    'QSG_QMGR'    => '304',
    'QSG_QUEUES'  => '220',
    'QMQ_ACCT'    => '880',
-   'QMQ_DATA'    => '936',
+   'QMQ_DATA'    => '932',
    'QMQUEUE'     => '932',
    'QMQ_HDL_ST'  => '1036',
    'QMQ_LH'      => '720',
@@ -6934,8 +6941,9 @@ sub get_epoch {
 # 1.19000  : Correct delay calculation
 # 1.20000  : Correct delay mode calculation in node delay analysis
 #            Add irregular event processing report and advisory
-# 1.21000  : Correct report004 merged result report
+# 1.21000  : Correct report004 merged result report;
 #            Add some new/corrected table sizes and report titles
+# 1.22000  : correct/add some table sizes
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
