@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.23000";
+my $gVersion = "1.24000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -510,8 +510,15 @@ my %htabsize = (
    'ISITSTSH'      => '624',
    'JOBOBJ'      => '644',
    'JOBOBJD'     => '672',
+   'K06CSCRIP0' => '492',
+   'K06K06CUS0' => '924',
+   'K06PERLEX0' => '364',
+   'K06PERLEX1' => '280',
+   'K06PERLEX2' => '1416',
+   'K06PERLEX4' => '444',
+   'K06TEST' => '404',
    'K07K07ERS0'  => '176',
-   'K07K07FSC0'  => '736',
+   'K07K07FSC0'  => '756',
    'K07K07LGS0'  => '668',
    'K07K07LOG0'  => '668',
    'K07K07NET0'  => '345',
@@ -519,7 +526,18 @@ my %htabsize = (
    'K07K07TRA0'  => '332',
    'K07K07URL0'  => '384',
    'K07K07USE0'  => '200',
+   'K07K07CUS0' =>  '988',
+   'K07K07MAI0' =>  '444',
    'K08K08PROC'  => '4043',
+   'K08K08CUS0' => '924',
+   'K08K08FIL0' => '836',
+   'K08K08FSA0' => '1712',
+   'K08K08LOG0' => '1416',
+   'K08K08MAI1' => '444',
+   'K08K08SCR0' => '1416',
+   'K09K09CUS0' => '924',
+   'K09K09SOL0' => '193',
+   'K08RESOURC' => '136',
    'K24EVENTLO'  => '2864',
    'K3ZNTDSAB'   => '244',
    'K3ZNTDSCNT'  => '848',
@@ -1581,7 +1599,7 @@ my %htabsize = (
    'KLOTHPLST'   => '96',
    'KLZCPU'      => '136',
    'KLZCPUAVG'   => '132',
-   'KLZDISK'     => '688',
+   'KLZDISK'     => '948',
    'KLZDSKIO'    => '192',
    'KLZDU'       => '408',
    'KLZIOEXT'    => '272',
@@ -1601,9 +1619,9 @@ my %htabsize = (
    'KLZSOCKD'    => '296',
    'KLZSOCKS'    => '100',
    'KLZSWPRT'    => '128',
-   'KLZSYS'      => '316',
+   'KLZSYS'      => '268',
    'KLZTCP'      => '88',
-   'KLZVM'       => '200',
+   'KLZVM'       => '268',
    'KM5ASSTGSK'  => '164',
    'KM5CMSTGSK'  => '200',
    'KM5STGSTAT'  => '270',
@@ -1774,7 +1792,7 @@ my %htabsize = (
    'KOQLSJBD'    => '1414',
    'KOQMEMGR'    => '416',
    'KOQPRCD'     => '930',
-   'KOQPRCS'     => '382',
+   'KOQPRCS'     => '276',
    'KOQPROBD'    => '776',
    'KOQPROBS'    => '250',
    'KOQRPOOL'    => '800',
@@ -1782,9 +1800,9 @@ my %htabsize = (
    'KOQSRVCD'    => '592',
    'KOQSRVD'     => '660',
    'KOQSRVR'     => '256',
-   'KOQSRVS'     => '420',
+   'KOQSRVS'     => '432',
    'KOQSTATD'    => '264',
-   'KOQSTATS'    => '398',
+   'KOQSTATS'    => '280',
    'KOQTBLD'     => '1400',
    'KOQWLGS'     => '752',
    'KORADVQS'    => '2437',
@@ -1857,7 +1875,7 @@ my %htabsize = (
    'KOYSQLD'     => '282',
    'KOYSRVD'     => '570',
    'KOYSRVR'     => '256',
-   'KOYSRVRE'    => '888',
+   'KOYSRVRE'    => '732',
    'KOYSRVS'     => '308',
    'KOYSTATD'    => '262',
    'KOYSTATS'    => '260',
@@ -2146,6 +2164,7 @@ my %htabsize = (
    'KQ7MIMETYP'  => '176',
    'KQ7POBJST'   => '360',
    'KQ7RESTRIC'  => '248',
+   'KQ7SITECER'  => '628',
    'KQ7THPLST'   => '132',
    'KQ7WEBBIND'  => '304',
    'KQ7WEBSER1'  => '164',
@@ -2153,7 +2172,7 @@ my %htabsize = (
    'KQ7WIN32P0'  => '164',
    'KQ7WIN32P1'  => '224',
    'KQ7WIN32PE'  => '280',
-   'KQ7WSITDTL'  => '372',
+   'KQ7WSITDTL'  => '628',
    'KQAAVAIL'    => '3244',
    'KQAEVTLOG'   => '2212',
    'KQAPOBJST'   => '360',
@@ -3199,7 +3218,7 @@ my %htabsize = (
    'KVMVMORPDI'  => '752',
    'KVMVMSNAPS'  => '652',
    'KVMVSWITCH'  => '414',
-   'KXAAGENCON'  => '433',
+   'KXAAGENCON'  => '436',
    'KXAAPPDE5'   => '5289',
    'KXAAPPDET'   => '5279',
    'KXAAPPDETS'  => '2308',
@@ -3590,7 +3609,7 @@ my %htabsize = (
    'LNXFILPAT'   => '1624',
    'LNXGROUP'    => '144',
    'LNXIOEXT'    => '440',
-   'LNXIPADDR'   => '546',
+   'LNXIPADDR'   => '548',
    'LNXLOGIN'    => '524',
    'LNXMACHIN'   => '828',
    'LNXNET'      => '317',
@@ -3738,7 +3757,7 @@ my %htabsize = (
    'NTPRTJOB'    => '1436',
    'NTREDIRECT'  => '476',
    'NTSERVERQ'   => '248',
-   'NTSERVICE'   => '1468',
+   'NTSERVICE'   => '1472',
    'NTSVCDEP'    => '680',
    'OEKERNL2'    => '137',
    'OLDS'        => '186',
@@ -3917,10 +3936,10 @@ my %htabsize = (
    'ULMONLOG'    => '1988',
    'UNIXALLUSR'  => '160',
    'UNIXAMS'     => '212',
-   'UNIXCPU'     => '336',
+   'UNIXCPU'     => '348',
    'UNIXDCSTAT'  => '184',
    'UNIXDEVIC'   => '560',
-   'UNIXDISK'    => '1220',
+   'UNIXDISK'    => '1572',
    'UNIXDPERF'   => '832',
    'UNIXDUSERS'  => '1668',
    'UNIXGROUP'   => '136',
@@ -3931,7 +3950,7 @@ my %htabsize = (
    'UNIXMEM'     => '228',
    'UNIXNET'     => '1600',
    'UNIXNFS'     => '492',
-   'UNIXOS'      => '816',
+   'UNIXOS'      => '980',
    'UNIXPING'    => '868',
    'UNIXPS'      => '2728',
    'UNIXPVOLUM'  => '552',
@@ -3989,7 +4008,7 @@ my %htabsize = (
    'VTSVIRTDEV'  => '144',
    'WEBSVC'      => '392',
    'WSS'         => '291',
-   'WTLOGCLDSK'  => '648',
+   'WTLOGCLDSK'  => '652',
    'WTMEMORY'    => '388',
    'WTOBJECTS'   => '240',
    'WTPHYSDSK'   => '320',
@@ -5221,7 +5240,7 @@ foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situati
    $res_rate = ($situation_ref->{transitions}*3600)/($duragent) if $duragent > 0;
    $ppc = sprintf '%.2f', $res_rate;
    $vol_ct += 1 if $res_rate >= 1;
-   if ($situation_ref->{tfwd} eq "") {   # is this event forwarded
+   if ($situation_ref->{tfwd} == 0) {   # is this event not forwarded
       if ($sit_forwarded > 0) {          # are any events forwarded
          $nfwdsitx{$g} = 1 if substr($g,0,8) ne "UADVISOR";
       }
@@ -5249,7 +5268,7 @@ if ( $nfwdsit_ct > 0) {
       $advsitx{$g} = 1;
       my $situation_ref = $budget_situationx{$g};
       my $node_ct = scalar keys %{$situation_ref->{nodes}};
-      if ($situation_ref->{tfwd} eq "") {   # is this event forwarded
+      if ($situation_ref->{tfwd} == 0) {   # is this event not forwarded
          if ($sit_forwarded > 0) {          # are any events forwarded
             if (substr($g,0,8) ne "UADVISOR") {
                $outline = $g . ",";
@@ -5950,6 +5969,7 @@ sub setbudget {
    if (defined $sx) {
       $budget_situation_ref->{reeval} = $sit_reeval[$sx];
       $budget_situation_ref->{pdt} = $sit_pdt[$sx];
+      $budget_situation_ref->{tfwd} = $sit_tfwd[$sx];
       $budget_situation_ref->{psit} = $sitfullx{$isitname} if defined $sitfullx{$isitname};
    }
    if (defined $itable) {
@@ -6953,6 +6973,8 @@ sub get_epoch {
 # 1.22000  : correct/add some table sizes
 # 1.23000  : correct/add some table sizes
 #          : use TNAME to show fullname
+# 1.24000  : Correct "Not Forwarded" logic
+#            Correct/Add some table sizes
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
