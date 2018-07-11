@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.24000";
+my $gVersion = "1.25000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -219,6 +219,7 @@ my %advcx = (
               "EVENTAUDIT1013W" => "50",
               "EVENTAUDIT1014E" => "90",
               "EVENTAUDIT1015W" => "75",
+              "EVENTAUDIT1016W" => "80",
            );
 
 # Following table can be used to calculate result
@@ -581,7 +582,7 @@ my %htabsize = (
    'KA4CTLD'     => '88',
    'KA4DBMBR'    => '177',
    'KA4DEVD'     => '134',
-   'KA4DISK'     => '174',
+   'KA4DISK'     => '176',
    'KA4DISKI5'   => '192',
    'KA4DISTQ'    => '136',
    'KA4DTAQ'     => '96',
@@ -589,7 +590,7 @@ my %htabsize = (
    'KA4GPTFDTL'  => '145',
    'KA4GRPPTF'   => '232',
    'KA4HISTLOG'  => '908',
-   'KA4IFSOBJ'   => '3256',
+   'KA4IFSOBJ'   => '3232',
    'KA4INACJOB'  => '247',
    'KA4IOACBAT'  => '216',
    'KA4JOBLOG'   => '928',
@@ -606,7 +607,7 @@ my %htabsize = (
    'KA4OBJ'      => '390',
    'KA4OUTPUTQ'  => '732',
    'KA4PFIOP'    => '211',
-   'KA4PFJOB'    => '391',
+   'KA4PFJOB'    => '324',
    'KA4POOL'     => '192',
    'KA4PTF'      => '144',
    'KA4SBS'      => '124',
@@ -1404,6 +1405,7 @@ my %htabsize = (
    'KGBISERV'    => '520',
    'KGBIVPERF'   => '364',
    'KGBKGBLOG0'  => '816',
+   'KGBDMAIL'    => '236',
    'KGBPOBJST'   => '260',
    'KHDCONF'     => '264',
    'KHDDBINFO'   => '1284',
@@ -1782,11 +1784,11 @@ my %htabsize = (
    'KOQDEVD'     => '1440',
    'KOQFGRPD'    => '1012',
    'KOQJOBD'     => '1096',
-   'KOQJOBS'     => '252',
+   'KOQJOBS'     => '248',
    'KOQLOCK'     => '650',
    'KOQLOCKS'    => '1050',
    'KOQLOKSU'    => '276',
-   'KOQLRTS'     => '252',
+   'KOQLRTS'     => '216',
    'KOQLSDBD'    => '1768',
    'KOQLSERR'    => '1154',
    'KOQLSJBD'    => '1414',
@@ -1794,7 +1796,7 @@ my %htabsize = (
    'KOQPRCD'     => '930',
    'KOQPRCS'     => '276',
    'KOQPROBD'    => '776',
-   'KOQPROBS'    => '250',
+   'KOQPROBS'    => '256',
    'KOQRPOOL'    => '800',
    'KOQSCFG'     => '285',
    'KOQSRVCD'    => '592',
@@ -2134,7 +2136,7 @@ my %htabsize = (
    'KQ5POBJST'   => '360',
    'KQ5THPLST'   => '132',
    'KQ5WIN32CO'  => '112',
-   'KQ7ACTIVES'  => '200',
+   'KQ7ACTIVES'  => '164',
    'KQ7APPPOOL'  => '256',
    'KQ7ASPNET4'  => '204',
    'KQ7ASPNETA'  => '204',
@@ -2168,7 +2170,7 @@ my %htabsize = (
    'KQ7THPLST'   => '132',
    'KQ7WEBBIND'  => '304',
    'KQ7WEBSER1'  => '164',
-   'KQ7WEBSERV'  => '652',
+   'KQ7WEBSERV'  => '364',
    'KQ7WIN32P0'  => '164',
    'KQ7WIN32P1'  => '224',
    'KQ7WIN32PE'  => '280',
@@ -2448,7 +2450,7 @@ my %htabsize = (
    'KQPSHARE12'  => '416',
    'KQPSHARE13'  => '192',
    'KQPSHAREDS'  => '292',
-   'KQPSHAREP0'  => '260',
+   'KQPSHAREP0'  => '200',
    'KQPSHAREP1'  => '228',
    'KQPSHAREP2'  => '352',
    'KQPSHAREP3'  => '392',
@@ -2718,7 +2720,7 @@ my %htabsize = (
    'KRZASMCLIT'  => '268',
    'KRZASMDGIO'  => '344',
    'KRZASMDISK'  => '724',
-   'KRZASMDKGP'  => '344',
+   'KRZASMDKGP'  => '420',
    'KRZASMDKIO'  => '384',
    'KRZASMFILE'  => '396',
    'KRZASMINST'  => '284',
@@ -2739,7 +2741,7 @@ my %htabsize = (
    'KRZDBCLUS'   => '512',
    'KRZDBIDXS'   => '1844',
    'KRZDBINF'    => '178',
-   'KRZDBINFO'   => '724',
+   'KRZDBINFO'   => '804',
    'KRZDBIXAB'   => '232',
    'KRZDBIXSZ'   => '356',
    'KRZDBSQLT'   => '616',
@@ -2752,6 +2754,7 @@ my %htabsize = (
    'KRZDGARCHL'  => '816',
    'KRZDGARCHS'  => '1024',
    'KRZDGBGPS'   => '60',
+   'KRZGCSBLO'   => '188',
    'KRZDGCUSQ'   => '1888',
    'KRZDGCUSS'   => '1304',
    'KRZDGDATAF'  => '1340',
@@ -2796,7 +2799,7 @@ my %htabsize = (
    'KRZRAMCLIT'  => '268',
    'KRZRAMDGIO'  => '344',
    'KRZRAMDISK'  => '808',
-   'KRZRAMDKGP'  => '344',
+   'KRZRAMDKGP'  => '420',
    'KRZRAMDKIO'  => '384',
    'KRZRAMTMPL'  => '124',
    'KRZRDBBGPS'  => '156',
@@ -2808,7 +2811,7 @@ my %htabsize = (
    'KRZRDBFRA'   => '96',
    'KRZRDBLAT'   => '288',
    'KRZRDBLKD'   => '212',
-   'KRZRDBLOGS'  => '422',
+   'KRZRDBLOGS'  => '500',
    'KRZRDBLS'    => '532',
    'KRZRDBLSES'  => '308',
    'KRZRDBOBJS'  => '388',
@@ -2821,7 +2824,8 @@ my %htabsize = (
    'KRZRDBRFD'   => '132',
    'KRZRDBRSD'   => '248',
    'KRZRDBRSS'   => '192',
-   'KRZRDBSTAT'  => '500',
+   'KRZRDBSTAT'  => '456',
+   'KRZRDBTOPO'  => '400',
    'KRZRDBUTS'   => '240',
    'KRZRDPGADT'  => '140',
    'KRZRDPGAOV'  => '704',
@@ -3169,7 +3173,7 @@ my %htabsize = (
    'KVMCLTRSRV'  => '588',
    'KVMCLTRVMS'  => '556',
    'KVMCLTVAPS'  => '818',
-   'KVMCLUSTRT'  => '868',
+   'KVMCLUSTRT'  => '872',
    'KVMDAG'      => '169',
    'KVMDCNETS'   => '506',
    'KVMDCTRS'    => '370',
@@ -3192,7 +3196,7 @@ my %htabsize = (
    'KVMSERVERC'  => '272',
    'KVMSERVERD'  => '564',
    'KVMSERVERE'  => '1876',
-   'KVMSERVERG'  => '2102',
+   'KVMSERVERG'  => '2288',
    'KVMSERVERM'  => '320',
    'KVMSERVERN'  => '804',
    'KVMSERVRDS'  => '680',
@@ -3209,12 +3213,12 @@ my %htabsize = (
    'KVMVCENTER'  => '476',
    'KVMVM_CPU'   => '584',
    'KVMVM_DISK'  => '960',
-   'KVMVM_GEN'   => '1696',
-   'KVMVM_MEM'   => '624',
+   'KVMVM_GEN'   => '1752',
+   'KVMVM_MEM'   => '632',
    'KVMVM_NET'   => '1068',
    'KVMVM_PART'  => '572',
    'KVMVMDKPRF'  => '314',
-   'KVMVMDSUTL'  => '540',
+   'KVMVMDSUTL'  => '588',
    'KVMVMORPDI'  => '752',
    'KVMVMSNAPS'  => '652',
    'KVMVSWITCH'  => '414',
@@ -3947,12 +3951,12 @@ my %htabsize = (
    'UNIXLPAR'    => '1556',
    'UNIXLVOLUM'  => '1240',
    'UNIXMACHIN'  => '508',
-   'UNIXMEM'     => '228',
+   'UNIXMEM'     => '448',
    'UNIXNET'     => '1600',
    'UNIXNFS'     => '492',
    'UNIXOS'      => '980',
    'UNIXPING'    => '868',
-   'UNIXPS'      => '2728',
+   'UNIXPS'      => '2736',
    'UNIXPVOLUM'  => '552',
    'UNIXSOLZON'  => '598',
    'UNIXTCP'     => '104',
@@ -4215,15 +4219,15 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
              my $imiss = $adetail_ref->{results} - 1;
              $irowsize = $budget_situation_ref->{rowsize};
              $budget_total_ref->{results} += $adetail_ref->{results};
-             $budget_total_ref->{nfwd_results} += $adetail_ref->{results} if $situation_ref->{tfwd} == 0;
+             $budget_total_ref->{nfwd_results} += $adetail_ref->{results} if $situation_ref->{tfwd} == 1;
              $budget_situation_ref->{results} += $adetail_ref->{results};
-             $budget_situation_ref->{nfwd_results} += $adetail_ref->{results} if $situation_ref->{tfwd} == 0;
+             $budget_situation_ref->{nfwd_results} += $adetail_ref->{results} if $situation_ref->{tfwd} == 1;
              $budget_thrunode_ref->{results} += $adetail_ref->{results};
              $budget_node_ref->{results} += $adetail_ref->{results};
              $budget_total_ref->{result_bytes} += $adetail_ref->{results} * $irowsize;
-             $budget_total_ref->{nfwd_result_bytes} += $adetail_ref->{results} * $irowsize if $situation_ref->{tfwd} == 0;
+             $budget_total_ref->{nfwd_result_bytes} += $adetail_ref->{results} * $irowsize if $situation_ref->{tfwd} == 1;
              $budget_situation_ref->{result_bytes} += $adetail_ref->{results} * $irowsize;
-             $budget_situation_ref->{nfwd_result_bytes} += $adetail_ref->{results} * $irowsize if $situation_ref->{tfwd} == 0;
+             $budget_situation_ref->{nfwd_result_bytes} += $adetail_ref->{results} * $irowsize if $situation_ref->{tfwd} == 1;
              $budget_thrunode_ref->{result_bytes} += $adetail_ref->{results} * $irowsize;
              $budget_node_ref->{result_bytes} += $adetail_ref->{results} * $irowsize;
              $budget_situation_ref->{nodes}{$f} += 1;
@@ -4587,15 +4591,15 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                         $budget_thrunode_ref->{samp_confirm_bytes} += $evals * $irowsize;
                         $budget_node_ref->{samp_confirm_bytes} += $evals * $irowsize;
                         $budget_total_ref->{results} += $evals;
-                        $budget_total_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 0;
+                        $budget_total_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 1;
                         $budget_situation_ref->{results} += $evals;
-                        $budget_situation_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 0;
+                        $budget_situation_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 1;
                         $budget_thrunode_ref->{results} += $evals;
                         $budget_node_ref->{results} += $evals;
                         $budget_total_ref->{result_bytes} += $evals * $irowsize;
-                        $budget_total_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 0;
+                        $budget_total_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 1;
                         $budget_situation_ref->{result_bytes} += $evals * $irowsize;
-                        $budget_situation_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 0;
+                        $budget_situation_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 1;
                         $budget_thrunode_ref->{result_bytes} += $evals * $irowsize;
                         $budget_node_ref->{result_bytes} += $evals * $irowsize;
                         $detail_state = 1;
@@ -4631,15 +4635,15 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                   $budget_thrunode_ref->{samp_confirm_bytes} += $evals * $irowsize;
                   $budget_node_ref->{samp_confirm_bytes} += $evals * $irowsize;
                   $budget_total_ref->{results} += $evals;
-                  $budget_total_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 0;
+                  $budget_total_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 1;
                   $budget_situation_ref->{results} += $evals;
-                  $budget_situation_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 0;
+                  $budget_situation_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 1;
                   $budget_thrunode_ref->{results} += $evals;
                   $budget_node_ref->{results} += $evals;
                   $budget_total_ref->{result_bytes} += $evals * $irowsize;
-                  $budget_total_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 0;
+                  $budget_total_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 1;
                   $budget_situation_ref->{result_bytes} += $evals * $irowsize;
-                  $budget_situation_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 0;
+                  $budget_situation_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 1;
                   $budget_thrunode_ref->{result_bytes} += $evals * $irowsize;
                   $budget_node_ref->{result_bytes} += $evals * $irowsize;
                   for (my $e = 0; $e<=$evals;$e++) {
@@ -5121,6 +5125,68 @@ if ($tooclose_ct > 0) {
    my $situation_ct = scalar keys %situation_mergex;
    $advi++;$advonline[$advi] = "Sampled situations [$tooclose_ct] with events too close for sampling definition - see $rptkey";
    $advcode[$advi] = "EVENTAUDIT1012W";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
+}
+
+# need data from tdetail_ref
+my @toomany;
+my $toomanyi = -1;
+my %toomanysit;
+foreach my $f (sort { $a cmp $b } keys %nodex ) {
+   my $node_ref = $nodex{$f};
+   foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
+      my $situation_ref = $node_ref->{situations}{$g};
+      my $sx = $sitx{$g};
+      if (defined $sx) {
+         if ($sit_reeval[$sx] == 0) {
+            foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
+               my $atomize_ref = $situation_ref->{atoms}{$h};
+               foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{tdetails}}) {
+                  my $tdetail_ref = $atomize_ref->{tdetails}{$i};
+                  my $tt_ct = scalar keys %{$tdetail_ref->{tstamps}};
+                  next if $tt_ct < 1;
+                  foreach my $j (sort {$a cmp $b} keys %{$tdetail_ref->{tstamps}}) {
+                     my $table_ref =  $tdetail_ref->{tstamps}{$j};
+                     my $ts_ct = scalar keys %{$table_ref};
+                     next if $ts_ct <= 1;
+                     $toomanyi += 1;
+                     $outline = $g . ",";
+                     $outline .= $f . ",";
+                     $outline .= $tdetail_ref->{thrunode} . ",";
+                     $outline .= $j . ",";
+                     $outline .= $h . ",";
+                     $outline .= $i . ",";
+                     my $atime_ct = 0;
+                     my $atimes = "";
+                     foreach my $l (sort {$a <=> $b} keys %{$table_ref}) {
+                        $atimes .= $l . '[' . %{$table_ref}{$l} . "] ";
+                        $atime_ct += 1;
+                     }
+                     chop $atimes;
+                     $outline .= $atime_ct . ",";
+                     $outline .= $atimes . ",";
+                     $toomany[$toomanyi] = $outline;
+                     $toomanysit{$g} = 1;
+                  }
+               }
+            }
+         }
+      }
+   }
+}
+
+if ($toomanyi > -1) {
+   $rptkey = "EVENTREPORT028";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Pure Situations with multiple TIMESTAMP attributes in same TEMS second\n";
+   $cnt++;$oline[$cnt]="Situation,Node,Thrunode,Table,Atomize,TEMS_Time,Agent_Count,Agent_Times,\n";
+   for (my $i = 0; $i <= $toomanyi; $i++) {
+      $cnt++;$oline[$cnt]="$toomany[$i]\n";
+   }
+   my $pmany = scalar keys %toomanysit;
+   $advi++;$advonline[$advi] = "Pure situations with results from multiple timestamps [$pmany] cases - see $rptkey";
+   $advcode[$advi] = "EVENTAUDIT1016W";
    $advimpact[$advi] = $advcx{$advcode[$advi]};
    $advsit[$advi] = "TEMS";
 }
@@ -6264,7 +6330,7 @@ sub newstsh {
             my $pstring = substr($r,$ts);
             $pstring =~ /TIMESTAMP=(\d+)/;
             my $istamp = $1;
-            $adetail_ref->{astamps}{$iattrg}{$istamp} = 1 if defined $istamp;
+            $adetail_ref->{astamps}{$iattrg}{$istamp} += 1 if defined $istamp;
          }
          if ($situation_ref->{atomize} ne "") {
             $missatomx{$isitname} = $situation_ref->{atomize} if index($r,$situation_ref->{atomize}) == -1;
@@ -6318,6 +6384,7 @@ sub newstsh {
                              samp_null => 0,
                              thrunode => $inode,
                              debug => [],
+                             tstamps => {},
                           );
          $tdetail_ref = \%tdetailref;
          $atomize_ref->{tdetails}{$tkey} = \%tdetailref;
@@ -6349,14 +6416,22 @@ sub newstsh {
             push @{$tdetail_ref->{allresults}},$r;
             # record the attribute group table name
             # needed to handle when multiples are present
+            my $iattrg = "";
             my @tresult1 = split("[;]",$r);
             foreach my $s (@tresult1) {
                next if substr($s,0,1) eq "*";
                $s =~ /(\S+)\.(\S+)=(.*)/;
-               my $iattrg = $1;
+               $iattrg = $1;
                $tdetail_ref->{attrgs}{$iattrg} = 1 if defined $iattrg;
                $tdetail_ref->{table} = $iattrg if defined $iattrg;
                last;
+            }
+            my $ts = index($r,".TIMESTAMP=");
+            if ($ts != 1) {
+               my $pstring = substr($r,$ts);
+               $pstring =~ /TIMESTAMP=(\d+)/;
+               my $istamp = $1;
+               $tdetail_ref->{tstamps}{$iattrg}{$istamp} = 1 if defined $istamp;
             }
          }
       }
@@ -6975,6 +7050,9 @@ sub get_epoch {
 #          : use TNAME to show fullname
 # 1.24000  : Correct "Not Forwarded" logic
 #            Correct/Add some table sizes
+# 1.25000  : Correct "Not Forwarded" logic
+#            Correct/Add some table sizes
+#            Add detection of different timestamps in a single event
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -7238,6 +7316,15 @@ Meaning: Situations evaluating irregularly. See EVENTREPORT027
 for more details.
 
 Recovery plan: Follow plan in EVENTREPORT027.
+--------------------------------------------------------------
+
+EVENTAUDIT1016W
+Text: Pure situations with results from multiple timestamps [count]
+
+Meaning: Pure situations being merged. See EVENTREPORT028
+for more details.
+
+Recovery plan: Follow plan in EVENTREPORT028.
 --------------------------------------------------------------
 
 EVENTREPORT000
@@ -7904,6 +7991,7 @@ data is collected at the agents.
 
 Recovery plan: Investigate the situations involved and determine
 if they are really useful.
+----------------------------------------------------------------
 
 EVENTREPORT027
 Text: Sampled situations with iregular Open<->Close processing times
@@ -7932,4 +8020,36 @@ Recovery plan: Investigate the conditions for other evidence
 of high workload. duplicate agents or other stressful conditions.
 If necessary reduce workload by rebalancing workload to other
 TEMSes or other means.
+----------------------------------------------------------------
+
+EVENTREPORT028
+Text: Pure situations with results from multiple timestamps [count] cases
+
+Sample:
+Situation,Node,Thrunode,Table,Atomize,TEMS_Time,Agent_Count,Agent_Times,
+UHT_FSMON_MINOR,LO:wmbm8023_fsmon,RMT_ELR_apsrp06285,KLOLOGPEVT,/opt,1180707175633000,2,1180707130128000[1] 1180707130157000[1],
+UHT_FSMON_MINOR,LO:wmbm8023_fsmon,RMT_ELR_apsrp06285,KLOLOGPEVT,/opt,1180707175634000,8,1180707140128000[1] 1180707140157000[1] 1180707150128000[1] 1180707150157000[1] 1180707160128000[1] 1180707160157000[1] 1180707170128000[1] 1180707170157000[1],
+
+
+Meaning: The Pure situations involved are creating situation
+events. However additional results are being "merged" and thus
+an event receiver will never see them.
+
+Sometimes you can use a DisplayItem to force uniqueness. However
+you can see in the sample cases that is not always sufficient.
+
+One possibility is that the TEMS receiving the data is extremely
+overloaded and when the process to create the situation runs,
+multiple events are seen. That could be true in the first sample
+above where 29 seconds elapsed between the first and second sample.
+
+A more general solution is to configure each TEMS involved to
+perform Pure Event One Row logic. That forces TEMS to make a
+separate situation event from each pure result for the named
+application and table name. See the following for details.
+
+ITM Pure Situation events and Event Merging Logic
+http://www.ibm.com/support/docview.wss?uid=swg21445309
+
+Recovery plan: Investigate condition and resolve.
 ----------------------------------------------------------------
