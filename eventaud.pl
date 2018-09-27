@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.25000";
+my $gVersion = "1.26000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -50,6 +50,9 @@ my $sx;
 my $f;
 my $g;
 my $h;
+
+my %sitagtx;
+my $sitagt_ref;
 
 my %sitsx;                      # track most recent situation start time
 
@@ -511,19 +514,21 @@ my %htabsize = (
    'ISITSTSH'      => '624',
    'JOBOBJ'      => '644',
    'JOBOBJD'     => '672',
-   'K06CSCRIP0' => '492',
+   'K06CSCRIP0' => '304',
    'K06K06CUS0' => '924',
    'K06PERLEX0' => '364',
-   'K06PERLEX1' => '280',
+   'K06PERLEX1' => '344',
    'K06PERLEX2' => '1416',
    'K06PERLEX4' => '444',
+   'K06PERLEX6' => '625',
    'K06TEST' => '404',
    'K07K07ERS0'  => '176',
-   'K07K07FSC0'  => '756',
-   'K07K07LGS0'  => '668',
+   'K07K07FSC0'  => '960',
+   'K07K07LGS0'  => '1416',
    'K07K07LOG0'  => '668',
+   'K07K07MNT0' => '1712',
    'K07K07NET0'  => '345',
-   'K07K07PRO0'  => '3915',
+   'K07K07PRO0'  => '3979',
    'K07K07TRA0'  => '332',
    'K07K07URL0'  => '384',
    'K07K07USE0'  => '200',
@@ -537,6 +542,7 @@ my %htabsize = (
    'K08K08MAI1' => '444',
    'K08K08SCR0' => '1416',
    'K09K09CUS0' => '924',
+   'K09K09FSC0' => '968',
    'K09K09SOL0' => '193',
    'K08RESOURC' => '136',
    'K24EVENTLO'  => '2864',
@@ -640,7 +646,7 @@ my %htabsize = (
    'KA4SVSYCT2'  => '240',
    'KA4SVUSR'    => '587',
    'KA4SYSSTAT'  => '120',
-   'KA4SYSTS'    => '353',
+   'KA4SYSTS'    => '188',
    'KA4TCPHOST'  => '1652',
    'KA4TCPINT'   => '280',
    'KA4TCPROUT'  => '346',
@@ -1613,7 +1619,7 @@ my %htabsize = (
    'KLZPASCAP'   => '3062',
    'KLZPASMGMT'  => '526',
    'KLZPASSTAT'  => '1382',
-   'KLZPROC'     => '1588',
+   'KLZPROC'     => '1620',
    'KLZPUSR'     => '1580',
    'KLZRPC'      => '144',
    'KLZSCRPTS'   => '3952',
@@ -1621,7 +1627,7 @@ my %htabsize = (
    'KLZSOCKD'    => '296',
    'KLZSOCKS'    => '100',
    'KLZSWPRT'    => '128',
-   'KLZSYS'      => '268',
+   'KLZSYS'      => '288',
    'KLZTCP'      => '88',
    'KLZVM'       => '268',
    'KM5ASSTGSK'  => '164',
@@ -1778,11 +1784,11 @@ my %htabsize = (
    'KNUHOSTNIF'  => '419',
    'KNUPOBJST'   => '260',
    'KOQBTCHS'    => '328',
-   'KOQDBD'      => '2939',
+   'KOQDBD'      => '2712',
    'KOQDBMIR'    => '924',
-   'KOQDBS'      => '262',
-   'KOQDEVD'     => '1440',
-   'KOQFGRPD'    => '1012',
+   'KOQDBS'      => '248',
+   'KOQDEVD'     => '1420',
+   'KOQFGRPD'    => '980',
    'KOQJOBD'     => '1096',
    'KOQJOBS'     => '248',
    'KOQLOCK'     => '650',
@@ -1804,7 +1810,7 @@ my %htabsize = (
    'KOQSRVR'     => '256',
    'KOQSRVS'     => '432',
    'KOQSTATD'    => '264',
-   'KOQSTATS'    => '280',
+   'KOQSTATS'    => '284',
    'KOQTBLD'     => '1400',
    'KOQWLGS'     => '752',
    'KORADVQS'    => '2437',
@@ -2878,7 +2884,7 @@ my %htabsize = (
    'KSAALERTS'   => '2326',
    'KSAARCHIVE'  => '585',
    'KSABDC'      => '649',
-   'KSABUFFER'   => '665',
+   'KSABUFFER'   => '768',
    'KSACTS'      => '858',
    'KSADMPCNT' => '472',
    'KSADUMPS'    => '871',
@@ -2896,13 +2902,14 @@ my %htabsize = (
    'KSAORASUM'   => '529',
    'KSAOSP'      => '644',
    'KSAOUTPUT'   => '985',
-   'KSAPERF'     => '566',
+   'KSAPERF'     => '672',
    'KSAPROCESS'  => '1052',
-   'KSASERINFO' => '340',
+   'KSASERINFO'  => '340',
+   'KSASLOG'     => '1004',
    'KSASPOOL'    => '760',
    'KSASYS'      => '1444',
    'KSATRANRFC'  => '1398',
-   'KSATRANS'    => '1036',
+   'KSATRANS'    => '1056',
    'KSAUPDATES'  => '1288',
    'KSAUSERS'    => '822',
    'KSKACTSUMM'  => '1796',
@@ -2975,9 +2982,9 @@ my %htabsize = (
    'KUD3437500'  => '1858',
    'KUD3437600'  => '1658',
    'KUD4177600'  => '1498',
-   'KUD4238000'  => '1598',
+   'KUD4238000'  => '1600',
    'KUD5214100'  => '1030',
-   'KUDAPPL00'   => '3862',
+   'KUDAPPL00'   => '3804',
    'KUDAPPL01'   => '722',
    'KUDAPPLYPM'  => '316',
    'KUDAPPLYSN'  => '414',
@@ -2989,17 +2996,18 @@ my %htabsize = (
    'KUDDCSDB'    => '290',
    'KUDDIAGLOG'  => '1675',
    'KUDIPADDR'   => '166',
-   'KUDLOG'      => '4986',
+   'KUDLOG'      => '4932',
    'KUDSYSINFO'  => '1882',
    'KUDSYSRES'   => '696',
    'KUDTABLE'    => '328',
-   'KUDTABSPC'   => '1810',
+   'KUDTABSPC'   => '1756',
    'KUDTBLSPC'   => '1838',
    'KUXDEVIC'    => '660',
    'KUXPASALRT'  => '484',
    'KUXPASCAP'   => '3062',
    'KUXPASMGMT'  => '510',
    'KUXPASSTAT'  => '1382',
+   'KUXSCRTSM' => '3544',
    'KV1HOSTAG'   => '806',
    'KV1HOSTCG'   => '527',
    'KV1HOSTMG'   => '519',
@@ -3553,7 +3561,7 @@ my %htabsize = (
    'KYNPREV'     => '588',
    'KYNREQHIS'   => '1000',
    'KYNREQSEL'   => '1248',
-   'KYNREQUEST'  => '1656',
+   'KYNREQUEST'  => '1476',
    'KYNSCHED'    => '1068',
    'KYNSERVLT'   => '1356',
    'KYNSERVS'    => '1188',
@@ -3604,15 +3612,15 @@ my %htabsize = (
    'LIMS_PARM'   => '156',
    'LNXALLUSR'   => '152',
    'LNXCPU'      => '156',
-   'LNXCPUAVG'   => '348',
+   'LNXCPUAVG'   => '180',
    'LNXCPUCON'   => '300',
    'LNXDISK'     => '488',
-   'LNXDSKIO'    => '248',
+   'LNXDSKIO'    => '212',
    'LNXDU'       => '204',
    'LNXFILE'       => '5116',
    'LNXFILPAT'   => '1624',
    'LNXGROUP'    => '144',
-   'LNXIOEXT'    => '440',
+   'LNXIOEXT'    => '248',
    'LNXIPADDR'   => '548',
    'LNXLOGIN'    => '524',
    'LNXMACHIN'   => '828',
@@ -3826,7 +3834,7 @@ my %htabsize = (
    'QSG_CHANS'   => '240',
    'QSG_QMGR'    => '304',
    'QSG_QUEUES'  => '220',
-   'READHIST'    => '200',
+   'READHIST'    => '748',
    'REALACT'     => '2261',
    'REALENC'     => '1821',
    'REALRSUM'    => '1428',
@@ -3904,12 +3912,14 @@ my %htabsize = (
    'T5USRSS'     => '1014',
    'T6AGNTMSGS'  => '1668',
    'T6APPCS'     => '586',
+   'T6CLNTOT'    => '604',
    'T6PBEVENT'   => '2752',
    'T6PBSTAT'    => '928',
    'T6SUBTXCS'   => '936',
    'T6SUBTXINS'  => '2347',
    'T6TXCS'      => '1002',
    'T6TXINS'     => '2289',
+   'T6TXSM'      => '752',
    'TAPE_DEV'    => '87',
    'TAPE_GRP'    => '260',
    'TAPEDRVS'    => '58',
@@ -3946,11 +3956,12 @@ my %htabsize = (
    'UNIXDISK'    => '1572',
    'UNIXDPERF'   => '832',
    'UNIXDUSERS'  => '1668',
+   'UNIXFILPAT'  => '1624',
    'UNIXGROUP'   => '136',
-   'UNIXIPADDR'  => '546',
+   'UNIXIPADDR'  => '548',
    'UNIXLPAR'    => '1556',
    'UNIXLVOLUM'  => '1240',
-   'UNIXMACHIN'  => '508',
+   'UNIXMACHIN'  => '516',
    'UNIXMEM'     => '448',
    'UNIXNET'     => '1600',
    'UNIXNFS'     => '492',
@@ -4504,6 +4515,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                $budget_situation_ref->{open} += 1;
                $budget_thrunode_ref->{open} += 1;
                $budget_node_ref->{open} += 1;
+               $sitagt_ref->{event} += 1;
             } else {                                            # sampled situation
                print STDERR "Sampled event loop 4 [$i]" .  __LINE__ .  " $hi\n" if $opt_v == 1;
                # calculate open versus close for sampled events and thus calculate open time
@@ -4540,6 +4552,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                         $budget_node_ref->{difftimes}{$itimediff} += 1;
                         my @idiffdet = [$g,$h,$itimediff,$tdetail_ref->{gbltmstmp},$tdetail_ref->{l}];
                         push @{$budget_node_ref->{diffdet}},\@idiffdet;
+                        $sitagt_ref->{event} += 1;
                         $detail_state = 2;
                      } elsif ($detail_last eq "N") {
                         $tdetail_ref->{nn} += 1;          # record N followed by N, keep waiting for Y
@@ -5761,6 +5774,21 @@ if ($dyny_ct > 0) {
    $advsit[$advi] = "TEMS";
 }
 
+$rptkey = "EVENTREPORT029";$advrptx{$rptkey} = 1;         # record report key
+$cnt++;$oline[$cnt]="\n";
+$cnt++;$oline[$cnt]="$rptkey: Event totals per Situation/Agent\n";
+$cnt++;$oline[$cnt]="Situation,Node,Events,Rate/Min\n";
+foreach my $g (sort {$sitagtx{$b}->{event} <=> $sitagtx{$a}->{event}} keys %sitagtx ) {
+   $sitagt_ref = $sitagtx{$g};
+   last if $sitagt_ref->{event} < 10;
+   $outline = $sitagt_ref->{sitname} . ",";
+   $outline .= $sitagt_ref->{node} . ",";
+   $outline .= $sitagt_ref->{event} . ",";
+   $res_rate = ($sitagt_ref->{event}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
+   $outline .= $ppc . ",";
+   $cnt++;$oline[$cnt]="$outline\n";
+}
+
 
 $rptkey = "EVENTREPORT999";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
@@ -5814,6 +5842,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
       }
    }
 }
+
 
 $opt_o = $opt_odir . $opt_o if index($opt_o,'/') == -1;
 
@@ -5898,6 +5927,7 @@ if ($opt_sum != 0) {
    $sumline .= "results" . "[$ppc_result_rate" . "K/min] ";
    $sumline .= " worry" . "[$ppc_worry_pc] ";
    $sumline .= " delay[$total_delay_avg] ";
+   $sumline .= " copy[$event_dur,$ppc_event_rate,$confirm_pc%,$ppc_result_rate,$ppc_worry_pc,$total_delay_avg] ";
    my $sumfn = $opt_odir . "eventaud.txt";
    open SUM, ">$sumfn" or die "Unable to open summary file $sumfn\n";
    print SUM "$sumline\n";
@@ -6099,6 +6129,17 @@ sub setbudget {
                             );
       $budget_node_ref = \%budget_noderef;
       $budget_nodex{$inode} = \%budget_noderef;
+   }
+   my $sakey = $isitname . "|" . $inode;
+   $sitagt_ref = $sitagtx{$sakey};
+   if (!defined $sitagt_ref) {
+      my %sitagtref = (
+                         sitname => $isitname,
+                         node => $inode,
+                         event => 0,
+                      );
+      $sitagt_ref = \%sitagtref;
+      $sitagtx{$sakey} = \%sitagtref;
    }
 }
 
@@ -7053,6 +7094,8 @@ sub get_epoch {
 # 1.25000  : Correct "Not Forwarded" logic
 #            Correct/Add some table sizes
 #            Add detection of different timestamps in a single event
+# 1.26000  : Add report on number of events
+#          : And copy section to summary
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -8052,4 +8095,27 @@ ITM Pure Situation events and Event Merging Logic
 http://www.ibm.com/support/docview.wss?uid=swg21445309
 
 Recovery plan: Investigate condition and resolve.
+----------------------------------------------------------------
+
+EVENTREPORT029
+Text: Event totals per Situation/Agent
+
+Sample:
+Situation,Node,Events,
+ITM_Transaction_VP,CO01VCANSOF:T6,1756,
+UDB_Agent_DM_Down,prdb2i1:co01bpmdb:UD,1524,
+RRT_Response_Time_War,CO01VCANSOF:T6,249,
+
+Meaning: This reports on the total number of situation open
+events arriving from agents. These all have to be processed
+by the TEPS and possibly sent to an event receiver.
+
+In some cases this has detected situation events that were
+"invisible" because they were not sent to an event receiver
+and not associated to any TEP navigation node. In that case
+the processing just burned resources with no value and also
+slowed TEPS processing.
+
+Recovery plan: Review situations and stop ones that are not
+useful.
 ----------------------------------------------------------------
