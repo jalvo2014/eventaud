@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.26000";
+my $gVersion = "1.27000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -142,6 +142,9 @@ my $opt_allresults;                # when 1 show maximum detail report
 my $opt_time;                   # when 1 add in all results to each all line report
 my $opt_days;                   # How many days to look backward, default 2 days
 my $opt_dgrace;
+my $opt_crit = "";
+my $critical_fn = "eventaud.crit";
+my @crits;
 
 
 # following structures used to calculate a result/event budget
@@ -516,17 +519,20 @@ my %htabsize = (
    'JOBOBJD'     => '672',
    'K06CSCRIP0' => '304',
    'K06K06CUS0' => '924',
+   'K06LOGFILE' => '2824',
    'K06PERLEX0' => '364',
    'K06PERLEX1' => '344',
    'K06PERLEX2' => '1416',
    'K06PERLEX4' => '444',
+   'K06PERLEX5' => '468',
    'K06PERLEX6' => '625',
    'K06TEST' => '404',
    'K07K07ERS0'  => '176',
    'K07K07FSC0'  => '960',
    'K07K07LGS0'  => '1416',
    'K07K07LOG0'  => '668',
-   'K07K07MNT0' => '1712',
+   'K07K07MAL0'  => '52',
+   'K07K07MNT0'  => '1712',
    'K07K07NET0'  => '345',
    'K07K07PRO0'  => '3979',
    'K07K07TRA0'  => '332',
@@ -548,8 +554,8 @@ my %htabsize = (
    'K24EVENTLO'  => '2864',
    'K3ZNTDSAB'   => '244',
    'K3ZNTDSCNT'  => '848',
-   'K3ZNTDSDAI'  => '884',
-   'K3ZNTDSDCA'  => '1816',
+   'K3ZNTDSDAI'  => '1140',
+   'K3ZNTDSDCA'  => '1836',
    'K3ZNTDSDCP'  => '340',
    'K3ZNTDSDFS'  => '384',
    'K3ZNTDSDHC'  => '348',
@@ -4835,6 +4841,11 @@ my $ppc_worry_pc = $wpc;
 $res_rate = ($budget_total_ref->{nfwd_result_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Total Non-Forwarded Result Bytes: $budget_total_ref->{nfwd_result_bytes} $ppc/min [$npc%]\n";
 
+if ($ppc_result_rate >= 500) {
+   my $crit_line = "6,Estimated Incoming result rate $ppc_result_rate  worried $ppc_worry_pc";
+   push @crits,$crit_line;
+}
+
 $res_rate = ($budget_total_ref->{samp_confirm}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Sampled Results Confirm: $budget_total_ref->{samp_confirm} $ppc/min\n";
 
@@ -5915,6 +5926,21 @@ if ($rpti != -1) {
 }
 close OH;
 
+if ($opt_crit ne "") {
+   if ($#crits != -1) {
+      my $critfn = $opt_crit . $critical_fn;
+      open(CRIT,">$critfn");
+      for my $cline (@crits) {
+         my $crit_line = $cline . "\n";
+         print CRIT $crit_line;
+      }
+      close(CRIT);
+   }
+}
+
+
+
+
 if ($opt_sum != 0) {
    my $sumline;
 # EVENTAUD 100 25
@@ -5927,7 +5953,7 @@ if ($opt_sum != 0) {
    $sumline .= "results" . "[$ppc_result_rate" . "K/min] ";
    $sumline .= " worry" . "[$ppc_worry_pc] ";
    $sumline .= " delay[$total_delay_avg] ";
-   $sumline .= " copy[$event_dur,$ppc_event_rate,$confirm_pc%,$ppc_result_rate,$ppc_worry_pc,$total_delay_avg] ";
+   $sumline .= " copy[$event_dur,$ppc_event_rate,$confirm_pc%,$ppc_result_rate" . "K,$ppc_worry_pc,$total_delay_avg] ";
    my $sumfn = $opt_odir . "eventaud.txt";
    open SUM, ">$sumfn" or die "Unable to open summary file $sumfn\n";
    print SUM "$sumline\n";
@@ -6788,8 +6814,11 @@ sub init {
          shift(@ARGV);
          $opt_workpath = shift(@ARGV);
          die "workpath specified but no path found\n" if !defined $opt_workpath;
-      }
-      else {
+      } elsif ( $ARGV[0] eq "-crit") {
+         shift(@ARGV);
+         $opt_crit = shift(@ARGV);
+         die "option -crit with no following crit directory" if !defined $opt_crit;
+      } else {
          $logfn = shift(@ARGV);
          die "log file not defined\n" if !defined $logfn;
       }
@@ -7096,6 +7125,7 @@ sub get_epoch {
 #            Add detection of different timestamps in a single event
 # 1.26000  : Add report on number of events
 #          : And copy section to summary
+# 1.27000  : Add critical report file
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
