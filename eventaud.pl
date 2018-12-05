@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.27000";
+my $gVersion = "1.28000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -71,6 +71,8 @@ my %seq998;
 my %timex;                               #hash to hold time based records at different levels
 
 my $local_diff = 0;
+
+my $ack_ct = 0;
 
 
 
@@ -226,6 +228,7 @@ my %advcx = (
               "EVENTAUDIT1014E" => "90",
               "EVENTAUDIT1015W" => "75",
               "EVENTAUDIT1016W" => "80",
+              "EVENTAUDIT1017I" => "25",
            );
 
 # Following table can be used to calculate result
@@ -484,7 +487,15 @@ my %htabsize = (
    'GOPHRSVC'    => '292',
    'HALDBPART'   => '116',
    'HALDBSUM'    => '214',
-   'HLHCHKS'     => '276',
+   'HLAADRS'     => '116',
+   'HLALCPOL'    => '96',
+   'HLALCPTH'    => '80',
+   'HLALCSTR'    => '108',
+   'HLALCSYS'    => '108',
+   'HLALFILT'    => '69',
+   'HLALXCFSY'   => '108',
+   'HLHCHKS'     => '1180',
+   'HLLXCFPT'    => '102',
    'HSM_ACTVTY'  => '59',
    'HSM_CDS'     => '118',
    'HSM_FUN_DA'  => '144',
@@ -515,9 +526,12 @@ my %htabsize = (
    'IPSTATS'     => '288',
    'IRLM'        => '200',
    'ISITSTSH'      => '624',
+   'JNC747300'   => '136',
    'JOBOBJ'      => '644',
    'JOBOBJD'     => '672',
    'K06CSCRIP0' => '304',
+   'K06CSCRIP1' => '391',
+   'K06CSCRIP2' => '304',
    'K06K06CUS0' => '924',
    'K06LOGFILE' => '2824',
    'K06PERLEX0' => '364',
@@ -526,6 +540,7 @@ my %htabsize = (
    'K06PERLEX4' => '444',
    'K06PERLEX5' => '468',
    'K06PERLEX6' => '625',
+   'K06POBJST'  => '324',
    'K06TEST' => '404',
    'K07K07ERS0'  => '176',
    'K07K07FSC0'  => '960',
@@ -547,10 +562,23 @@ my %htabsize = (
    'K08K08LOG0' => '1416',
    'K08K08MAI1' => '444',
    'K08K08SCR0' => '1416',
+   'K08RESOURC' => '136',
    'K09K09CUS0' => '924',
    'K09K09FSC0' => '968',
    'K09K09SOL0' => '193',
-   'K08RESOURC' => '136',
+   'K10K10FIL0' => '500',
+   'K12GSMAO10' => '436',
+   'K12GSMAOR1' => '884',
+   'K12GSMAOR2' => '820',
+   'K12GSMAOR3' => '564',
+   'K12GSMAOR4' => '884',
+   'K12GSMAOR5' => '628',
+   'K12GSMAOR6' => '628',
+   'K12GSMAOR7' => '628',
+   'K12GSMAOR8' => '500',
+   'K12GSMAOR9' => '1204',
+   'K12K12ORA2' => '712',
+   'K12POBJST'  => '324',
    'K24EVENTLO'  => '2864',
    'K3ZNTDSAB'   => '244',
    'K3ZNTDSCNT'  => '848',
@@ -1608,7 +1636,7 @@ my %htabsize = (
    'KKAPOBJST'   => '260',
    'KLOLOGEVTS'  => '6864',
    'KLOLOGFRX'   => '814',
-   'KLOLOGFST'   => '660',
+   'KLOLOGFST'   => '916',
    'KLOPOBJST'   => '360',
    'KLOTHPLST'   => '96',
    'KLZCPU'      => '136',
@@ -2805,7 +2833,7 @@ my %htabsize = (
    'KRZINSTINF'  => '312',
    'KRZINTCON'   => '276',
    'KRZLIBCADE'  => '136',
-   'KRZLIBCART'  => '112',
+   'KRZLIBCART'  => '188',
    'KRZMSGSTAT'  => '304',
    'KRZPOBJST'   => '260',
    'KRZRAMCLIT'  => '268',
@@ -2838,6 +2866,7 @@ my %htabsize = (
    'KRZRDBRSS'   => '192',
    'KRZRDBSTAT'  => '456',
    'KRZRDBTOPO'  => '400',
+   'KRZRDBCUSQ' => '1940',
    'KRZRDBUTS'   => '240',
    'KRZRDPGADT'  => '140',
    'KRZRDPGAOV'  => '704',
@@ -2887,7 +2916,7 @@ my %htabsize = (
    'KS3HSPSTOR'  => '58',
    'KS3HSWATRQ'  => '70',
    'KS3HSXFUDA'  => '124',
-   'KSAALERTS'   => '2326',
+   'KSAALERTS'   => '2416',
    'KSAARCHIVE'  => '585',
    'KSABDC'      => '649',
    'KSABUFFER'   => '768',
@@ -2994,13 +3023,14 @@ my %htabsize = (
    'KUDAPPL01'   => '722',
    'KUDAPPLYPM'  => '316',
    'KUDAPPLYSN'  => '414',
-   'KUDBPOOL'    => '1366',
+   'KUDBPOOL'    => '1356',
+   'KUDCUSSQLD' => '1904',
    'KUDDB2HADR'  => '1596',
    'KUDDBASE00'  => '1922',
    'KUDDBASE01'  => '1874',
    'KUDDBASE02'  => '842',
    'KUDDCSDB'    => '290',
-   'KUDDIAGLOG'  => '1675',
+   'KUDDIAGLOG'  => '1680',
    'KUDIPADDR'   => '166',
    'KUDLOG'      => '4932',
    'KUDSYSINFO'  => '1882',
@@ -3206,7 +3236,7 @@ my %htabsize = (
    'KVMPOBJST'   => '360',
    'KVMRSPOOLC'  => '596',
    'KVMRSPOOLG'  => '568',
-   'KVMRSPOOLM'  => '596',
+   'KVMRSPOOLM'  => '612',
    'KVMSERVERC'  => '272',
    'KVMSERVERD'  => '564',
    'KVMSERVERE'  => '1876',
@@ -3758,6 +3788,7 @@ my %htabsize = (
    'NTDEVDEP'    => '668',
    'NTDEVICE'    => '1148',
    'NTEVTLOG'    => '3132',
+   'NTFLCHG'     => '1532',
    'NTFLTREND'   => '1584',
    'NTIPADDR'    => '872',
    'NTJOBOBJD'   => '692',
@@ -3807,7 +3838,7 @@ my %htabsize = (
    'QMCHAN_SUM'  => '736',
    'QMCHANIN'    => '312',
    'QMCHANNEL'   => '1044',
-   'QMCHANS'     => '980',
+   'QMCHANS'     => '996',
    'QMCONNAPP'   => '1136',
    'QMCONNOBJ'   => '1052',
    'QMCURSTAT'   => '2108',
@@ -3827,7 +3858,7 @@ my %htabsize = (
    'QMMSG_STAT'  => '604',
    'QMPS_LH'     => '336',
    'QMQ_ACCT'    => '880',
-   'QMQ_DATA'    => '912',
+   'QMQ_DATA'    => '932',
    'QMQ_HDL_ST'  => '1036',
    'QMQ_LH'      => '720',
    'QMQ_QU_ST'   => '364',
@@ -3840,7 +3871,7 @@ my %htabsize = (
    'QSG_CHANS'   => '240',
    'QSG_QMGR'    => '304',
    'QSG_QUEUES'  => '220',
-   'READHIST'    => '748',
+   'READHIST'    => '1224',
    'REALACT'     => '2261',
    'REALENC'     => '1821',
    'REALRSUM'    => '1428',
@@ -4144,10 +4175,14 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
              $situation_ref->{open} += 1 if $tdetail_ref->{deltastat} eq "Y";
              $situation_ref->{close} += 1 if $tdetail_ref->{deltastat} eq "N";
              $situation_ref->{bad} += 1 if $tdetail_ref->{deltastat} eq "X";
+             $situation_ref->{ack} += 1 if $tdetail_ref->{deltastat} eq "A";
+             $situation_ref->{res} += 1 if $tdetail_ref->{deltastat} eq "F";
              $atomize_ref->{count} += 1;
              $atomize_ref->{open} += 1 if $tdetail_ref->{deltastat} eq "Y";
              $atomize_ref->{close} += 1 if $tdetail_ref->{deltastat} eq "N";
              $atomize_ref->{bad} += 1 if $tdetail_ref->{deltastat} eq "X";
+             $atomize_ref->{ack} += 1 if $tdetail_ref->{deltastat} eq "A";
+             $atomize_ref->{res} += 1 if $tdetail_ref->{deltastat} eq "F";
           }
       }
    }
@@ -4159,7 +4194,7 @@ my $outline;
 
 # Analysis and summary of event information. Mostly the data is summarized and
 # rolled into the situation_ref hashes.
-foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Managed System Names
+foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Managed System Names]
    my $node_ref = $nodex{$f};
    print STDERR "working on loop 1 $f " .  __LINE__ . "\n" if $opt_v == 1;
 
@@ -4194,7 +4229,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
           # DisplayItem set, but multiple identical atomize values seen
           # DisplayItem not set, but multiple results in same second
 
-           my $hi = 0;
+          my $hi = 0;
           foreach my $i (sort {$a <=> $b  }   keys %{$atomize_ref->{adetails}} ) { # by Agent Time/atomize
              my $adetail_ref = $atomize_ref->{adetails}{$i};
              $hi += 1;
@@ -4423,6 +4458,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
          $merge_ct += 1;
       }
 
+      # start on sequence of details Y/N/A/F
       my $hi = 0;
       foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
          my $atomize_ref = $situation_ref->{atoms}{$h};
@@ -4470,10 +4506,9 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
                print STDERR "finished multi-row checking " .  __LINE__ .  " $hi\n" if $opt_v == 1;
             }
          }
-         $hi = 0;
          print STDERR "starting Y/N details " .  __LINE__ .  " $hi\n" if $opt_v == 1;
-         # now run through the second details and track Y and N's
-         my $detail_state = 1;   # wait for initial Y record
+         # now run through the second by second TEMS details and track Y and N and A and F's
+         my $detail_state = 1;   # always wait for initial Y record
          my $detail_start;
          my $detail_end;
          my $detail_lag = 0;
@@ -4483,6 +4518,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
          my $time_thrunode_ref;
          my $time_node_ref;
          my $time_situation_ref;
+         $hi = 0;
          foreach my $i (sort {$a cmp $b} keys %{$atomize_ref->{tdetails}}) {
             my $tdetail_ref = $atomize_ref->{tdetails}{$i};
             next if $tdetail_ref->{tseconds} lt $stamp_min;
@@ -4500,12 +4536,14 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
             $hi += 1;
             print STDERR "Starting loop 4 " .  __LINE__ .  " $hi\n" if $opt_v == 1;
 
-            # prepare to capture the TEMS side workload on a minute by minute basis
-            # the TEMS side timing can be spread out over many seconds and
-            # doesn't reflect the initial capture.
+            # prepare to capture the TEMS side workload on a second by second basis
+            # the TEMS side timing can be spread out over many seconds and may not
+            # reflect the initial agent result capture.
 
             setbudget($g,$tdetail_ref->{thrunode},$f,$tdetail_ref->{table});
             $budget_situation_ref->{bad} += 1 if $tdetail_ref->{deltastat} eq "X";
+            $budget_situation_ref->{ack} += 1 if $tdetail_ref->{deltastat} eq "A";
+            $budget_situation_ref->{res} += 1 if $tdetail_ref->{deltastat} eq "F";
             $irowsize = $budget_situation_ref->{rowsize};
             if ($situation_ref->{reeval} == 0) {                #pure situation
             print STDERR "Pure event loop 4 " .  __LINE__ .  " $hi\n" if $opt_v == 1;
@@ -4525,116 +4563,180 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
             } else {                                            # sampled situation
                print STDERR "Sampled event loop 4 [$i]" .  __LINE__ .  " $hi\n" if $opt_v == 1;
                # calculate open versus close for sampled events and thus calculate open time
-               if ($situation_ref->{reeval} > 0) {
-                  if ($detail_state == 1) {   # waiting for Y record
-                     if ($tdetail_ref->{deltastat} eq "Y") {
-                        $detail_start = $tdetail_ref->{epoch};
-                        if ($detail_lag > 0) {
-                           $budget_situation_ref->{yny_ct} += 1;
-                           my $stime = $detail_start - $detail_lag;
-                           my $sval = int(($stime+($situation_ref->{reeval}/2))/$situation_ref->{reeval});
-                           my $sdiff = $stime - $sval*$situation_ref->{reeval};
-                           $budget_situation_ref->{yny}{$sdiff} += 1 if abs($sdiff) > $opt_dgrace;
-                        }
-                        $detail_lag = $detail_start;
-                        $detail_results = $tdetail_ref->{results};
-                        $atomize_ref->{sampled_ct} += 1;
-                        $situation_ref->{sampled_ct} += 1;
-                        $situation_ref->{transitions} += 1;
-                        setbudget($g,$tdetail_ref->{thrunode},$f,$tdetail_ref->{table});
-                        $budget_total_ref->{event} += 1;
-                        $budget_situation_ref->{event} += 1;
-                        $budget_thrunode_ref->{event} += 1;
-                        $budget_node_ref->{event} += 1;
-                        $budget_total_ref->{open} += 1;
-                        $budget_situation_ref->{open} += 1;
-                        $budget_thrunode_ref->{open} += 1;
-                        $budget_node_ref->{open} += 1;
-                        $budget_total_ref->{transitions} += 1;
-                        $budget_situation_ref->{transitions} += 1;
-                        $budget_thrunode_ref->{transitions} += 1;
-                        $budget_node_ref->{transitions} += 1;
-                        my $itimediff = get_epoch($tdetail_ref->{tseconds}) - get_epoch($tdetail_ref->{aseconds});
-                        $budget_node_ref->{difftimes}{$itimediff} += 1;
-                        my @idiffdet = [$g,$h,$itimediff,$tdetail_ref->{gbltmstmp},$tdetail_ref->{l}];
-                        push @{$budget_node_ref->{diffdet}},\@idiffdet;
-                        $sitagt_ref->{event} += 1;
-                        $detail_state = 2;
-                     } elsif ($detail_last eq "N") {
-                        $tdetail_ref->{nn} += 1;          # record N followed by N, keep waiting for Y
-                        $atomize_ref->{nn} += 1;
-                        $situation_ref->{nn} += 1;
-                        $budget_total_ref->{nn} += 1;
-                        $budget_situation_ref->{nn} += 1;
-                        $budget_thrunode_ref->{nn} += 1;
-                        $budget_node_ref->{nn} += 1;
-                        $budget_situation_ref->{nnnodes}{$f} = 1;
+               if ($detail_state == 1) {   # waiting for Y record
+                  if ($tdetail_ref->{deltastat} eq "Y") {
+                     $detail_start = $tdetail_ref->{epoch};
+                     if ($detail_lag > 0) {
+                        $budget_situation_ref->{yny_ct} += 1;
+                        my $stime = $detail_start - $detail_lag;
+                        my $sval = int(($stime+($situation_ref->{reeval}/2))/$situation_ref->{reeval});
+                        my $sdiff = $stime - $sval*$situation_ref->{reeval};
+                        $budget_situation_ref->{yny}{$sdiff} += 1 if abs($sdiff) > $opt_dgrace;
                      }
-                  } elsif ($detail_state == 2) {    # waiting for N record
-                     if ($tdetail_ref->{deltastat} eq "N") {
-                        $detail_end = $tdetail_ref->{epoch};
-                        if ($detail_lag > 0) {
-                           $budget_situation_ref->{yny_ct} += 1;
-                           my $stime = $detail_end - $detail_lag;
-                           my $sval = int(($stime+($situation_ref->{reeval}/2))/$situation_ref->{reeval});
-                           my $sdiff = $stime - $sval*$situation_ref->{reeval};
-                           $budget_situation_ref->{yny}{$sdiff} += 1 if abs($sdiff) > $opt_dgrace;
-                        }
-                        $detail_lag = $detail_end;
-                        $tdetail_ref->{open_time} += $detail_end - $detail_start;
-                        $atomize_ref->{open_time} += $detail_end - $detail_start;
-                        $situation_ref->{open_time} += $detail_end - $detail_start;
-                        $situation_ref->{transitions} += 1;
-                        $budget_total_ref->{event} += 1;
-                        $budget_situation_ref->{event} += 1;
-                        $budget_thrunode_ref->{event} += 1;
-                        $budget_node_ref->{event} += 1;
-                        $budget_total_ref->{transitions} += 1;
-                        $budget_situation_ref->{transitions} += 1;
-                        $budget_thrunode_ref->{transitions} += 1;
-                        $budget_node_ref->{transitions} += 1;
-
-                        # estimate how many sampling intervals there were
-                        my $evals = int(($detail_end - $detail_start)/$situation_ref->{reeval}) + 1;
-                        for (my $e = 0; $e<=$evals;$e++) {
-                           my $etime = $detail_start + $e*$situation_ref->{reeval};
-                           my $ekey = "1" . substr(sec2time($etime),2,10) . "00";
-                           setload($ekey,1,$detail_results,$tdetail_ref->{thrunode},$f,$g) if $opt_time == 1;
-                        }
-                        $budget_total_ref->{samp_confirm} += $evals;
-                        $budget_situation_ref->{samp_confirm} += $evals;
-                        $budget_thrunode_ref->{samp_confirm} += $evals;
-                        $budget_node_ref->{samp_confirm} += $evals;
-                        $budget_total_ref->{samp_confirm_bytes} += $evals * $irowsize;
-                        $budget_situation_ref->{samp_confirm_bytes} += $evals * $irowsize;
-                        $budget_thrunode_ref->{samp_confirm_bytes} += $evals * $irowsize;
-                        $budget_node_ref->{samp_confirm_bytes} += $evals * $irowsize;
-                        $budget_total_ref->{results} += $evals;
-                        $budget_total_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 1;
-                        $budget_situation_ref->{results} += $evals;
-                        $budget_situation_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 1;
-                        $budget_thrunode_ref->{results} += $evals;
-                        $budget_node_ref->{results} += $evals;
-                        $budget_total_ref->{result_bytes} += $evals * $irowsize;
-                        $budget_total_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 1;
-                        $budget_situation_ref->{result_bytes} += $evals * $irowsize;
-                        $budget_situation_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 1;
-                        $budget_thrunode_ref->{result_bytes} += $evals * $irowsize;
-                        $budget_node_ref->{result_bytes} += $evals * $irowsize;
-                        $detail_state = 1;
-                     } elsif ($detail_last eq "Y") {
-                        $tdetail_ref->{yy} += 1;          # record Y followed by Y, keep waiting for N
-                        $atomize_ref->{yy} += 1;
-                        $situation_ref->{yy} += 1;
-                        $budget_total_ref->{yy} += 1;
-                        $budget_situation_ref->{yy} += 1;
-                        $budget_thrunode_ref->{yy} += 1;
-                        $budget_node_ref->{yy} += 1;
-                        $budget_situation_ref->{yynodes}{$f} = 1;
-                     }
+                     $detail_lag = $detail_start;
+                     $detail_results = $tdetail_ref->{results};
+                     $atomize_ref->{sampled_ct} += 1;
+                     $situation_ref->{sampled_ct} += 1;
+                     $situation_ref->{transitions} += 1;
+                     setbudget($g,$tdetail_ref->{thrunode},$f,$tdetail_ref->{table});
+                     $budget_total_ref->{event} += 1;
+                     $budget_situation_ref->{event} += 1;
+                     $budget_thrunode_ref->{event} += 1;
+                     $budget_node_ref->{event} += 1;
+                     $budget_total_ref->{open} += 1;
+                     $budget_situation_ref->{open} += 1;
+                     $budget_thrunode_ref->{open} += 1;
+                     $budget_node_ref->{open} += 1;
+                     $budget_total_ref->{transitions} += 1;
+                     $budget_situation_ref->{transitions} += 1;
+                     $budget_thrunode_ref->{transitions} += 1;
+                     $budget_node_ref->{transitions} += 1;
+                     my $itimediff = get_epoch($tdetail_ref->{tseconds}) - get_epoch($tdetail_ref->{aseconds});
+                     $budget_node_ref->{difftimes}{$itimediff} += 1;
+                     my @idiffdet = [$g,$h,$itimediff,$tdetail_ref->{gbltmstmp},$tdetail_ref->{l}];
+                     push @{$budget_node_ref->{diffdet}},\@idiffdet;
+                     $sitagt_ref->{event} += 1;
+                     $detail_state = 2;
+                  } elsif ($detail_last eq "N") {
+                     $tdetail_ref->{nn} += 1;          # record N followed by N, keep waiting for Y
+                     $atomize_ref->{nn} += 1;
+                     $situation_ref->{nn} += 1;
+                     $budget_total_ref->{nn} += 1;
+                     $budget_situation_ref->{nn} += 1;
+                     $budget_thrunode_ref->{nn} += 1;
+                     $budget_node_ref->{nn} += 1;
+                     $budget_situation_ref->{nnnodes}{$f} = 1;
                   }
-                  $detail_last = $tdetail_ref->{deltastat};
+               } elsif ($detail_state == 2) {    # Y waiting for N or A record
+                  if (($tdetail_ref->{deltastat} eq "N") or ($tdetail_ref->{deltastat} eq "A")) {
+                     # result - do they stop flowing during Acknowledgement, or just ignored
+                     $detail_end = $tdetail_ref->{epoch};
+                     if ($detail_lag > 0) {
+                        $budget_situation_ref->{yny_ct} += 1;
+                        my $stime = $detail_end - $detail_lag;
+                        my $sval = int(($stime+($situation_ref->{reeval}/2))/$situation_ref->{reeval});
+                        my $sdiff = $stime - $sval*$situation_ref->{reeval};
+                        $budget_situation_ref->{yny}{$sdiff} += 1 if abs($sdiff) > $opt_dgrace;
+                     }
+                     $tdetail_ref->{open_time} += $detail_end - $detail_start;
+                     $atomize_ref->{open_time} += $detail_end - $detail_start;
+                     $situation_ref->{open_time} += $detail_end - $detail_start;
+                     $situation_ref->{transitions} += 1;
+                     $budget_total_ref->{event} += 1;
+                     $budget_situation_ref->{event} += 1;
+                     $budget_thrunode_ref->{event} += 1;
+                     $budget_node_ref->{event} += 1;
+                     $budget_total_ref->{transitions} += 1;
+                     $budget_situation_ref->{transitions} += 1;
+                     $budget_thrunode_ref->{transitions} += 1;
+                     $budget_node_ref->{transitions} += 1;
+
+                     # estimate how many sampling intervals there were
+                     my $evals = int(($detail_end - $detail_start)/$situation_ref->{reeval}) + 1;
+                     for (my $e = 0; $e<=$evals;$e++) {
+                        my $etime = $detail_start + $e*$situation_ref->{reeval};
+                        my $ekey = "1" . substr(sec2time($etime),2,10) . "00";
+                        setload($ekey,1,$detail_results,$tdetail_ref->{thrunode},$f,$g) if $opt_time == 1;
+                     }
+                     $budget_total_ref->{samp_confirm} += $evals;
+                     $budget_situation_ref->{samp_confirm} += $evals;
+                     $budget_thrunode_ref->{samp_confirm} += $evals;
+                     $budget_node_ref->{samp_confirm} += $evals;
+                     $budget_total_ref->{samp_confirm_bytes} += $evals * $irowsize;
+                     $budget_situation_ref->{samp_confirm_bytes} += $evals * $irowsize;
+                     $budget_thrunode_ref->{samp_confirm_bytes} += $evals * $irowsize;
+                     $budget_node_ref->{samp_confirm_bytes} += $evals * $irowsize;
+                     $budget_total_ref->{results} += $evals;
+                     $budget_total_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 1;
+                     $budget_situation_ref->{results} += $evals;
+                     $budget_situation_ref->{nfwd_results} += $evals if $situation_ref->{tfwd} == 1;
+                     $budget_thrunode_ref->{results} += $evals;
+                     $budget_node_ref->{results} += $evals;
+                     $budget_total_ref->{result_bytes} += $evals * $irowsize;
+                     $budget_total_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 1;
+                     $budget_situation_ref->{result_bytes} += $evals * $irowsize;
+                     $budget_situation_ref->{nfwd_result_bytes} += $evals * $irowsize if $situation_ref->{tfwd} == 1;
+                     $budget_thrunode_ref->{result_bytes} += $evals * $irowsize;
+                     $budget_node_ref->{result_bytes} += $evals * $irowsize;
+                     if ($tdetail_ref->{deltastat} eq "N") {
+                        $detail_state = 1;
+                     } else { # deltastat A - Acknowledge
+                        $situation_ref->{ya} += 1;
+                        $budget_total_ref->{ack} += 1;
+                        $budget_situation_ref->{ack} += 1;
+                        $budget_thrunode_ref->{ack} += 1;
+                        $budget_node_ref->{ack} += 1;
+                        $budget_total_ref->{ya} += 1;
+                        $budget_situation_ref->{ya} += 1;
+                        $budget_thrunode_ref->{ya} += 1;
+                        $budget_node_ref->{ya} += 1;
+                        $ack_ct += 1;
+                        $detail_state = 3;
+                     }
+                  } elsif ($detail_last eq "Y") {
+                     $tdetail_ref->{yy} += 1;          # record Y followed by Y, keep waiting for N
+                     $atomize_ref->{yy} += 1;
+                     $situation_ref->{yy} += 1;
+                     $budget_total_ref->{yy} += 1;
+                     $budget_situation_ref->{yy} += 1;
+                     $budget_thrunode_ref->{yy} += 1;
+                     $budget_node_ref->{yy} += 1;
+                     $budget_situation_ref->{yynodes}{$f} = 1;
+                  }
+               } elsif ($detail_state == 3) {    # A waiting for F or Y record
+                  my $iacktime = $tdetail_ref->{epoch} - $detail_lag;
+                  $detail_lag = $detail_end;
+                  if ($tdetail_ref->{deltastat} eq "Y"){
+                     $situation_ref->{fy} += 1;
+                     $budget_total_ref->{fy} += 1;
+                     $budget_situation_ref->{fy} += 1;
+                     $budget_thrunode_ref->{fy} += 1;
+                     $budget_node_ref->{fy} += 1;
+                     $detail_state = 1;
+                     redo;
+                  }
+                  if ($tdetail_ref->{deltastat} eq "F"){
+                     $situation_ref->{af} += 1;
+                     $budget_total_ref->{af} += 1;
+                     $budget_total_ref->{res} += 1;
+                     $budget_total_ref->{ack_time} += $iacktime;
+                     $budget_situation_ref->{af} += 1;
+                     $budget_situation_ref->{res} += 1;
+                     $budget_situation_ref->{ack_time} += $iacktime;
+                     $budget_thrunode_ref->{af} += 1;
+                     $budget_thrunode_ref->{res} += 1;
+                     $budget_thrunode_ref->{ack_time} += $iacktime;
+                     $budget_node_ref->{af} += 1;
+                     $budget_node_ref->{res} += 1;
+                     $budget_node_ref->{ack_time} += $iacktime;
+                     $budget_node_ref->{sits}{$g} += 1;
+                     $detail_state = 4;
+                  }
+               } elsif ($detail_state == 4) {    # F waiting for A or N record
+                  $detail_lag = $detail_end;
+                  if ($tdetail_ref->{deltastat} eq "N"){
+                     $situation_ref->{fn} += 1;
+                     $budget_total_ref->{fn} += 1;
+                     $budget_situation_ref->{fn} += 1;
+                     $budget_thrunode_ref->{fn} += 1;
+                     $budget_node_ref->{fn} += 1;
+                     $detail_state = 2;
+                     redo;
+                  }
+                  if ($tdetail_ref->{deltastat} eq "A"){
+                     $situation_ref->{fa} += 1;
+                     $budget_total_ref->{fa} += 1;
+                     $budget_total_ref->{ack} += 1;
+                     $budget_situation_ref->{fa} += 1;
+                     $budget_situation_ref->{ack} += 1;
+                     $budget_thrunode_ref->{ack} += 1;
+                     $budget_thrunode_ref->{fa} += 1;
+                     $budget_node_ref->{fa} += 1;
+                     $budget_node_ref->{ack} += 1;
+                     $detail_state = 3;
+                  }
                }
+               $detail_last = $tdetail_ref->{deltastat};
             }
             if ($situation_ref->{reeval} > 0) {
                if ($detail_last eq "Y") {
@@ -4702,6 +4804,9 @@ my $node_ref = $nodex{$f};
                                 count => 0,
                                 open => 0,
                                 bad => 0,
+                                ack => 0,
+                                res => 0,
+                                ack_time => 0,
                                 sampled_ct => 0,
                                 pure_ct => 0,
                                 close => 0,
@@ -4716,6 +4821,10 @@ my $node_ref = $nodex{$f};
                                 yy => 0,
                                 yny_ct => 0,
                                 yny => {},
+                                af => 0,
+                                fa => 0,
+                                fn => 0,
+                                ya => 0,
                                 time999 => {},
                                 time998 => {},
                                 ct999 => 0,
@@ -4731,10 +4840,17 @@ my $node_ref = $nodex{$f};
       $situationx_ref->{open} += $situation_ref->{open};
       $situationx_ref->{close} += $situation_ref->{close};
       $situationx_ref->{bad} += $situation_ref->{bad};
+      $situationx_ref->{ack} += $situation_ref->{ack};
+      $situationx_ref->{res} += $situation_ref->{res};
+      $situationx_ref->{ack_time} += $situation_ref->{ack_time};
       $situationx_ref->{sampled_ct} += $situation_ref->{sampled_ct};
       $situationx_ref->{pure_ct} += $situation_ref->{pure_ct};
       $situationx_ref->{nn} += $situation_ref->{nn};
       $situationx_ref->{yy} += $situation_ref->{yy};
+      $situationx_ref->{af} += $situation_ref->{fa};
+      $situationx_ref->{fa} += $situation_ref->{af};
+      $situationx_ref->{fn} += $situation_ref->{fn};
+      $situationx_ref->{ya} += $situation_ref->{ya};
       $situationx_ref->{transitions} += $situation_ref->{transitions};
       $situationx_ref->{tfwd} = $situation_ref->{tfwd};
       $situationx_ref->{atomize} = $situation_ref->{atomize};
@@ -5785,6 +5901,62 @@ if ($dyny_ct > 0) {
    $advsit[$advi] = "TEMS";
 }
 
+if ($ack_ct > 0) {
+   $rptkey = "EVENTREPORT030";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Sampled situations with Acknowledge/Resurface Status\n";
+   $cnt++;$oline[$cnt]="Situation,ACK_ct,RES_ct,ACK_Time,YA_ct,AF_ct,FA_ct,FN_ct\n";
+
+   my $ack_sit = 0;
+   foreach my $g (sort  {$budget_situationx{$b}->{ack_time} <=> $budget_situationx{$a}->{ack_time} ||
+                         $a cmp $b} keys %budget_situationx) {
+      next if $g eq "_total_";
+      my $situation_ref = $budget_situationx{$g};
+      next if $situation_ref->{ack} == 0;
+      $ack_sit += 1;
+      $outline = $g . ",";
+      $outline .=  $situation_ref->{ack} . ",";
+      $outline .=  $situation_ref->{res} . ",";
+      $outline .=  $situation_ref->{ack_time} . ",";
+      $outline .=  $situation_ref->{ya} . ",";
+      $outline .=  $situation_ref->{af} . ",";
+      $outline .=  $situation_ref->{fa} . ",";
+      $outline .=  $situation_ref->{fn} . ",";
+      $cnt++;$oline[$cnt]="$outline\n";
+      $advsitx{$g} = 1;
+   }
+   $advi++;$advonline[$advi] = "Situations [$ack_sit] showing Acknowledge/Resurface status - see $rptkey";
+   $advcode[$advi] = "EVENTAUDIT1017I";
+   $advimpact[$advi] = $advcx{$advcode[$advi]};
+   $advsit[$advi] = "TEMS";
+
+   $rptkey = "EVENTREPORT031";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Nodes with situations with Acknowledge/Resurface Status\n";
+   $cnt++;$oline[$cnt]="Node,ACK_ct,RES_ct,ACK_Time,YA_ct,AF_ct,FA_ct,FN_ct,Situations,\n";
+   foreach my $f (sort  {$budget_nodex{$b}->{ack_time} <=> $budget_nodex{$a}->{ack_time} ||
+                         $a cmp $b} keys %budget_nodex) {
+      my $node_ref = $budget_nodex{$f};
+      next if $node_ref->{ack_time} == 0;
+      $ack_sit += 1;
+      $outline = $f . ",";
+      $outline .=  $node_ref->{ack} . ",";
+      $outline .=  $node_ref->{res} . ",";
+      $outline .=  $node_ref->{ack_time} . ",";
+      $outline .=  $node_ref->{ya} . ",";
+      $outline .=  $node_ref->{af} . ",";
+      $outline .=  $node_ref->{fa} . ",";
+      $outline .=  $node_ref->{fn} . ",";
+      my $psits = "";
+      foreach my $r ( sort {$a cmp $b} keys %{$node_ref->{sits}}) {
+         $psits .= $r . "[" . $node_ref->{sits}{$r} . "] ";
+      }
+      chop $psits;
+      $outline .=  $psits . ",";
+      $cnt++;$oline[$cnt]="$outline\n";
+   }
+}
+
 $rptkey = "EVENTREPORT029";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $cnt++;$oline[$cnt]="$rptkey: Event totals per Situation/Agent\n";
@@ -6025,6 +6197,8 @@ sub setbudget {
       my %budget_totalref = (
                                event => 0,
                                open => 0,
+                               ack => 0,
+                               res => 0,
                                results => 0,
                                result_bytes => 0,
                                miss => 0,
@@ -6043,6 +6217,12 @@ sub setbudget {
                                nfwd_result_bytes => 0,
                                yy => 0,
                                nn => 0,
+                               ya => 0,
+                               af => 0,
+                               fa => 0,
+                               fn => 0,
+                               ya => 0,
+                               ack_time => 0,
                             );
       $budget_total_ref = \%budget_totalref;
       $budget_situationx{$total_key} = \%budget_totalref;
@@ -6053,6 +6233,8 @@ sub setbudget {
       my %budget_situationref = (
                                    event => 0,
                                    open => 0,
+                                   ack => 0,
+                                   res => 0,
                                    results => 0,
                                    result_bytes => 0,
                                    miss => 0,
@@ -6083,6 +6265,12 @@ sub setbudget {
                                    yny => {},
                                    bad => 0,
                                    psit => $isitname,
+                                   ya => 0,
+                                   af => 0,
+                                   fa => 0,
+                                   fn => 0,
+                                   ya => 0,
+                                   ack_time => 0,
                                 );
       $budget_situation_ref = \%budget_situationref;
       $budget_situationx{$isitname} = \%budget_situationref;
@@ -6106,6 +6294,8 @@ sub setbudget {
       my %budget_thrunoderef = (
                                   event => 0,
                                   open => 0,
+                                  ack => 0,
+                                  res => 0,
                                   results => 0,
                                   result_bytes => 0,
                                   miss => 0,
@@ -6122,6 +6312,12 @@ sub setbudget {
                                   trans_rate => 0,
                                   yy => 0,
                                   nn => 0,
+                                  ya => 0,
+                                  af => 0,
+                                  fa => 0,
+                                  fn => 0,
+                                  ya => 0,
+                                  ack_time => 0,
                             );
       $budget_thrunode_ref = \%budget_thrunoderef;
       $budget_thrunodex{$ithrunode} = \%budget_thrunoderef;
@@ -6132,6 +6328,8 @@ sub setbudget {
       my %budget_noderef = (
                                event => 0,
                                open => 0,
+                               ack => 0,
+                               res => 0,
                                results => 0,
                                result_bytes => 0,
                                miss => 0,
@@ -6147,11 +6345,19 @@ sub setbudget {
                                transitions => 0,
                                yy => 0,
                                nn => 0,
+                               ya => 0,
+                               af => 0,
+                               fa => 0,
+                               fn => 0,
+                               ya => 0,
+                               ack_time => 0,
+                               af_time => 0,
                                trans_rate => 0,
                                difftimes => {},
                                diffdet => [],
                                pdiff => "",
                                diffmin => 0,
+                               sits => {},
                             );
       $budget_node_ref = \%budget_noderef;
       $budget_nodex{$inode} = \%budget_noderef;
@@ -6220,8 +6426,6 @@ sub newsit {
 }
 sub newstsh {
    my ($ill,$isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$igbltmstmp,$inode,$iatomize,$iresults) = @_;
-#if ($isitname eq "WAS_RESTART_TEST") {
-#}
    # ignore some puzzling cases where on open event Y had a single tilda ~ or was null
    if ($ideltastat eq "Y") {
       return if ($iresults eq "~") or ($iresults eq "");
@@ -6229,10 +6433,10 @@ sub newstsh {
 
    # MS_Offline type situations use fake ORIGINNODEs [managed systems] and thus do not relate to
    # normal situation events and so don't affect agent related situation processing.
-   $sx = $sitx{$isitname};
-   if (defined $sx) {
-      return if index($sit_pdt[$sx],"ManagedSystem.Status") != -1;
-   }
+#  $sx = $sitx{$isitname};
+#  if (defined $sx) {
+#     return if index($sit_pdt[$sx],"ManagedSystem.Status") != -1;
+#  }
 
    # track when situation was last started
    if ($ideltastat eq "S") {
@@ -6269,6 +6473,9 @@ sub newstsh {
                             open => 0,
                             close => 0,
                             bad => 0,
+                            ack => 0,
+                            ack_time => 0,
+                            res => 0,
                             sampled_ct => 0,
                             pure_ct => 0,
                             open_time => 0,
@@ -6278,6 +6485,10 @@ sub newstsh {
                             transitions => 0,
                             nn => 0,
                             yy => 0,
+                            af => 0,
+                            fa => 0,
+                            fn => 0,
+                            ya => 0,
                             time999 => {},
                             time998 => {},
                             node999 => {},
@@ -6303,6 +6514,8 @@ sub newstsh {
                           open => 0,
                           close => 0,
                           bad => 0,
+                          ack => 0,
+                          res => 0,
                           open_time => 0,
                           reeval => 0,
                           sampled_ct => 0,
@@ -6387,7 +6600,7 @@ sub newstsh {
          foreach my $s (@tresult1) {
             next if substr($s,0,1) eq "*";
             $s =~ /(\S+)\.(\S+)=(.*)/;
-            $iattrg = $1;
+            $iattrg = $1 if defined $1;
             $adetail_ref->{attrgs}{$iattrg} = 1 if defined $iattrg;
             $adetail_ref->{table} = $iattrg if defined $iattrg;
             last;
@@ -6408,6 +6621,8 @@ sub newstsh {
    # second section captures activity at the TEMS, where Open and Close [Y/N] are determined
    if (($ideltastat eq "N")  or                                     # Handle event sitaution close
        ($ideltastat eq "X")  or                                     # Handle event sitaution problem
+       ($ideltastat eq "A")  or                                     # Handle event sitaution Acknowledge
+       ($ideltastat eq "F")  or                                     # Handle event sitaution Resurface
        (($ideltastat eq "Y") and (substr($iresults,0,1) eq "*"))) {  # Handle initial event situation open
 
       my $tkey = $t_seconds;
@@ -6498,9 +6713,15 @@ sub newstsh {
                my $pstring = substr($r,$ts);
                $pstring =~ /TIMESTAMP=(\d+)/;
                my $istamp = $1;
-               $tdetail_ref->{tstamps}{$iattrg}{$istamp} = 1 if defined $istamp;
+               if (defined $iattrg) {
+                  $tdetail_ref->{tstamps}{$iattrg}{$istamp} = 1 if defined $istamp;
+               }
             }
          }
+      }
+      if ($ideltastat eq "A") {
+      }
+      if ($ideltastat eq "Y") {
       }
 
       # track global start/stop time
@@ -6722,7 +6943,7 @@ print STDERR "working on $ll\n" if $opt_v == 1;
          $iatomize =~ s/\s+$//;   #trim trailing whitespace
          $iresults =~ s/\s+$//;   #trim trailing whitespace
       }
-      next if ($ideltastat ne 'Y') and ($ideltastat ne 'N') and ($ideltastat ne 'X') and ($ideltastat ne 'S');
+      next if ($ideltastat ne 'Y') and ($ideltastat ne 'N') and ($ideltastat ne 'X') and ($ideltastat ne 'A') and ($ideltastat ne 'F') and ($ideltastat ne 'S');
 
       # Squeeze out ending blanks in attribute results to report optics
       # And convert tabs, carriage returns, and linefeeds into symbolics
@@ -7126,6 +7347,7 @@ sub get_epoch {
 # 1.26000  : Add report on number of events
 #          : And copy section to summary
 # 1.27000  : Add critical report file
+# 1.28000  : Report on Acknowledge/Resurface conditions, monitor MS_Offline type sits
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -7398,6 +7620,16 @@ Meaning: Pure situations being merged. See EVENTREPORT028
 for more details.
 
 Recovery plan: Follow plan in EVENTREPORT028.
+--------------------------------------------------------------
+
+EVENTAUDIT1017I
+Text: Situations [$ack_sit] showing Acknowledge/Resurface status
+
+Meaning: This can mean a mis-use of Acknowledge/Resurface and
+trigger unneeded concern. See REPORT030 for details.
+
+Recovery plan: Reduce use of Acknowledge unless the issues can
+be corrected by the stated time.
 --------------------------------------------------------------
 
 EVENTREPORT000
@@ -8148,4 +8380,82 @@ slowed TEPS processing.
 
 Recovery plan: Review situations and stop ones that are not
 useful.
+----------------------------------------------------------------
+
+EVENTREPORT030
+Text: Sampled situations with Acknowledge/Resurface Status
+
+Sample:
+Situation,ACK_ct,RES_ct,ACK_Time,YA_ct,AF_ct,FA_ct,FN_ct
+ccp_ms_offline,383,359,7697671,17,167,162,3,
+ccp_swapprc_rlzw_stdv2,7,5,305726,2,2,1,0,
+ccp_gpfsscrp_g70f_gpfs,10,10,220996,1,5,4,0,
+
+Meaning: This reports on the conditions where the
+Acknowledge function was used on a situation event. That
+means the event was temporarily hidden. The Acknowledge
+is an statement that the condition will be corrected in
+a stated amount of time. When that time ends, the situation
+is evaluated again. If the condition is now corrected, a
+close Situation event is seen. If it still exists, a
+status F [Resurface] is generate to record the condition
+still needs to be corrected.
+
+ACK_ct: count of Acknowledgements
+RES_ct: count of Resurfaces
+ACK_time: total seconds the situation was in Acknowledge status
+YA_ct: count of Y [True] to A [Acknowledge] transitions
+AF_ct: count of A [Acknowledge] to F [Resurface] transitions
+FA_ct: count of F [Resurface] to A [Acknowledge] transitions
+FN_ct: count of F [Resurface] to N [Close] transitions
+
+The report is sorted in descending time by the seconds in
+Acknowledge state.
+
+In the customer case which inspired this report section,
+the customer was unaware of the Netcool generated Acknowledge
+logic. As a result certain agents were going offline and later
+online repeatedly without other explanation. In most cases
+the agent offline condition was not corrected and the resulting
+flood of tickets was a serious problem.
+
+Recovery plan: Review situations and Acknowledge usage.
+----------------------------------------------------------------
+
+EVENTREPORT031
+Text: Nodes with situations with Acknowledge/Resurface Status
+
+Sample:
+Node,ACK_ct,RES_ct,ACK_Time,YA_ct,AF_ct,FA_ct,FN_ct,Situations,
+gct_es0311gct5018:KUL,28,27,1487607,1,27,27,0,ccp_ms_offline[27],
+gct_es0311gct200d:KUL,27,26,1383518,1,26,26,0,ccp_ms_offline[26],
+
+Meaning: This reports on the conditions where the
+Acknowledge function was used on a situation event. That
+means the event was temporarily hidden. The Acknowledge
+is an statement that the condition will be corrected in
+a stated amount of time. When that time ends, the situation
+is evaluated again. If the condition is now corrected, a
+close Situation event is seen. If it still exists, a
+status F [Resurface] is generate to record the condition
+still needs to be corrected.
+
+ACK_ct: count of Acknowledgements
+RES_ct: count of Resurfaces
+ACK_time: total seconds the situation was in Acknowledge status
+YA_ct: count of Y [True] to A [Acknowledge] transitions
+AF_ct: count of A [Acknowledge] to F [Resurface] transitions
+FA_ct: count of F [Resurface] to A [Acknowledge] transitions
+FN_ct: count of F [Resurface] to N [Close] transitions
+Situations: The situations involved in the Acknowledge/Resurface
+
+The report is sorted in descending time by the seconds in
+Acknowledge state.
+
+The Situation Status History is a limited wrap-around table
+and so the list will not be exhaustive. See EVENTREPORT030
+for more details.
+
+
+Recovery plan: Review situations and Acknowledge usage.
 ----------------------------------------------------------------
