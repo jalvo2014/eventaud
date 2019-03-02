@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.29000";
+my $gVersion = "1.30000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -597,16 +597,16 @@ my %htabsize = (
    'K3ZNTDSCNT'  => '848',
    'K3ZNTDSDAI'  => '1140',
    'K3ZNTDSDCA'  => '1836',
-   'K3ZNTDSDCP'  => '340',
+   'K3ZNTDSDCP'  => '420',
    'K3ZNTDSDFS'  => '384',
    'K3ZNTDSDHC'  => '348',
    'K3ZNTDSDNS'  => '584',
-   'K3ZNTDSDRA'  => '580',
+   'K3ZNTDSDRA'  => '844',
    'K3ZNTDSDS'   => '304',
    'K3ZNTDSFRS'  => '508',
    'K3ZNTDSFRT'  => '3280',
    'K3ZNTDSGPO'  => '484',
-   'K3ZNTDSKCC'  => '232',
+   'K3ZNTDSKCC'  => '316',
    'K3ZNTDSKDC'  => '228',
    'K3ZNTDSLDA'  => '96',
    'K3ZNTDSLDP'  => '272',
@@ -614,13 +614,14 @@ my %htabsize = (
    'K3ZNTDSLSA'  => '228',
    'K3ZNTDSNSP'  => '232',
    'K3ZNTDSRDS'  => '476',
-   'K3ZNTDSRLT'  => '420',
-   'K3ZNTDSRPL'  => '860',
+   'K3ZNTDSRLT'  => '936',
+   'K3ZNTDSRPL'  => '1792',
    'K3ZNTDSSAM'  => '292',
    'K3ZNTDSSVC'  => '1340',
    'K3ZNTDSTRS'  => '552',
    'K3ZNTDSTTP'  => '640',
    'K3ZNTDSXDS'  => '232',
+   'K3ZSYSRPL'   => '180',
    'K5DK5DSANP'  => '372',
    'K5ECSCRIPT'  => '188',
    'KA4ACCTJ'    => '194',
@@ -701,6 +702,8 @@ my %htabsize = (
    'KA4TKRNG'    => '156',
    'KA4USRGRP'   => '348',
    'KA4X25'      => '120',
+   'KAGDYST'     => '504',     # kdy remote deploy
+   'KAGREQT'     => '4096',    # kdy remote deploy
    'KBNCPUUSAG'  => '324',
    'KBNDATETIM'  => '952',
    'KBNDPCBATS'  => '368',
@@ -1478,19 +1481,20 @@ my %htabsize = (
    'KHVAVAIL'    => '3244',
    'KHVDIRECTO'  => '145',
    'KHVEVTLOG'   => '2216',
-   'KHVGETDIS0'  => '272',
+   'KHVGETDIS0'  => '280',
    'KHVGETMEM0'  => '260',
    'KHVGETPRO0'  => '208',
-   'KHVGETVIR0'  => '788',
+   'KHVGETVIR0'  => '792',
    'KHVHYLPROC'  => '452',
    'KHVHYPART'   => '200',
    'KHVHYPERV'   => '80',
    'KHVHYPERVI'  => '1094',
+   'KHVHYPVRST'  => '188',
    'KHVHYRPART'  => '180',
-   'KHVHYRPROC'  => '468',
+   'KHVHYRPROC'  => '228',
    'KHVHYRPROM'  => '1172',
    'KHVHYVIDP'   => '368',
-   'KHVHYVPROC'  => '500',
+   'KHVHYVPROC'  => '336',
    'KHVHYVPROM'  => '1140',
    'KHVLEGNWAD'  => '220',
    'KHVMSVMVI4'  => '214',
@@ -1583,6 +1587,7 @@ my %htabsize = (
    'KIMTRGSDS'   => '1556',
    'KIMVPS'      => '128',
    'KIMWAITSTA'  => '139',
+   'KINAGT'      => '797',    # kdy remote deploy
    'KIP_LRTENO'  => '148',
    'KIP_LRTETE'  => '116',
    'KIP_LRTEXC'  => '438',
@@ -1608,7 +1613,7 @@ my %htabsize = (
    'KISHTTP'     => '1304',
    'KISICMP'     => '724',
    'KISIMAP'     => '972',
-   'KISLDAP'     => '1020',
+   'KISLDAP'     => '972',
    'KISMSTATS'   => '448',
    'KISNNTP'     => '908',
    'KISNTP'      => '812',
@@ -2152,7 +2157,7 @@ my %htabsize = (
    'KQ5B30LOGI'  => '456',
    'KQ5B30RLL'   => '68',
    'KQ5B35LOGI'  => '456',
-   'KQ5C20RES'   => '396',
+   'KQ5C20RES'   => '696',
    'KQ5C30RLL'   => '68',
    'KQ5CLUCSVP'  => '184',
    'KQ5CLUSCSV'  => '384',
@@ -2160,7 +2165,7 @@ my %htabsize = (
    'KQ5CLUSTE1'  => '164',
    'KQ5CLUSTE3'  => '160',
    'KQ5CLUSTER'  => '172',
-   'KQ5CLUSUM'   => '432',
+   'KQ5CLUSUM'   => '444',
    'KQ5CSVSUMM'  => '256',
    'KQ5D20NODE'  => '756',
    'KQ5D30RLL'   => '68',
@@ -2191,18 +2196,19 @@ my %htabsize = (
    'KQ5THPLST'   => '132',
    'KQ5WIN32CO'  => '112',
    'KQ7ACTIVES'  => '164',
+   'KQ7APPLWAS'  => '312',
    'KQ7APPPOOL'  => '256',
-   'KQ7ASPNET4'  => '204',
+   'KQ7ASPNET4'  => '424',
    'KQ7ASPNETA'  => '204',
    'KQ7ASPNETF'  => '204',
    'KQ7AVAIL'    => '3244',
    'KQ7EVTLOG'   => '2418',
-   'KQ7FSITDTL'  => '308',
+   'KQ7FSITDTL'  => '564',
    'KQ7FTPBIND'  => '240',
    'KQ7FTPSERV'  => '392',
    'KQ7HTTPCUS'  => '368',
    'KQ7HTTPERR'  => '1514',
-   'KQ7IISAPPL'  => '596',
+   'KQ7IISAPPL'  => '588',
    'KQ7IISCOMP'  => '116',
    'KQ7IISFTPI'  => '120',
    'KQ7IISFTPM'  => '308',
@@ -3056,7 +3062,7 @@ my %htabsize = (
    'KUXPASALRT'  => '484',
    'KUXPASCAP'   => '3062',
    'KUXPASMGMT'  => '510',
-   'KUXPASSTAT'  => '1382',
+   'KUXPASSTAT'  => '1384',
    'KUXSCRTSM' => '3544',
    'KV1HOSTAG'   => '806',
    'KV1HOSTCG'   => '527',
@@ -3729,18 +3735,20 @@ my %htabsize = (
    'MSEAF'       => '112',
    'MSEASSIT'    => '856',
    'MSEASSTDB'   => '804',
-   'MSEASYNC'    => '500',
+   'MSEASYNC'    => '344',
+   'MSEAVSERV'   => '136',
    'MSECFA'      => '208',
    'MSECONFA'    => '184',
    'MSEDAG'      => '612',
-   'MSEDB'       => '764',
+   'MSEDB'       => '592',
    'MSEDBINS'    => '708',
    'MSEDS'       => '292',
-   'MSEIS'       => '684',
-   'MSEISCLI'    => '232',
+   'MSEIS'       => '384',
+   'MSEISCLI'    => '184',
    'MSEISPRI'    => '1064',
    'MSEISPUB'    => '1028',
    'MSEISPUR'    => '752',
+   'MSEISSTR'    => '2920',
    'MSELOTUS'    => '144',
    'MSEMANFA'    => '108',
    'MSEMBXD'     => '1676',
@@ -3753,6 +3761,7 @@ my %htabsize = (
    'MSEOWA'      => '200',
    'MSEPAA'      => '124',
    'MSEPFLDD'    => '1276',
+   'MSEPRXY'     => '116',
    'MSERBAC'     => '184',
    'MSERBS'      => '544',
    'MSERCACH'    => '488',
@@ -3760,6 +3769,7 @@ my %htabsize = (
    'MSEREPL'     => '148',
    'MSERFA'      => '128',
    'MSERMS'      => '472',
+   'MSERPCCA'    => '152',
    'MSESERVR'    => '167',
    'MSESFA'      => '128',
    'MSESGRPD'    => '524',
@@ -3767,10 +3777,11 @@ my %htabsize = (
    'MSESMTPR'    => '620',
    'MSESMTPS'    => '612',
    'MSESRVCD'    => '484',
+   'MSESTOINT'   => '760',
    'MSESTRDR'    => '808',
    'MSETRDB'     => '1008',
    'MSETRDMP'    => '140',
-   'MSETRQUE'    => '636',
+   'MSETRQUE'    => '616',
    'MSETRRUL'    => '512',
    'MSETRSR'     => '432',
    'MSFSSS'      => '244',
@@ -3938,6 +3949,7 @@ my %htabsize = (
    'T3ISMPHSE'   => '808',
    'T3ISMPHSEA'  => '808',
    'T3PBSTAT' => '948',
+   'T3ISMPROFS'  => '552',
    'T3SNAGENT'   => '688',
    'T3SNAPPL'    => '500',
    'T3SNCLIENT'  => '628',
@@ -3967,7 +3979,7 @@ my %htabsize = (
    'T6CLNTOT'    => '604',
    'T6PBEVENT'   => '2752',
    'T6PBSTAT'    => '928',
-   'T6SUBTXCS'   => '936',
+   'T6SUBTXCS'   => '684',
    'T6SUBTXINS'  => '2347',
    'T6TXCS'      => '1002',
    'T6TXINS'     => '2289',
@@ -3997,6 +4009,7 @@ my %htabsize = (
    'TRANS'       => '280',
    'TRF_CLASS'   => '84',
    'TRF_DLIS'    => '156',
+   'TUPERIODS'   => '92',
    'UDPSTATS'    => '236',
    'ULLOGENT'    => '2864',
    'ULMONLOG'    => '1988',
@@ -4179,13 +4192,13 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names or Man
          my $atomize_ref = $situation_ref->{atoms}{$h};
          print STDERR "working on loop 0/atomize [$h] " . __LINE__ . "\n" if $opt_v == 1;
 
-          foreach my $i (sort {$a <=> $b  }   keys %{$atomize_ref->{tdetails}} ) { # by Agent Time/atomize
-             my $tdetail_ref = $atomize_ref->{tdetails}{$i};
+          foreach my $t (sort {$a <=> $b  }   keys %{$atomize_ref->{tdetails}} ) { # by Agent Time/atomize
+             my $tdetail_ref = $atomize_ref->{tdetails}{$t};
              if ($tdetail_ref->{tseconds} lt $stamp_min) {
                 $atomize_ref->{postdelta} = $tdetail_ref->{deltastat};
                 next;
              }
-             print STDERR "working on loop 0/time [$i] " .  __LINE__ . "\n" if $opt_v == 1;
+             print STDERR "working on loop 0/time [$t] " .  __LINE__ . "\n" if $opt_v == 1;
              $situation_ref->{count} += 1;
              $situation_ref->{open} += 1 if $tdetail_ref->{deltastat} eq "Y";
              $situation_ref->{close} += 1 if $tdetail_ref->{deltastat} eq "N";
@@ -4245,12 +4258,12 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
           # DisplayItem not set, but multiple results in same second
 
           my $hi = 0;
-          foreach my $i (sort {$a <=> $b  }   keys %{$atomize_ref->{adetails}} ) { # by Agent Time/atomize
-             my $adetail_ref = $atomize_ref->{adetails}{$i};
+          foreach my $t (sort {$a <=> $b  }   keys %{$atomize_ref->{adetails}} ) { # by Agent Time/atomize
+             my $adetail_ref = $atomize_ref->{adetails}{$t};
              $hi += 1;
-             print STDERR "working on loop 1/time [$i] $hi " .  __LINE__ . "\n" if $opt_v == 1;
+             print STDERR "working on loop 1/time [$t] $hi " .  __LINE__ . "\n" if $opt_v == 1;
              next if $adetail_ref->{aseconds} lt $stamp_min;
-             print STDERR "working on loop 1/time [$i] $hi " .  __LINE__ . "\n" if $opt_v == 1;
+             print STDERR "working on loop 1/time [$t] $hi " .  __LINE__ . "\n" if $opt_v == 1;
              my $asecs = $adetail_ref->{aseconds};               # agent side in whole seconds
              my $akey = $adetail_ref->{aseconds} . "|" . $h;
              my $asum_ref = $situation_ref->{asecs}{$akey};   # situation summary
@@ -4270,7 +4283,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
                 $asum_ref->{attrgct} = scalar keys %{$adetail_ref->{attrgs}};
              }
              if ($opt_debug == 1) {
-                my @debugi = [__LINE__,$adetail_ref->{results},$h,$i,$adetail_ref->{l}];
+                my @debugi = [__LINE__,$adetail_ref->{results},$h,$t,$adetail_ref->{l}];
                 push @{$asum_ref->{debug}},\@debugi;
              }
              $asum_ref->{results} += $adetail_ref->{results};
@@ -4313,16 +4326,16 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
 
           # walk through the TEMS side of the retrieval
           $hi = 0;
-          foreach my $i ( sort {$a <=> $b} keys %{$atomize_ref->{tdetails}}) {
-             my $tdetail_ref = $atomize_ref->{tdetails}{$i};
+          foreach my $t ( sort {$a <=> $b} keys %{$atomize_ref->{tdetails}}) {
+             my $tdetail_ref = $atomize_ref->{tdetails}{$t};
              $hi += 1;
              if (defined $sitsx{$tdetail_ref->{thrunode}}{$g}) {
-                print STDERR "working on loop 2 before start time/time $i $hi " .  __LINE__ . "\n" if $opt_v == 1;
+                print STDERR "working on loop 2 before start time/time $t $hi " .  __LINE__ . "\n" if $opt_v == 1;
                 next if $tdetail_ref->{gbltmstmp} < $sitsx{$tdetail_ref->{thrunode}}{$g};
              }
-             print STDERR "working on loop 2/time $i " .  __LINE__ .  " $hi $tdetail_ref->{tseconds} $stamp_min\n" if $opt_v == 1;
+             print STDERR "working on loop 2/time $t " .  __LINE__ .  " $hi $tdetail_ref->{tseconds} $stamp_min\n" if $opt_v == 1;
              next if $tdetail_ref->{tseconds} lt $stamp_min;
-             print STDERR "working on loop 2/time $i " .  __LINE__ . "\n" if $opt_v == 1;
+             print STDERR "working on loop 2/time $t " .  __LINE__ . "\n" if $opt_v == 1;
              my $tsecs = $tdetail_ref->{tseconds};
              my $tkey = $tdetail_ref->{tseconds} . "|" . $h;
              my $tsum_ref = $situation_ref->{tsecs}{$tkey};  # situation summary
@@ -4345,7 +4358,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
              $tsum_ref->{results} += $tdetail_ref->{results};
              $tsum_ref->{count} += 1;
              if ($opt_debug == 1) {
-                my @debugi = [__LINE__,$tdetail_ref->{results},$h,$i,$tdetail_ref->{l}];
+                my @debugi = [__LINE__,$tdetail_ref->{results},$h,$t,$tdetail_ref->{l}];
                 push @{$tsum_ref->{debug}},\@debugi;
              }
           }
@@ -4486,8 +4499,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
                my $displayitem_prob = 1;
                my $displayitem_sec = "";
                my $tems_sec = 1;
-               foreach my $i (keys %{$atomize_ref->{adetails}}) {
-                  my $adetail_ref = $atomize_ref->{adetails}{$i};
+               foreach my $t (keys %{$atomize_ref->{adetails}}) {
+                  my $adetail_ref = $atomize_ref->{adetails}{$t};
                   next if $adetail_ref->{deltastat} ne "Y";
                   next if $adetail_ref->{results} <= 1;
                   # If there is a multi-row and a single attribute in the formula,
@@ -4501,7 +4514,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
                   my $test2 = $1;
                   if ($test1 eq $test2) {
                      $displayitem_prob = $adetail_ref->{results};
-                     $displayitem_sec  = $i;
+                     $displayitem_sec  = $t;
                   }
                   if ($displayitem_sec ne "") {
                      my $situation_miss_ref = $situation_missx{$g};
@@ -4534,8 +4547,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
          my $time_node_ref;
          my $time_situation_ref;
          $hi = 0;
-         foreach my $i (sort {$a cmp $b} keys %{$atomize_ref->{tdetails}}) {
-            my $tdetail_ref = $atomize_ref->{tdetails}{$i};
+         foreach my $t (sort {$a cmp $b} keys %{$atomize_ref->{tdetails}}) {
+            my $tdetail_ref = $atomize_ref->{tdetails}{$t};
             next if $tdetail_ref->{tseconds} lt $stamp_min;
             if ($atomize_ref->{postdelta} ne "") {
                if ($atomize_ref->{postdelta} eq "Y") {
@@ -4576,7 +4589,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
                $budget_node_ref->{open} += 1;
                $sitagt_ref->{event} += 1;
             } else {                                            # sampled situation
-               print STDERR "Sampled event loop 4 [$i]" .  __LINE__ .  " $hi\n" if $opt_v == 1;
+               print STDERR "Sampled event loop 4 [$t]" .  __LINE__ .  " $hi\n" if $opt_v == 1;
                # calculate open versus close for sampled events and thus calculate open time
                if ($detail_state == 1) {   # waiting for Y record
                   if ($tdetail_ref->{deltastat} eq "Y") {
@@ -4810,7 +4823,7 @@ my %situationx;
 
 # now summarize by situation instead of node
 foreach my $f (sort { $a cmp $b } keys %nodex ) {
-my $node_ref = $nodex{$f};
+   my $node_ref = $nodex{$f};
    foreach my $g (sort { $a cmp $b } keys %{$node_ref->{situations}} ) {
       my $situation_ref = $node_ref->{situations}{$g};
       my $situationx_ref = $situationx{$g};
@@ -5198,8 +5211,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
          if ($sit_reeval[$sx] > 0) {
             foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
                my $atomize_ref = $situation_ref->{atoms}{$h};
-               foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{adetails}}) {
-                  my $adetail_ref = $atomize_ref->{adetails}{$i};
+               foreach my $t (sort {$a <=> $b} keys %{$atomize_ref->{adetails}}) {
+                  my $adetail_ref = $atomize_ref->{adetails}{$t};
                   my $tt_ct = scalar keys %{$adetail_ref->{astamps}};
                   next if $tt_ct <= 1;
                   foreach my $j (sort {$a cmp $b} keys %{$adetail_ref->{astamps}}) {
@@ -5240,8 +5253,8 @@ if ($tooclose_ct > 0) {
             if ($sit_reeval[$sx] > 0) {
                foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
                   my $atomize_ref = $situation_ref->{atoms}{$h};
-                  foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{adetails}}) {
-                     my $adetail_ref = $atomize_ref->{adetails}{$i};
+                  foreach my $t (sort {$a <=> $b} keys %{$atomize_ref->{adetails}}) {
+                     my $adetail_ref = $atomize_ref->{adetails}{$t};
                      my $tt_ct = scalar keys %{$adetail_ref->{astamps}};
                      next if $tt_ct <= 1;
                      foreach my $j (sort {$a cmp $b} keys %{$adetail_ref->{astamps}}) {
@@ -5297,8 +5310,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
          if ($sit_reeval[$sx] == 0) {
             foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
                my $atomize_ref = $situation_ref->{atoms}{$h};
-               foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{tdetails}}) {
-                  my $tdetail_ref = $atomize_ref->{tdetails}{$i};
+               foreach my $t (sort {$a <=> $b} keys %{$atomize_ref->{tdetails}}) {
+                  my $tdetail_ref = $atomize_ref->{tdetails}{$t};
                   my $tt_ct = scalar keys %{$tdetail_ref->{tstamps}};
                   next if $tt_ct < 1;
                   foreach my $j (sort {$a cmp $b} keys %{$tdetail_ref->{tstamps}}) {
@@ -5311,7 +5324,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                      $outline .= $tdetail_ref->{thrunode} . ",";
                      $outline .= $j . ",";
                      $outline .= $h . ",";
-                     $outline .= $i . ",";
+                     $outline .= $t . ",";
                      my $atime_ct = 0;
                      my $atimes = "";
                      foreach my $l (sort {$a <=> $b} keys %{$table_ref}) {
@@ -5336,8 +5349,8 @@ if ($toomanyi > -1) {
    $cnt++;$oline[$cnt]="\n";
    $cnt++;$oline[$cnt]="$rptkey: Pure Situations with multiple TIMESTAMP attributes in same TEMS second\n";
    $cnt++;$oline[$cnt]="Situation,Node,Thrunode,Table,Atomize,TEMS_Time,Agent_Count,Agent_Times,\n";
-   for (my $i = 0; $i <= $toomanyi; $i++) {
-      $cnt++;$oline[$cnt]="$toomany[$i]\n";
+   for (my $t = 0; $t <= $toomanyi; $t++) {
+      $cnt++;$oline[$cnt]="$toomany[$t]\n";
    }
    my $pmany = scalar keys %toomanysit;
    $advi++;$advonline[$advi] = "Pure situations with results from multiple timestamps [$pmany] cases - see $rptkey";
@@ -5360,8 +5373,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
       my $situation_ref = $node_ref->{situations}{$g};
       foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
       my $atomize_ref = $situation_ref->{atoms}{$h};
-         foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{adetails}}) {
-            my $adetail_ref = $atomize_ref->{adetails}{$i};
+         foreach my $t (sort {$a <=> $b} keys %{$atomize_ref->{adetails}}) {
+            my $adetail_ref = $atomize_ref->{adetails}{$t};
             next if $adetail_ref->{results} < 2;
             $donesit{$g} += 1;
             next if $donesit{$g} > 1;
@@ -5393,7 +5406,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
             next if $pdiff eq "";
             $outline = $g . ",";
             $outline .= $f . ",";
-            $outline .= $i . ",";
+            $outline .= $t . ",";
             $outline .= $situation_ref->{reeval} . ",";
             $outline .= $adetail_ref->{results} . ",";
             $outline .= $situation_ref->{atomize} . ",";
@@ -5452,7 +5465,8 @@ foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situati
    $outline .= $situation_ref->{pure_merge} . ",";
    $outline .= $situation_ref->{pure_merge_bytes} . ",";
    $outline .= $situation_ref->{transitions} . ",";
-   my $node_ct = scalar keys %{$situation_ref->{nodes}};
+   my $situationx_ref = $situationx{$g};
+   my $node_ct = scalar keys %{$situationx_ref->{nodes}};
    $outline .= $node_ct . ",";
    $outline .= $situation_ref->{pdt} . ",";
    $cnt++;$oline[$cnt]="$outline\n";
@@ -5467,6 +5481,52 @@ foreach my $g (sort { $budget_situationx{$b}->{result_bytes} <=> $budget_situati
       }
    }
    $yy_nn_ct += $situation_ref->{yy} + $situation_ref->{nn};
+}
+
+$rptkey = "EVENTREPORT032";$advrptx{$rptkey} = 1;         # record report key
+$cnt++;$oline[$cnt]="\n";
+$cnt++;$oline[$cnt]="$rptkey: Event/Results Budget Situations Report by Events\n";
+$cnt++;$oline[$cnt]="Situation,Table,Rowsize,Reeval,Event,Event%,Event/min,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmBytes,PureMerge,PureMergeBytes,transitions,nodes,PDT\n";
+foreach my $g (sort { $budget_situationx{$b}->{event} <=> $budget_situationx{$a}->{event} ||
+                      $a cmp $b
+                    } keys %budget_situationx ) {
+   next if $g eq "_total_";
+   my $situation_ref = $budget_situationx{$g};
+   $outline = $situation_ref->{psit} . ",";
+   $outline .= $situation_ref->{table} . ",";
+   $outline .= $situation_ref->{rowsize} . ",";
+   $outline .= $situation_ref->{reeval} . ",";
+   $outline .= $situation_ref->{event} . ",";
+   $res_pc = 0;
+   $res_pc = ($situation_ref->{event}*100)/$budget_total_ref->{event} if $budget_total_ref->{event} > 0;
+   $ppc = sprintf '%.2f%%', $res_pc;
+   $outline .= $ppc . ",";
+   $res_rate = 0;
+   $res_rate = ($situation_ref->{event}*60)/$event_dur if $event_dur > 0;
+   $ppc = sprintf '%.2f', $res_rate;
+   $outline .= $ppc . ",";
+   $outline .= $situation_ref->{results} . ",";
+   $outline .= $situation_ref->{result_bytes} . ",";
+   $res_pc = 0;
+   $res_pc = ($situation_ref->{result_bytes}*100)/$budget_total_ref->{result_bytes} if $budget_total_ref->{result_bytes} > 0;
+   $ppc = sprintf '%.2f%%', $res_pc;
+   $outline .= $ppc . ",";
+   $outline .= $situation_ref->{miss} . ",";
+   $outline .= $situation_ref->{miss_bytes} . ",";
+   $outline .= $situation_ref->{dup} . ",";
+   $outline .= $situation_ref->{dup_bytes} . ",";
+   $outline .= $situation_ref->{null} . ",";
+   $outline .= $situation_ref->{null_bytes} . ",";
+   $outline .= $situation_ref->{samp_confirm} . ",";
+   $outline .= $situation_ref->{samp_confirm_bytes} . ",";
+   $outline .= $situation_ref->{pure_merge} . ",";
+   $outline .= $situation_ref->{pure_merge_bytes} . ",";
+   $outline .= $situation_ref->{transitions} . ",";
+   my $situationx_ref = $situationx{$g};
+   my $node_ct = scalar keys %{$situationx_ref->{nodes}};
+   $outline .= $node_ct . ",";
+   $outline .= $situation_ref->{pdt} . ",";
+   $cnt++;$oline[$cnt]="$outline\n";
 }
 
 my $nfwdsit_ct = scalar keys %nfwdsitx;
@@ -5507,7 +5567,9 @@ $rptkey = "EVENTREPORT012";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $cnt++;$oline[$cnt]="$rptkey: Budget Report by Thrunode\n";
 $cnt++;$oline[$cnt]="Thrunode,Event,Event%,Event/min,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmbytes,PureMerge,PureMergeBytes,transitions,\n";
-foreach my $f (sort { $a cmp $b} keys %budget_thrunodex ) {
+foreach my $f (sort { $budget_thrunodex{$b}->{result_bytes} <=> $budget_thrunodex{$a}->{result_bytes} ||
+                      $a cmp $b
+                    } keys %budget_thrunodex ) {
    my $thrunode_ref = $budget_thrunodex{$f};
    $outline = $f . ",";
    $outline .= $thrunode_ref->{event} . ",";
@@ -5628,9 +5690,9 @@ foreach $g ( sort { $situationx{$b}->{ct999} <=> $situationx{$a}->{ct999}}  keys
    $outline .= $ct . ",";
    $node999_total += $ct;
    my $tp = "";
-   foreach my $i (sort {$situation_ref->{time999}{$b} <=> $situation_ref->{time999}{$a}} keys %{$situation_ref->{time999}}) {
-      $tp .= $i . "[" . $situation_ref->{time999}{$i} . "] ";
-      $time999_total += $situation_ref->{time999}{$i};
+   foreach my $t (sort {$situation_ref->{time999}{$b} <=> $situation_ref->{time999}{$a}} keys %{$situation_ref->{time999}}) {
+      $tp .= $t . "[" . $situation_ref->{time999}{$t} . "] ";
+      $time999_total += $situation_ref->{time999}{$t};
    }
    $outline .= $tp . ",";
    $cnt++;$oline[$cnt]="$outline\n";
@@ -5657,8 +5719,8 @@ foreach $g ( sort { $situationx{$b}->{ct998} <=> $situationx{$a}->{ct998}}  keys
    my $ct = scalar keys %{$situation_ref->{node998}};
    $outline .= $ct . ",";
    my $tp = "";
-   foreach my $i (sort {$situation_ref->{time998}{$b} <=> $situation_ref->{time998}{$a}} keys %{$situation_ref->{time998}}) {
-      $tp .= $i . "[" . $situation_ref->{time998}{$i} . "] ";
+   foreach my $t (sort {$situation_ref->{time998}{$b} <=> $situation_ref->{time998}{$a}} keys %{$situation_ref->{time998}}) {
+      $tp .= $t . "[" . $situation_ref->{time998}{$t} . "] ";
    }
    $outline .= $tp . ",";
    $cnt++;$oline[$cnt]="$outline\n";
@@ -6003,11 +6065,16 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
          next if !defined $advsitx{$g};
       }
       my $sx = $sitx{$g};
+      my $psitname = $g;
+      $psitname = $sit_fullname[$sx] if $sit_fullname[$sx] ne "";
       foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
-      my $atomize_ref = $situation_ref->{atoms}{$h};
-         foreach my $i (sort {$a <=> $b} keys %{$atomize_ref->{tdetails}}) {
-            my $tdetail_ref = $atomize_ref->{tdetails}{$i};
-            $outline = $g . ",";
+         my $atomize_ref = $situation_ref->{atoms}{$h};
+         my $traceon = 0;
+         my $loopct = 0;
+        foreach my $t (sort {"" . $atomize_ref->{tdetails}{$a}->{gbltmstmp} cmp "" . $atomize_ref->{tdetails}{$b}->{gbltmstmp}} keys %{$atomize_ref->{tdetails}}) {
+            my $tdetail_ref = $atomize_ref->{tdetails}{$t};
+            $loopct += 1;
+            $outline = $psitname . ",";
             $outline .= $f . ",";
             $outline .= $tdetail_ref->{thrunode} . ",";
             $outline .= $tdetail_ref->{lcltmstmp} . ",";
@@ -6047,14 +6114,14 @@ $opt_o = $opt_odir . $opt_o if index($opt_o,'/') == -1;
 open OH, ">$opt_o" or die "unable to open $opt_o: $!";
 
 if ($opt_nohdr == 0) {
-   for (my $i=0; $i<=$hdri; $i++) {
-      print OH $hdr[$i] . "\n";
+   for (my $t=0; $t<=$hdri; $t++) {
+      print OH $hdr[$t] . "\n";
    }
    print OH "\n";
 }
 
-for (my $i=0; $i<=$sumi; $i++) {
-   print OH $sline[$i];
+for (my $t=0; $t<=$sumi; $t++) {
+   print OH $sline[$t];
 }
 print OH "\n";
 
@@ -6084,8 +6151,8 @@ if ($advi != -1) {
 }
 print OH "\n";
 
-for (my $i = 0; $i<=$cnt; $i++) {
-   print OH $oline[$i];
+for (my $t = 0; $t<=$cnt; $t++) {
+   print OH $oline[$t];
 }
 
 if ($advi != -1) {
@@ -7364,6 +7431,10 @@ sub get_epoch {
 # 1.27000  : Add critical report file
 # 1.28000  : Report on Acknowledge/Resurface conditions, monitor MS_Offline type sits
 # 1.29000  : Add/correct some table row sizes
+# 1.30000  : Add/correct some table row sizes
+#          : Add report032 by number of events
+#          : Correct report031/2 by number of nodes
+#          : Correct report999, sorting large numbers
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -8474,4 +8545,88 @@ for more details.
 
 
 Recovery plan: Review situations and Acknowledge usage.
+----------------------------------------------------------------
+
+EVENTREPORT032
+Text: Event/Results Budget Situations Report by Events
+
+Sample:
+Situation,Table,Rowsize,Reeval,Event,Event%,Event/min,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmBytes,PureMerge,PureMergeBytes,transitions,nodes,PDT
+wbc_VIOS-Process-duplicate_aix_va_warning_std,KVA32PROCE,2732,30,1653,47.00%,6.19,258917,707361244,86.91%,0,0,0,0,0,0,258917,707361244,0,0,1653,61,*IF *COUNT KVA_PROCESSES_DETAIL.Process_Name *GE '1' *AND *VALUE KVA_PROCESSES_DETAIL.Process_Name *EQ 'aixDataProvider-61',
+wbc_VIOS-physical-memory-percent-used-is-high_aix_va_warning_std,KVA27PHYSI,84,60,331,9.41%,1.24,22434,1884456,0.23%,0,0,0,0,0,0,22434,1884456,0,0,331,38,*IF *VALUE KVA_PHYSICAL_MEMORY.Used_Memory_Pct *GE 90,
+
+Meaning: This reports on the conditions where the
+Acknowledge function was used on a situation event. That
+means the event was temporarily hidden. The Acknowledge
+is an statement that the condition will be corrected in
+a stated amount of time. When that time ends, the situation
+is evaluated again. If the condition is now corrected, a
+close Situation event is seen. If it still exists, a
+status F [Resurface] is generate to record the condition
+still needs to be corrected.
+
+ACK_ct: count of Acknowledgements
+RES_ct: count of Resurfaces
+ACK_time: total seconds the situation was in Acknowledge status
+YA_ct: count of Y [True] to A [Acknowledge] transitions
+AF_ct: count of A [Acknowledge] to F [Resurface] transitions
+FA_ct: count of F [Resurface] to A [Acknowledge] transitions
+FN_ct: count of F [Resurface] to N [Close] transitions
+Situations: The situations involved in the Acknowledge/Resurface
+
+The report is sorted in descending time by the seconds in
+Acknowledge state.
+
+The Situation Status History is a limited wrap-around table
+and so the list will not be exhaustive. See EVENTREPORT030
+for more details.
+
+
+Recovery plan: Review situations and Acknowledge usage.
+----------------------------------------------------------------
+
+EVENTREPORT032
+Text: Event/Results Budget Situations Report by Events
+
+Sample:
+Situation,Table,Rowsize,Reeval,Event,Event%,Event/min,Results,ResultBytes,Result%,Miss,MissBytes,Dup,DupBytes,Null,NullBytes,SampConfirm,SampConfirmBytes,PureMerge,PureMergeBytes,transitions,nodes,PDT
+wbc_VIOS-Process-duplicate_aix_va_warning_std,KVA32PROCE,2732,30,1653,47.00%,6.19,258917,707361244,86.91%,0,0,0,0,0,0,258917,707361244,0,0,1653,61,*IF *COUNT KVA_PROCESSES_DETAIL.Process_Name *GE '1' *AND *VALUE KVA_PROCESSES_DETAIL.Process_Name *EQ 'aixDataProvider-61',
+wbc_VIOS-physical-memory-percent-used-is-high_aix_va_warning_std,KVA27PHYSI,84,60,331,9.41%,1.24,22434,1884456,0.23%,0,0,0,0,0,0,22434,1884456,0,0,331,38,*IF *VALUE KVA_PHYSICAL_MEMORY.Used_Memory_Pct *GE 90,
+Text: Event/Results Budget Situations Report by Result Bytes
+
+Sorted in reverse number by the number of events observed. This report counts
+opens and closes.
+
+Situation        : Situation Name. This can be the name index in case TNAME Fullname is used
+Table            : Attribute Table Name
+Rowsize          : Estimated result row size
+Reeval           : Reevaluation or sampling time in seconds. Zero means a Pure situation
+Event            : Number of new situation events
+Event%           : Per Cent of total Events observed
+Results          : Number of situation result rows
+ResultBytes      : Estimated number of size of all result rows
+Results%         : Per Cent of total result row sizes
+Miss             : Results missed because no DisplayItem
+MissBytes        : Estimated size of all Missed events
+Dup              : Results missed because DisplayItem with duplicate atomize values
+DupBytes         : Estimated size of all Duplicate atomize value cases
+Null             : Results missed because DisplayItem had a null atomize
+NullBytes        : Estimated size of all Null Atomize values
+Miss             : Results missed because no DisplayItem
+MissBytes        : Estimated size of all Missed events
+Miss             : Results missed because no DisplayItem
+MissBytes        : Estimated size of all Missed events
+SampConfirm      : Results which confirm each open Sampled Situation event
+SampConfirmBytes : Estimated size of all confirm results
+PureMerge        : Results which were merged by TEMS because Pure situation results arrived at same second at TEMS
+PureMergeBytes   : Estimated size of all merged Pure Situation Results
+Transitions      : Transitions from one open to close or reverse
+Nodes            : Number of reporting nodes [agents]
+PDT              : Situation Formula [predicate]
+
+There are savings to be had be reducing the number of situations event statuses.
+The benefit is both at the remote TEMS and the hub TEMS.
+
+Recovery plan:  Review report and improve TEMS efficiency by eliminating
+or redesigning the situation workloads.
 ----------------------------------------------------------------
