@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.30000";
+my $gVersion = "1.31000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -1830,9 +1830,9 @@ my %htabsize = (
    'KNTPASSTAT'  => '1392',
    'KNTRASPT'    => '220',
    'KNTRASTOT'   => '288',
-   'KNU01HOST'   => '885',
-   'KNU02AGREG'  => '464',
-   'KNU03VOL'    => '776',
+   'KNU01HOST'   => '952',
+   'KNU02AGREG'  => '348',
+   'KNU03VOL'    => '532',
    'KNU04LUN'    => '424',
    'KNUHOSTNIF'  => '419',
    'KNUPOBJST'   => '260',
@@ -1937,7 +1937,7 @@ my %htabsize = (
    'KOYSRVD'     => '570',
    'KOYSRVR'     => '256',
    'KOYSRVRE'    => '732',
-   'KOYSRVS'     => '308',
+   'KOYSRVS'     => '292',
    'KOYSTATD'    => '262',
    'KOYSTATS'    => '260',
    'KOYTSKD'     => '282',
@@ -2288,14 +2288,14 @@ my %htabsize = (
    'KQBFTPRECV'  => '232',
    'KQBFTPSEND'  => '232',
    'KQBGENERA'   => '916',
-   'KQBHOSTTHR'  => '332',
+   'KQBHOSTTHR'  => '1054',
    'KQBHSTGRP'   => '2602',
    'KQBHTTPRCV'  => '224',
    'KQBHTTPSND'  => '192',
    'KQBHUMANWO'  => '68',
    'KQBMESSAG1'  => '308',
    'KQBMESSLAT'  => '212',
-   'KQBMSBTRLS'  => '822',
+   'KQBMSBTRLS'  => '3982',
    'KQBMSBTSG0'  => '663',
    'KQBMSBTSG1'  => '663',
    'KQBMSBTSG2'  => '663',
@@ -2303,7 +2303,7 @@ my %htabsize = (
    'KQBMSBTSIS'  => '4202',
    'KQBMSBTSMS'  => '588',
    'KQBMSBTSOS'  => '1062',
-   'KQBMSBTSPS'  => '822',
+   'KQBMSBTSPS'  => '2508',
    'KQBMSGBOXG'  => '188',
    'KQBMSGBOXH'  => '164',
    'KQBMSMQRCV'  => '232',
@@ -2951,6 +2951,7 @@ my %htabsize = (
    'KSALOCKS'    => '698',
    'KSALOGNGRP'  => '666',
    'KSALOGNINF'  => '645',
+   'KSAMTSTATE'  => '1352',
    'KSANUMDTL'   => '574',
    'KSANUMSUMM'  => '596',
    'KSAOFFICE'   => '1242',
@@ -3965,15 +3966,16 @@ my %htabsize = (
    'T4TXCS'      => '958',
    'T4TXINS'     => '2237',
    'T5AGNTMSGS'  => '1668',
-   'T5APPCS'     => '826',
-   'T5CLNTCS'    => '1068',
-   'T5SRVCS'     => '996',
+   'T5APPCS'     => '480',
+   'T5CLNTCS'    => '720',
+   'T5DEPOTSTS'  => '64',
+   'T5SRVCS'     => '648',
    'T5SSLALRCS'  => '358',
    'T5SUBTXCS'   => '1100',
    'T5SUBTXINS'  => '4893',
    'T5TXCS'      => '1214',
    'T5TXINS'     => '5241',
-   'T5USRSS'     => '1014',
+   'T5USRSS'     => '704',
    'T6AGNTMSGS'  => '1668',
    'T6APPCS'     => '586',
    'T6CLNTOT'    => '604',
@@ -4034,7 +4036,7 @@ my %htabsize = (
    'UNIXPING'    => '868',
    'UNIXPS'      => '2736',
    'UNIXPVOLUM'  => '552',
-   'UNIXSOLZON'  => '598',
+   'UNIXSOLZON'  => '564',
    'UNIXTCP'     => '104',
    'UNIXTOPCPU'  => '1844',
    'UNIXTOPMEM'  => '1864',
@@ -4961,18 +4963,24 @@ $sumi++;$sline[$sumi]="$rptkey: Event/Result Summary Budget Report\n";
 
 $sumi++;$sline[$sumi]="Duration: $event_dur Seconds\n";
 
+$res_rate = 0;
 $res_rate = ($budget_total_ref->{event}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Total Open/Close Events: $budget_total_ref->{event} $ppc/min\n";
 
+$res_rate = 0;
 $res_rate = ($budget_total_ref->{results}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Total Results: $budget_total_ref->{results} $ppc/min\n";
 my $ppc_event_rate = $ppc;
 
+$res_rate = 0;
 $res_rate = ($budget_total_ref->{nfwd_results}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
+
 my $npc = 0;
-my $nes_rate = ($budget_total_ref->{nfwd_results}*100)/$budget_total_ref->{results} if $budget_total_ref->{results} > 0;$npc = sprintf '%.2f', $nes_rate;
+my $nes_rate = 0;
+$nes_rate = ($budget_total_ref->{nfwd_results}*100)/$budget_total_ref->{results} if $budget_total_ref->{results} > 0;$npc = sprintf '%.2f', $nes_rate;
 $sumi++;$sline[$sumi]="Total Non-Forwarded Results: $budget_total_ref->{nfwd_results} $ppc/min [$npc%]\n";
 
+$res_rate = 0;
 $res_rate = ($budget_total_ref->{result_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 my $worry_rate = ($res_rate*100)/500;
 my $wpc = sprintf '%.2f%%', $worry_rate;
@@ -4982,6 +4990,7 @@ $npc = 0;
 $nes_rate = ($budget_total_ref->{nfwd_result_bytes}*100)/$budget_total_ref->{result_bytes} if $budget_total_ref->{result_bytes} > 0;$npc = sprintf '%.2f', $nes_rate;
 my $ppc_result_rate = $ppc;
 my $ppc_worry_pc = $wpc;
+$res_rate = 0;
 $res_rate = ($budget_total_ref->{nfwd_result_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Total Non-Forwarded Result Bytes: $budget_total_ref->{nfwd_result_bytes} $ppc/min [$npc%]\n";
 
@@ -4995,19 +5004,24 @@ $sumi++;$sline[$sumi]="Sampled Results Confirm: $budget_total_ref->{samp_confirm
 
 my $ppc_confirm_rate = $ppc;
 $res_rate = ($budget_total_ref->{samp_confirm_bytes}*60)/($event_dur*1024) if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
-my $pcrate = ($budget_total_ref->{samp_confirm_bytes}*100)/$budget_total_ref->{result_bytes} if $budget_total_ref->{result_bytes} > 0;my $prpc = sprintf '%.2f', $pcrate;
+my $pcrate = 0;
+$pcrate = ($budget_total_ref->{samp_confirm_bytes}*100)/$budget_total_ref->{result_bytes} if $budget_total_ref->{result_bytes} > 0;my $prpc = sprintf '%.2f', $pcrate;
 $sumi++;$sline[$sumi]="Sampled Results Confirm Bytes: $budget_total_ref->{samp_confirm_bytes} $ppc K/min, $prpc% of total results\n";
 
 my $confirm_pc = $prpc;
+$res_rate = 0;
 $res_rate = ($budget_total_ref->{miss}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Missing DisplayItem: $budget_total_ref->{miss} $ppc/min\n";
 
+$res_rate = 0;
 $res_rate = ($budget_total_ref->{dup}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Duplicate DisplayItem: $budget_total_ref->{dup} $ppc/min\n";
 
+$res_rate = 0;
 $res_rate = ($budget_total_ref->{null_bytes}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Null DisplayItem: $budget_total_ref->{null} $ppc/min\n";
 
+$res_rate = 0;
 $res_rate = ($budget_total_ref->{pure_merge}*60)/$event_dur if $event_dur > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Pure Merged Results: $budget_total_ref->{pure_merge} $ppc/min\n";
 
@@ -5015,6 +5029,7 @@ $sumi++;$sline[$sumi]="Open/Open transitions: $budget_total_ref->{yy}\n";
 
 $sumi++;$sline[$sumi]="Close/Close transitions: $budget_total_ref->{nn}\n";
 
+$res_rate = 0;
 $res_rate = ($total_delay_overmin_sum)/($total_delay_overmin_ct) if $total_delay_overmin_ct > 0;$ppc = sprintf '%.2f', $res_rate;
 $sumi++;$sline[$sumi]="Delay Estimate opens[$total_delay_ct] over_minimum [$total_delay_overmin_ct] over_average [$ppc seconds]\n";
 
@@ -6066,7 +6081,9 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
       }
       my $sx = $sitx{$g};
       my $psitname = $g;
-      $psitname = $sit_fullname[$sx] if $sit_fullname[$sx] ne "";
+      if (defined $sx) {
+         $psitname = $sit_fullname[$sx] if $sit_fullname[$sx] ne "";
+      }
       foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{atoms}}) {
          my $atomize_ref = $situation_ref->{atoms}{$h};
          my $traceon = 0;
@@ -6705,7 +6722,7 @@ sub newstsh {
        ($ideltastat eq "X")  or                                     # Handle event sitaution problem
        ($ideltastat eq "A")  or                                     # Handle event sitaution Acknowledge
        ($ideltastat eq "F")  or                                     # Handle event sitaution Resurface
-       (($ideltastat eq "Y") and (substr($iresults,0,1) eq "*"))) {  # Handle initial event situation open
+       ($ideltastat eq "Y")){                                       # Handle initial event situation open
 
       my $tkey = $t_seconds;
       my $tdetail_ref = $atomize_ref->{tdetails}{$tkey};
@@ -6800,10 +6817,6 @@ sub newstsh {
                }
             }
          }
-      }
-      if ($ideltastat eq "A") {
-      }
-      if ($ideltastat eq "Y") {
       }
 
       # track global start/stop time
@@ -7435,6 +7448,10 @@ sub get_epoch {
 #          : Add report032 by number of events
 #          : Correct report031/2 by number of nodes
 #          : Correct report999, sorting large numbers
+# 1.31000  : Add/correct some table row sizes
+#          : Handle allresults report when fullname is missing
+#          : Handle some cases where there is little data
+#          : Handle pure event results where there is no mini-predicate
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
