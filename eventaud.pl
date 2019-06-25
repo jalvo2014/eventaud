@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.31000";
+my $gVersion = "1.32000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -627,7 +627,7 @@ my %htabsize = (
    'KA4ACCTJ'    => '194',
    'KA4ALERT'    => '161',
    'KA4APPN'     => '149',
-   'KA4ASP'      => '172',
+   'KA4ASP'      => '124',
    'KA4ASYNC'    => '124',
    'KA4BSYNC'    => '140',
    'KA4CLUCRG'   => '280',
@@ -637,7 +637,7 @@ my %htabsize = (
    'KA4DBMBR'    => '177',
    'KA4DEVD'     => '134',
    'KA4DISK'     => '176',
-   'KA4DISKI5'   => '192',
+   'KA4DISKI5'   => '144',
    'KA4DISTQ'    => '136',
    'KA4DTAQ'     => '96',
    'KA4ENET'     => '156',
@@ -652,7 +652,7 @@ my %htabsize = (
    'KA4LIND'     => '88',
    'KA4LPP'      => '132',
    'KA4MGTCNT'   => '1532',
-   'KA4MISC'     => '366',
+   'KA4MISC'     => '368',
    'KA4MSG'      => '2304',
    'KA4NETA'     => '532',
    'KA4NETSRVR'  => '140',
@@ -662,7 +662,7 @@ my %htabsize = (
    'KA4OUTPUTQ'  => '732',
    'KA4PFIOP'    => '211',
    'KA4PFJOB'    => '324',
-   'KA4POOL'     => '192',
+   'KA4POOL'     => '144',
    'KA4PTF'      => '144',
    'KA4SBS'      => '124',
    'KA4SDLC'     => '188',
@@ -3056,7 +3056,7 @@ my %htabsize = (
    'KUDLOG'      => '4932',
    'KUDSYSINFO'  => '1882',
    'KUDSYSRES'   => '696',
-   'KUDTABLE'    => '328',
+   'KUDTABLE'    => '304',
    'KUDTABSPC'   => '1756',
    'KUDTBLSPC'   => '1838',
    'KUXDEVIC'    => '660',
@@ -3189,7 +3189,7 @@ my %htabsize = (
    'KVA08CAPAB'  => '240',
    'KVA10TOP50'  => '2460',
    'KVA11TOP50'  => '2460',
-   'KVA16CPUSU'  => '420',
+   'KVA16CPUSU'  => '240',
    'KVA17CPUDE'  => '232',
    'KVA19SYSTE'  => '80',
    'KVA20SYSTE'  => '68',
@@ -3201,7 +3201,7 @@ my %htabsize = (
    'KVA28VIRTU'  => '100',
    'KVA31PROCE'  => '80',
    'KVA32PROCE'  => '2732',
-   'KVA34DISKS'  => '564',
+   'KVA34DISKS'  => '432',
    'KVA35PHYSI'  => '396',
    'KVA36VOLUM'  => '276',
    'KVA37LOGIC'  => '1204',
@@ -3546,12 +3546,13 @@ my %htabsize = (
    'KY9UPSPOS'   => '360',
    'KY9UPSS'     => '570',
    'KYJAPHLTH'   => '980',
-   'KYJAPSRV'    => '748',
-   'KYJAPSST'    => '1132',
+   'KYJAPMONCF'  => '1748',
+   'KYJAPSRV'    => '1132',
+   'KYJAPSST'    => '1516',
    'KYJDATAS'    => '1340',
    'KYJDCMSG'    => '1376',
    'KYJEJB'      => '992',
-   'KYJGCACT'    => '744',
+   'KYJGCACT'    => '712',
    'KYJGCAF'     => '716',
    'KYJGCCYC'    => '756',
    'KYJJCACP'    => '1060',
@@ -3559,27 +3560,27 @@ my %htabsize = (
    'KYJJDKMEM'   => '696',
    'KYJJDKOS'    => '1456',
    'KYJJDKTHR'   => '1196',
-   'KYJJMSSUM'   => '1060',
+   'KYJJMSSUM'   => '952',
    'KYJJTARES'   => '932',
    'KYJLOGANAL'  => '1040',
    'KYJPREV'     => '676',
    'KYJREQHIS'   => '1008',
    'KYJREQSEL'   => '1364',
-   'KYJREQUEST'  => '1720',
+   'KYJREQUEST'  => '1568',
    'KYJSDBCON'   => '944',
    'KYJSEJB'     => '1124',
    'KYJSERVLT'   => '992',
    'KYJSJTASUM'  => '680',
    'KYJSWEBCNT'  => '688',
    'KYJWEBAPP'   => '832',
-   'KYJWLCCPL'   => '916',
-   'KYJWLDBCON'  => '908',
+   'KYJWLCCPL'   => '856',
+   'KYJWLDBCON'  => '872',
    'KYJWLEJB'    => '1328',
    'KYJWLEJBC'   => '940',
-   'KYJWLJMSS'   => '1132',
-   'KYJWLJTA'    => '980',
+   'KYJWLJMSS'   => '1060',
+   'KYJWLJTA'    => '872',
    'KYJWLSRVLT'  => '1636',
-   'KYJWLWEBAP'  => '1304',
+   'KYJWLWEBAP'  => '1268',
    'KYNALARMM'   => '1000',
    'KYNAPHLTH'   => '996',
    'KYNAPP'      => '1096',
@@ -3869,7 +3870,7 @@ my %htabsize = (
    'QMCONNOBJ'   => '1052',
    'QMCURSTAT'   => '2108',
    'QMDSPUSAGE'  => '344',
-   'QMERRLOG'    => '3820',
+   'QMERRLOG'    => '3916',
    'QMEVENTC'    => '436',
    'QMEVENTH'    => '2756',
    'QMEVENTL'    => '1668',
@@ -6105,17 +6106,36 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
             $outline .= $sit_pdt[$sx] . "," if defined $sx;
             $cnt++;$oline[$cnt]="$outline\n";
             my @rarry = @{$tdetail_ref->{allresults}};
+            my %pdtx;
+            my $pdtseq = 0;
+            my $pdtgrp;
+            my @rrary;
             if (($#rarry > 0) or  ($opt_allresults == 1)){
                for (my $ri=0;$ri<= $#rarry;$ri++) {
                   my $rc = $ri + 1;
                   if (substr($rarry[$ri],0,1) eq "*") {
                      my $div_point = index($rarry[$ri],";");
+                     my $pdt_atrs = substr($rarry[$ri],11,$div_point-11);
+                     $pdt_atrs =~ /(\S+)\./;
+                     $pdtgrp = $1;
+                     for my $line (split / /,$pdt_atrs) {
+                        next if substr($line,0,length($pdtgrp)) ne $pdtgrp;;
+                        $pdtx{$line} = $pdtseq;
+                        $pdtseq += 1
+                     }
                      $outline = ",,,,,,,P,";
                      $outline .= substr($rarry[$ri],0,$div_point) . ",";
                      $cnt++;$oline[$cnt]="$outline\n";
                      $rarry[$ri] = substr($rarry[$ri],$div_point+1);
                   }
                   $outline = ",,,,,,," . $ri . ",";
+                  @rrary = split /;/, $rarry[$ri];
+                  foreach my $f (sort { $pdtx{$a} <=> $pdtx{$b}} keys %pdtx ) {
+                     for my $frag (@rrary) {
+                        next if substr($frag,0,length($f)) ne $f;
+                        $outline .= $frag . ";";
+                     }
+                  }
                   $outline .= $rarry[$ri] . ",";
                   $cnt++;$oline[$cnt]="$outline\n";
                }
@@ -7452,6 +7472,8 @@ sub get_epoch {
 #          : Handle allresults report when fullname is missing
 #          : Handle some cases where there is little data
 #          : Handle pure event results where there is no mini-predicate
+# 1.32000  : Add/correct some table row sizes
+#          : Add predicate related attributes at start in full report
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -8148,8 +8170,10 @@ Results      : The number of observed result segments in this TEMS second
 Atomize      : Value of atomize if any for this
 DisplayItem  : The attribute used for atomize in attribute_group_table.attribute_column form
 
+In the list of attributes, the first ones associated with the the Situation Predicate and afterwards
+all of the attributes.
+
 Recovery plan:  Use report to help understand the summary reports.
-----------------------------------------------------------------
 ----------------------------------------------------------------
 
 EVENTREPORT003
