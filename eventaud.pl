@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.34000";
+my $gVersion = "1.35000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -163,6 +163,12 @@ my $budget_thrunode_ref;
 
 my %budget_nodex;
 my $budget_node_ref;
+my %budget_sitnodeatomx;                    # summarize by situation/node/atom
+my $budget_sitnodeatom_ref;
+my %budget_sitnodex;                        # summarize by situation/node
+my $budget_sitnode_ref;
+my %budget_sitx;                            # summarize by situation
+my $budget_sit_ref;
 
 my %situation_dupx;
 my %situation_dnullx;
@@ -1669,6 +1675,7 @@ my %htabsize = (
    'KLOLOGEVTS'  => '6928',
    'KLOLOGFRX'   => '814',
    'KLOLOGFST'   => '916',
+   'KLOLOGPEVT'  => '6928',
    'KLOPOBJST'   => '360',
    'KLOTHPLST'   => '96',
    'KLZCPU'      => '136',
@@ -1813,6 +1820,7 @@ my %htabsize = (
    'KNONCOECNA'  => '132',
    'KNONCOECNC'  => '152',
    'KNONCOECNE'  => '164',
+   'KNONCOECNI'  => '352',
    'KNONCOECNG'  => '268',
    'KNONCOECNI'  => '352',
    'KNONCOECNK'  => '379',
@@ -4331,7 +4339,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
              # or rarely duplicate agents. This is important because the agent
              # can often produce a lot of results and the TEMS only processes
              # a certain number per second.
-             setbudget($g,$adetail_ref->{thrunode},$f,$adetail_ref->{table});
+             setbudget($g,$adetail_ref->{thrunode},$f,$adetail_ref->{table},$h);
              my $imiss = $adetail_ref->{results} - 1;
              $irowsize = $budget_situation_ref->{rowsize};
              $budget_total_ref->{results} += $adetail_ref->{results};
@@ -4416,7 +4424,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
 
       foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{asecs}}) {
          my $asum_ref = $situation_ref->{asecs}{$h};
-         setbudget($g,$asum_ref->{thrunode},$f,$asum_ref->{table});
+         setbudget($g,$asum_ref->{thrunode},$f,$asum_ref->{table},$asum_ref->{atom});
          # note the case where DisplayItem is set but null values seen
          if ($asum_ref->{atom} eq "") {
             if ($situation_ref->{atomize} ne "") {
@@ -4496,7 +4504,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
       foreach my $h ( sort {$a cmp $b} keys %{$situation_ref->{tsecs}}) {
          my $tsum_ref = $situation_ref->{tsecs}{$h};
          next if $tsum_ref->{results} <= 1; # ignore single results
-         setbudget($g,$tsum_ref->{thrunode},$f,$tsum_ref->{table});
+         setbudget($g,$tsum_ref->{thrunode},$f,$tsum_ref->{table},$tsum_ref->{atom});
          $irowsize = 500;
          $newtabsizex{$tsum_ref->{table}} += 1 if !defined $htabsize{$tsum_ref->{table}};
          $irowsize = $htabsize{$tsum_ref->{table}} if defined $htabsize{$tsum_ref->{table}};
@@ -4603,8 +4611,14 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
             # prepare to capture the TEMS side workload on a second by second basis
             # the TEMS side timing can be spread out over many seconds and may not
             # reflect the initial agent result capture.
-
-            setbudget($g,$tdetail_ref->{thrunode},$f,$tdetail_ref->{table});
+            setbudget($g,$tdetail_ref->{thrunode},$f,$tdetail_ref->{table},$h);
+#            if ($budget_sitnodeatom_ref->{start} != 0) {
+#            }
+            $budget_sitnodeatom_ref->{start} = $tdetail_ref->{epoch} if $budget_sitnodeatom_ref->{start} == 0;
+            $budget_sitnodeatom_ref->{start} = $tdetail_ref->{epoch} if $budget_sitnodeatom_ref->{start} > $tdetail_ref->{epoch};
+            $budget_sitnodeatom_ref->{end} = $tdetail_ref->{epoch} if $budget_sitnodeatom_ref->{end} == 0;
+            $budget_sitnodeatom_ref->{end} = $tdetail_ref->{epoch} if $budget_sitnodeatom_ref->{end} < $tdetail_ref->{epoch};
+            $budget_sitnodeatom_ref->{reeval} = $situation_ref->{reeval};
             $budget_situation_ref->{bad} += 1 if $tdetail_ref->{deltastat} eq "X";
             $budget_situation_ref->{ack} += 1 if $tdetail_ref->{deltastat} eq "A";
             $budget_situation_ref->{res} += 1 if $tdetail_ref->{deltastat} eq "F";
@@ -4642,7 +4656,11 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
                      $atomize_ref->{sampled_ct} += 1;
                      $situation_ref->{sampled_ct} += 1;
                      $situation_ref->{transitions} += 1;
-                     setbudget($g,$tdetail_ref->{thrunode},$f,$tdetail_ref->{table});
+                     setbudget($g,$tdetail_ref->{thrunode},$f,$tdetail_ref->{table},$h);
+                     $budget_sitnodeatom_ref->{time_open} = $tdetail_ref->{epoch};
+                     $budget_sitnodeatom_ref->{time_close} = 0;
+                     $budget_sitnodeatom_ref->{last_stat} = $tdetail_ref->{deltastat};
+                     $budget_sitnodeatom_ref->{open} += 1;
                      $budget_total_ref->{event} += 1;
                      $budget_situation_ref->{event} += 1;
                      $budget_thrunode_ref->{event} += 1;
@@ -4682,6 +4700,10 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
                         my $sdiff = $stime - $sval*$situation_ref->{reeval};
                         $budget_situation_ref->{yny}{$sdiff} += 1 if abs($sdiff) > $opt_dgrace;
                      }
+                     $budget_sitnodeatom_ref->{secs_open} += $detail_end - $budget_sitnodeatom_ref->{time_open};
+                     $budget_sitnodeatom_ref->{time_close} = $tdetail_ref->{epoch};
+                     $budget_sitnodeatom_ref->{close} += 1;
+                     $budget_sitnodeatom_ref->{last_stat} = $tdetail_ref->{deltastat};
                      $tdetail_ref->{open_time} += $detail_end - $detail_start;
                      $atomize_ref->{open_time} += $detail_end - $detail_start;
                      $situation_ref->{open_time} += $detail_end - $detail_start;
@@ -4746,6 +4768,7 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {  # First by Agent names [Manag
                      $budget_thrunode_ref->{yy} += 1;
                      $budget_node_ref->{yy} += 1;
                      $budget_situation_ref->{yynodes}{$f} = 1;
+                     $budget_sitnodeatom_ref->{yy} += 1;
                   }
                } elsif ($detail_state == 3) {    # A waiting for F or Y record
                   my $iacktime = $tdetail_ref->{epoch} - $detail_lag;
@@ -4937,6 +4960,43 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
          $situationx_ref->{node998}{$h} += 1;
       }
    }
+}
+
+my $cache_total = 0;
+foreach my $f (keys %budget_sitnodeatomx) {
+   $budget_sitnodeatom_ref = $budget_sitnodeatomx{$f};
+   my $sx = $sitx{$budget_sitnodeatom_ref->{sit}};
+   if (defined $sx) {
+      next if $sit_reeval[$sx] == 0;
+   }
+   $budget_sitnodeatom_ref->{end} = $event_max if  $budget_sitnodeatom_ref->{end} == $budget_sitnodeatom_ref->{start};
+   if ($budget_sitnodeatom_ref->{time_close} == 0) {    # open and no close
+      $budget_sitnodeatom_ref->{time_close} = $event_max;
+      $budget_situation_ref->{end} = $event_max;
+      $budget_situation_ref->{secs_open} += $budget_sitnodeatom_ref->{time_close} - $budget_sitnodeatom_ref->{time_open}
+   }
+   $budget_sitnodeatom_ref->{elapsed} = $budget_sitnodeatom_ref->{end} - $budget_sitnodeatom_ref->{start};
+   $cache_total += 1;
+   my $snkey = $budget_sitnodeatom_ref->{sit} . "|" . $budget_sitnodeatom_ref->{node};
+   $budget_sitnode_ref = $budget_sitnodex{$snkey};
+   next if !defined defined $budget_sitnode_ref;
+   $budget_sitnode_ref->{sit} = $budget_sitnodeatom_ref->{sit};
+   $budget_sitnode_ref->{node} = $budget_sitnodeatom_ref->{node};
+   $budget_sitnode_ref->{atoms}{$budget_sitnodeatom_ref->{atom}} = 1;
+   $budget_sitnode_ref->{secs_open} += $budget_sitnodeatom_ref->{secs_open};
+   $budget_sitnode_ref->{open} += $budget_sitnodeatom_ref->{open};
+   $budget_sitnode_ref->{close} += $budget_sitnodeatom_ref->{close};
+   $budget_sitnode_ref->{elapsed} += $budget_sitnodeatom_ref->{elapsed};
+   $budget_sitnode_ref->{cache} += 1;
+   my $skey = $budget_sitnodeatom_ref->{sit};
+   $budget_sit_ref = $budget_sitx{$skey};
+   next if !defined defined $budget_sit_ref;
+   $budget_sit_ref->{nodes}{$budget_sitnodeatom_ref->{node}} = 1;
+   $budget_sit_ref->{secs_open} += $budget_sitnodeatom_ref->{secs_open};
+   $budget_sit_ref->{open} += $budget_sitnodeatom_ref->{open};
+   $budget_sit_ref->{close} += $budget_sitnodeatom_ref->{close};
+   $budget_sit_ref->{elapsed} += $budget_sitnodeatom_ref->{elapsed};
+   $budget_sit_ref->{cache} += 1;
 }
 
 my $res_rate;
@@ -5575,6 +5635,56 @@ foreach my $g (sort { $budget_situationx{$b}->{event} <=> $budget_situationx{$a}
    my $node_ct = scalar keys %{$situationx_ref->{nodes}};
    $outline .= $node_ct . ",";
    $outline .= $situation_ref->{pdt} . ",";
+   $cnt++;$oline[$cnt]="$outline\n";
+}
+$rptkey = "EVENTREPORT033";$advrptx{$rptkey} = 1;         # record report key
+foreach my $f (keys %budget_sitx) {
+   $budget_sit_ref = $budget_sitx{$f};
+   $budget_sit_ref->{ofract} = $budget_sit_ref->{secs_open} / $budget_sit_ref->{elapsed} if  $budget_sit_ref->{elapsed} > 0;
+   $budget_sit_ref->{cache_fract} = $budget_sit_ref->{cache} / $cache_total if  $budget_sit_ref->{elapsed} > 0;
+}
+
+foreach my $f (keys %budget_sitnodex) {
+   $budget_sitnode_ref = $budget_sitnodex{$f};
+   $budget_sitnode_ref->{cache_fract} = $budget_sitnode_ref->{cache} / $cache_total if  $budget_sitnode_ref->{elapsed} > 0;
+}
+
+
+my $cache_curr = 0;
+$cnt++;$oline[$cnt]="\n";
+$cnt++;$oline[$cnt]="$rptkey: Situations Open for long periods of time sorted by Cache Usage\n";
+$cnt++;$oline[$cnt]="Situation,Open,Close,Cache,Cache_pc,Cache_cum,Open_secs,Elapsed,Open-pc,Nodes,Reeval,PDT\n";
+foreach my $g (sort { $budget_sitx{$b}->{cache} <=> $budget_sitx{$a}->{cache} ||
+                      $a cmp $b
+                    } keys %budget_sitx ) {
+   my $budget_sit_ref = $budget_sitx{$g};
+   next if $budget_sit_ref->{open} < 2;
+   my $sx = $sitx{$budget_sit_ref->{sit}};
+   $outline = $budget_sit_ref->{sit} . ",";
+   $outline .= $budget_sit_ref->{open} . ",";
+   $outline .= $budget_sit_ref->{close} . ",";
+   $outline .= $budget_sit_ref->{cache} . ",";
+   $res_pc = 0;
+   $res_pc = $budget_sit_ref->{cache_fract}*100;
+   $ppc = sprintf '%.2f%%', $res_pc;
+   $outline .= $ppc . ",";
+   $cache_curr += $budget_sit_ref->{cache};
+
+   $res_pc = 0;
+   $res_pc = ($cache_curr/$cache_total)*100;
+   $ppc = sprintf '%.2f%%', $res_pc;
+   $outline .= $ppc . ",";
+
+   $outline .= $budget_sit_ref->{secs_open} . ",";
+   $outline .= $budget_sit_ref->{elapsed} . ",";
+   $res_pc = 0;
+   $res_pc = $budget_sit_ref->{ofract}*100;
+   $ppc = sprintf '%.2f%%', $res_pc;
+   $outline .= $ppc . ",";
+   my $nct = scalar keys %{$budget_sit_ref->{nodes}};
+   $outline .= $nct . ",";
+   $outline .= $sit_reeval[$sx] . "," if defined $sx;
+   $outline .= $sit_pdt[$sx] . "," if defined $sx;
    $cnt++;$oline[$cnt]="$outline\n";
 }
 
@@ -6343,7 +6453,7 @@ sub setload {
 # following logic sets up the collection buckets for the
 # result budget data.
 sub setbudget {
-   my ($isitname,$ithrunode,$inode,$itable) = @_;
+   my ($isitname,$ithrunode,$inode,$itable,$iatom) = @_;
    $budget_total_ref = $budget_situationx{$total_key};
    if (!defined $budget_total_ref) {
       my %budget_totalref = (
@@ -6430,7 +6540,6 @@ sub setbudget {
    my $sx = $sitx{$isitname};
    if (defined $sx) {
       $budget_situation_ref->{reeval} = $sit_reeval[$sx];
-      $budget_situation_ref->{pdt} = $sit_pdt[$sx];
       $budget_situation_ref->{tfwd} = $sit_tfwd[$sx];
       $budget_situation_ref->{psit} = $sitfullx{$isitname} if defined $sitfullx{$isitname};
    }
@@ -6525,8 +6634,63 @@ sub setbudget {
       $sitagt_ref = \%sitagtref;
       $sitagtx{$sakey} = \%sitagtref;
    }
+   my $snakey = $isitname . "|" . $inode . "|" . $iatom;
+   $budget_sitnodeatom_ref = $budget_sitnodeatomx{$snakey};
+   if (!defined $budget_sitnodeatom_ref) {
+      my %budget_sitnodeatomref = (
+                                     sit => $isitname,
+                                     node => $inode,
+                                     atom => $iatom,
+                                     reeval => 0,                                                    #
+                                     last_stat => "",          # last status                         #
+                                     time_open => 0,           # time situation event open at TEMS   #
+                                     time_close => 0,          # time situation event closed at TEMS   #
+                                     secs_open => 0,           # seconds open                        #
+                                     open => 0,                # open count                          #
+                                     close => 0,               # close count                         #
+                                     start => 0,               # time first situation opened/closed  #
+                                     end => 0,                 # time last situation opened/closed   #
+                                     elapsed => 0,             # elapsed time
+                                     yy => 0,                  # count open-open status cases        #
+                                  );
+      $budget_sitnodeatom_ref = \%budget_sitnodeatomref;
+      $budget_sitnodeatomx{$snakey} = \%budget_sitnodeatomref;
+   }
+   my $snkey = $isitname . "|" . $inode;
+   $budget_sitnode_ref = $budget_sitnodex{$snkey};
+   if (!defined $budget_sitnode_ref) {
+      my %budget_sitnoderef = (
+                                 sit => "",
+                                 node => "",
+                                 atoms => {},
+                                 secs_open => 0,           # time situation event open at TEMS
+                                 open => 0,
+                                 close => 0,
+                                 elapsed => 0,             # sum of situation elapsed seconds
+                                 cache => 0,
+                                 cache_fract => 0,
+                              );
+      $budget_sitnode_ref = \%budget_sitnoderef;
+      $budget_sitnodex{$snkey} = \%budget_sitnoderef;
+   }
+   my $skey = $isitname;
+   $budget_sit_ref = $budget_sitx{$skey};
+   if (!defined $budget_sit_ref) {
+      my %budget_sitref = (
+                             sit => $isitname,
+                             nodes => {},
+                             secs_open => 0,           # time situation event open at TEMS
+                             open => 0,
+                             close => 0,
+                             elapsed => 0,
+                             ofract => 0,
+                             cache => 0,
+                             cache_fract => 0,
+                          );
+      $budget_sit_ref = \%budget_sitref;
+      $budget_sitx{$skey} = \%budget_sitref;
+   }
 }
-
 
 sub newnam {
       my ($iid,$ifullname) = @_;
@@ -7509,6 +7673,7 @@ sub get_epoch {
 #          : Add predicate related attributes at start in full report
 # 1.33000  : Add/correct some table row sizes
 # 1.34000  : Add/correct some table row sizes
+# 1.35000  : Add report033 on estimated TSITSTSC cache usage and constant on situations
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -8702,6 +8867,23 @@ PDT              : Situation Formula [predicate]
 
 There are savings to be had be reducing the number of situations event statuses.
 The benefit is both at the remote TEMS and the hub TEMS.
+
+Recovery plan:  Review report and improve TEMS efficiency by eliminating
+or redesigning the situation workloads.
+----------------------------------------------------------------
+
+EVENTREPORT033
+Text: Situations Open for long periods of time sorted by Cache Usage
+
+Sample:
+Situation,Open,Close,Cache,Cache_pc,Cache_cum,Open_secs,Elapsed,Open-pc,Nodes,Reeval,PDT
+all_i0708wd_gnth_win,434,296,139,6.33%,6.33%,20901628,21930920,95.31%,139,300,*IF *VALUE Local_Time.Hours *NE 07,
+all_i2008sd_gnth_win,136,136,135,6.15%,12.48%,4357518,4358718,99.97%,135,300,*IF *VALUE Local_Time.Hours *GE 08 *AND *VALUE Local_Time.Hours *LE 20 *AND *VALUE Local_Time.Day_Of_Week *NE Sunday *AND *VALUE Local_Time.Day_Of_Week *NE Saturday,
+
+Situations open for long periods cause a steady drain on the TEMS and
+the agent. This is especially true for situations which are deliberately
+always true. The result can be a large TEMS process size and also situation
+alerts which do not indicate a problem.
 
 Recovery plan:  Review report and improve TEMS efficiency by eliminating
 or redesigning the situation workloads.
