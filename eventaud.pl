@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.35000";
+my $gVersion = "1.36000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -2963,6 +2963,8 @@ my %htabsize = (
    'KS3HSPSTOR'  => '58',
    'KS3HSWATRQ'  => '70',
    'KS3HSXFUDA'  => '124',
+   'KS7CACHE'    => '476',
+   'KS7CACHE1'   => '476',
    'KSAALERTS'   => '2416',
    'KSAARCHIVE'  => '585',
    'KSABDC'      => '649',
@@ -2988,7 +2990,7 @@ my %htabsize = (
    'KSAOSP'      => '644',
    'KSAOUTPUT'   => '985',
    'KSAPERF'     => '672',
-   'KSAPROCESS'  => '1052',
+   'KSAPROCESS'  => '1088',
    'KSASERINFO'  => '340',
    'KSASLOG'     => '1008',
    'KSASLSYALT'  => '1456',
@@ -7674,6 +7676,7 @@ sub get_epoch {
 # 1.33000  : Add/correct some table row sizes
 # 1.34000  : Add/correct some table row sizes
 # 1.35000  : Add report033 on estimated TSITSTSC cache usage and constant on situations
+# 1.36000  : update some table sizes
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
