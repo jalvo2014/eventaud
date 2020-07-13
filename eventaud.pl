@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.36000";
+my $gVersion = "1.37000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -600,6 +600,7 @@ my %htabsize = (
    'K12K12ORA2' => '712',
    'K12POBJST'  => '324',
    'K24EVENTLO'  => '2864',
+   'K3ZEVTLOG'   => '2984',
    'K3ZNTDSAB'   => '244',
    'K3ZNTDSCNT'  => '848',
    'K3ZNTDSDAI'  => '1140',
@@ -2616,14 +2617,14 @@ my %htabsize = (
    'KR3SYSTEM'   => '1227',
    'KR3THPLST'   => '132',
    'KR3VIRTUAL'  => '92',
-   'KR4DISK'     => '256',
+   'KR4DISK'     => '232',
    'KR4LNXPOS'   => '360',
-   'KR4MEMORY'   => '252',
+   'KR4MEMORY'   => '244',
    'KR4MEPS'     => '169',
    'KR4NIFTABL'  => '427',
    'KR4POBJST'   => '360',
-   'KR4PROC'     => '336',
-   'KR4PROCSR'   => '100',
+   'KR4PROC'     => '324',
+   'KR4PROCSR'   => '76',
    'KR4STORTBL'  => '204',
    'KR4SYSTEM'   => '1215',
    'KR4THPLST'   => '132',
@@ -7677,6 +7678,7 @@ sub get_epoch {
 # 1.34000  : Add/correct some table row sizes
 # 1.35000  : Add report033 on estimated TSITSTSC cache usage and constant on situations
 # 1.36000  : update some table sizes
+# 1.37000  : update some table sizes
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
