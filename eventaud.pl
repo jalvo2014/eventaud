@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.37000";
+my $gVersion = "1.38000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -541,6 +541,7 @@ my %htabsize = (
    'K06CSCRIP2' => '304',
    'K06K06CUS0' => '924',
    'K06LOGFILE' => '2824',
+   'K06K06LOG0' => '600',
    'K06PERLEX0' => '364',
    'K06PERLEX1' => '344',
    'K06PERLEX2' => '1416',
@@ -1505,8 +1506,9 @@ my %htabsize = (
    'KHVGETDIS0'  => '280',
    'KHVGETMEM0'  => '260',
    'KHVGETPRO0'  => '208',
-   'KHVGETVIR0'  => '792',
-   'KHVHYLPROC'  => '452',
+   'KHVGETVIR0'  => '860',
+   'KHVHVSDISK'  => '192',
+   'KHVHYLPROC'  => '224',
    'KHVHYPART'   => '200',
    'KHVHYPERV'   => '80',
    'KHVHYPERVI'  => '1094',
@@ -1854,6 +1856,7 @@ my %htabsize = (
    'KNTPASSTAT'  => '1392',
    'KNTRASPT'    => '220',
    'KNTRASTOT'   => '288',
+   'KNTSCRTSM'   => '3544',
    'KNU01HOST'   => '952',
    'KNU02AGREG'  => '348',
    'KNU03VOL'    => '532',
@@ -2565,9 +2568,9 @@ my %htabsize = (
    'KQXPRESSV4'  => '76',
    'KQXPRESV45'  => '388',
    'KQXSECURE'   => '84',
-   'KR2DISK'     => '256',
+   'KR2DISK'     => '232',
    'KR2ELOGWMI'  => '2418',
-   'KR2HRMEM'    => '256',
+   'KR2HRMEM'    => '232',
    'KR2HRSYSTE'  => '1213',
    'KR2MEMORY'   => '116',
    'KR2MEPS'     => '169',
@@ -2575,7 +2578,7 @@ my %htabsize = (
    'KR2PAGINGF'  => '160',
    'KR2POBJST'   => '360',
    'KR2PROCESS'  => '172',
-   'KR2PROCLST'  => '272',
+   'KR2PROCLST'  => '260',
    'KR2PROCSR'   => '264',
    'KR2PROCSRT'  => '64',
    'KR2STORTBL'  => '204',
@@ -3219,7 +3222,7 @@ my %htabsize = (
    'KV6THPLST'   => '132',
    'KV6UIDSUFX'  => '564',
    'KV6VNICSTS'  => '1080',
-   'KVA02STORA'  => '3044',
+   'KVA02STORA'  => '2936',
    'KVA03NETWO'  => '2288',
    'KVA05SECUR'  => '288',
    'KVA06FIREW'  => '372',
@@ -3257,7 +3260,7 @@ my %htabsize = (
    'KVA53MPOOL'  => '144',
    'KVA53SEA'    => '608',
    'KVA54QOS'    => '808',
-   'KVA55NPIVM'  => '668',
+   'KVA55NPIVM'  => '656',
    'KVA56NPIVF'  => '152',
    'KVA56TADDM'  => '152',
    'KVAFC_STAT'  => '408',
@@ -3270,7 +3273,7 @@ my %htabsize = (
    'KVMAEVENTS'  => '192',
    'KVMATASKS'   => '852',
    'KVMCLTDRSF'  => '1548',
-   'KVMCLTRDST'  => '850',
+   'KVMCLTRDST'  => '906',
    'KVMCLTRRPS'  => '622',
    'KVMCLTRSRV'  => '588',
    'KVMCLTRVMS'  => '556',
@@ -3292,14 +3295,14 @@ my %htabsize = (
    'KVMNETVM'    => '710',
    'KVMNVSWITC'  => '514',
    'KVMPOBJST'   => '360',
-   'KVMRSPOOLC'  => '596',
+   'KVMRSPOOLC'  => '612',
    'KVMRSPOOLG'  => '568',
    'KVMRSPOOLM'  => '612',
-   'KVMSERVERC'  => '272',
+   'KVMSERVERC'  => '268',
    'KVMSERVERD'  => '568',
    'KVMSERVERE'  => '1876',
    'KVMSERVERG'  => '2288',
-   'KVMSERVERM'  => '320',
+   'KVMSERVERM'  => '340',
    'KVMSERVERN'  => '804',
    'KVMSERVRDS'  => '680',
    'KVMSRVHBAS'  => '644',
@@ -3316,7 +3319,7 @@ my %htabsize = (
    'KVMVCENTER'  => '476',
    'KVMVM_CPU'   => '584',
    'KVMVM_DISK'  => '960',
-   'KVMVM_GEN'   => '1752',
+   'KVMVM_GEN'   => '1760',
    'KVMVM_MEM'   => '632',
    'KVMVM_NET'   => '1072',
    'KVMVM_PART'  => '576',
@@ -3657,7 +3660,7 @@ my %htabsize = (
    'KYNPREV'     => '588',
    'KYNREQHIS'   => '964',
    'KYNREQSEL'   => '1248',
-   'KYNREQUEST'  => '1476',
+   'KYNREQUEST'  => '1488',
    'KYNSCHED'    => '1068',
    'KYNSERVLT'   => '1296',
    'KYNSERVS'    => '1188',
@@ -3813,13 +3816,13 @@ my %htabsize = (
    'MSERFA'      => '128',
    'MSERMS'      => '472',
    'MSERPCCA'    => '152',
-   'MSESERVR'    => '167',
+   'MSESERVR'    => '2744',
    'MSESFA'      => '128',
    'MSESGRPD'    => '524',
    'MSESIDAG'    => '152',
    'MSESMTPR'    => '620',
    'MSESMTPS'    => '612',
-   'MSESRVCD'    => '484',
+   'MSESRVCD'    => '488',
    'MSESTOINT'   => '760',
    'MSESTRDR'    => '808',
    'MSETRDB'     => '1008',
@@ -7679,6 +7682,7 @@ sub get_epoch {
 # 1.35000  : Add report033 on estimated TSITSTSC cache usage and constant on situations
 # 1.36000  : update some table sizes
 # 1.37000  : update some table sizes
+# 1.38000  : update some table sizes
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
