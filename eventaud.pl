@@ -26,7 +26,7 @@ use warnings;
 
 # See short history at end of module
 
-my $gVersion = "1.40000";
+my $gVersion = "1.41000";
 my $gWin = (-e "C://") ? 1 : 0;    # 1=Windows, 0=Linux/Unix
 
 use Data::Dumper;               # debug only
@@ -5450,8 +5450,8 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                   my $tt_ct = scalar keys %{$tdetail_ref->{tstamps}};
                   next if $tt_ct < 1;
                   foreach my $j (sort {$a cmp $b} keys %{$tdetail_ref->{tstamps}}) {
-                     my $table_ref =  $tdetail_ref->{tstamps}{$j};
-                     my $ts_ct = scalar keys %{$table_ref};
+                     my %table_ref =  %{$tdetail_ref->{tstamps}{$j}};
+                     my $ts_ct = scalar keys %table_ref;
                      next if $ts_ct <= 1;
                      $toomanyi += 1;
                      $outline = $g . ",";
@@ -5462,8 +5462,10 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                      $outline .= $t . ",";
                      my $atime_ct = 0;
                      my $atimes = "";
-                     foreach my $l (sort {$a <=> $b} keys %{$table_ref}) {
-                        $atimes .= $l . '[' . %{$table_ref}{$l} . "] ";
+                     my $l;
+                     foreach $l (sort {$a <=> $b} keys %table_ref) {
+                        my $pref = $table_ref{$l};
+                        $atimes .= $l . '[' . $pref . "] ";
                         $atime_ct += 1;
                      }
                      chop $atimes;
@@ -6219,11 +6221,12 @@ if ($ack_ct > 0) {
    }
 }
 
+
 $rptkey = "EVENTREPORT029";$advrptx{$rptkey} = 1;         # record report key
 $cnt++;$oline[$cnt]="\n";
 $cnt++;$oline[$cnt]="$rptkey: Event totals per Situation/Agent\n";
 $cnt++;$oline[$cnt]="Situation,Node,Events,Rate/Min\n";
-foreach my $g (sort {$sitagtx{$b}->{event} <=> $sitagtx{$a}->{event}} keys %sitagtx ) {
+foreach my $g (sort {$sitagtx{$b}->{event} <=> $sitagtx{$a}->{event} || $a cmp $b} keys %sitagtx ) {
    $sitagt_ref = $sitagtx{$g};
    last if $sitagt_ref->{event} < 10;
    $outline = $sitagt_ref->{sitname} . ",";
@@ -7273,6 +7276,7 @@ print STDERR "working on $ll\n" if $opt_v == 1;
          $iresults =~ s/\s+$//;   #trim trailing whitespace
       } else {
          next if substr($oneline,0,1) ne "[";                    # Look for starting point
+$DB::single=2;
          ($isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$igbltmstmp,$inode,$iatomize,$iresults) = parse_lst(8,$oneline);
          $isitname =~ s/\s+$//;   #trim trailing whitespace
          $ideltastat =~ s/\s+$//;   #trim trailing whitespace
@@ -7284,6 +7288,7 @@ print STDERR "working on $ll\n" if $opt_v == 1;
          $iresults =~ s/\s+$//;   #trim trailing whitespace
       }
       next if ($ideltastat ne 'Y') and ($ideltastat ne 'N') and ($ideltastat ne 'X') and ($ideltastat ne 'A') and ($ideltastat ne 'F') and ($ideltastat ne 'S');
+$DB::single=2;
 
       # Squeeze out ending blanks in attribute results to report optics
       # And convert tabs, carriage returns, and linefeeds into symbolics
@@ -7364,7 +7369,6 @@ sub init {
          die "-dgrace but no number found\n" if !defined $opt_dgrace;
       } elsif ($ARGV[0] eq "-tsitstsh") {
          shift(@ARGV);
-$DB::single=2;
          $opt_tsitstsh = shift(@ARGV);
          die "-tsitstsh output specified but no file found\n" if !defined $opt_tsitstsh;
          die "-tsitstsh output specified file missing\n" if !-e $opt_tsitstsh;
@@ -7424,7 +7428,6 @@ $DB::single=2;
       $opt_txt_tsitstsh = $opt_tsitstsh if defined $opt_tsitstsh;
       $opt_txt_tname = "QA1DNAME.DB.TXT";
    }
-$DB::single=2;
    if (defined $opt_lst) {
       $opt_lst_tsitdesc = "HUB.TSITDESC.LST" if !defined $opt_lst_tsitdesc;
       $opt_lst_tname = "HUB.TNAME.LST" if !defined $opt_lst_tname;
@@ -7709,6 +7712,8 @@ sub get_epoch {
 # 1.38000  : update some table sizes
 # 1.39000  : update some table sizes
 # 1.40000  : Include situation pdt in some reports
+# 1.41000  : Change syntax to accomodate Perl 5.16.3
+#          : Sort by name if count equal in report029
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
