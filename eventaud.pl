@@ -75,6 +75,11 @@ my $local_diff = 0;
 my $ack_ct = 0;
 
 
+my %dv = ();
+my $dv_ref;
+my $dv_node_ref;
+my $dv_value_ref;
+
 
 # forward declarations of subroutines
 
@@ -143,6 +148,7 @@ my $opt_nohdr;                  # skip printing header
 my $opt_allresults;                # when 1 show maximum detail report
 my $opt_time;                   # when 1 add in all results to each all line report
 my $opt_days;                   # How many days to look backward, default 2 days
+my $opt_dv;                     # Detail Situation/DisplayValue report control
 my $opt_dgrace;
 my $opt_crit = "";
 my $critical_fn = "eventaud.crit";
@@ -6310,8 +6316,65 @@ foreach my $f (sort { $a cmp $b } keys %nodex ) {
                   }
                   $outline .= $rarry[$ri] . ",";
                   $cnt++;$oline[$cnt]="$outline\n";
+                  $dv_ref = $dv{$g};
+                  if (defined $dv_ref) {
+                     for (my $ri=0;$ri<= $#rrary;$ri++) {
+                        my $frag = $rrary[$ri];
+                        $frag =~ /(\S+)[.](\S+)[=](.*)/;
+                        my $dtable = $1;
+                        my $dcol = $2;
+                        my $dval = $3;
+                        next if !defined $dtable;
+                        next if !defined $dcol;
+                        next if $dv_ref->{dvalue} ne $dcol;
+                        $dv_ref->{count} += 1;
+                        $dv_node_ref = $dv_ref->{nodes}{$f};
+                        if (!defined $dv_node_ref) {
+                           my %dv_noderef = (
+                                                count => 0,
+                                                values => {},
+                                             );
+                           $dv_node_ref = \%dv_noderef;
+                           $dv_ref->{nodes}{$f} = \%dv_noderef;
+                        }
+                        $dv_node_ref->{count} += 1;
+                        $dv_node_ref->{values}{$dval} += 1;
+                        my $x = 1;
+                     }
+                     my $y = 1;
+                  }
                }
             }
+         }
+      }
+   }
+}
+
+my $dv_ct = scalar keys %dv;
+if ($dv_ct > 0) {
+   $rptkey = "EVENTREPORT997";$advrptx{$rptkey} = 1;         # record report key
+   $cnt++;$oline[$cnt]="\n";
+   $cnt++;$oline[$cnt]="$rptkey: Detailed Situation DisplayValue Report\n";
+   $cnt++;$oline[$cnt]="Situation,Count,Display,NodeCount,\n";
+   $cnt++;$oline[$cnt]=",Node,Count,ValueCount,\n";
+   $cnt++;$oline[$cnt]=",,DisplayValue,Count\n";
+   foreach my $f (sort { $a cmp $b } keys %dv ) {
+      $dv_ref = $dv{$f};
+      $outline = $f . ",";
+      $outline .= $dv_ref->{count} . ",";
+      $outline .= $dv_ref->{dvalue} . ",";
+      my $dnodect = scalar keys %{$dv_value_ref->{nodes}};
+      $outline .= $dnodect . ",";
+      $cnt++;$oline[$cnt]="$outline\n";
+      foreach my $g (sort { $dv_ref->{nodes}{$b}->{count} <=> $dv_ref->{nodes}{$a}->{count} } keys %{$dv_ref->{nodes}} ) {
+         $dv_node_ref = $dv_ref->{nodes}{$g};
+         $outline = "," . $g . ",";
+         $outline .= $dv_node_ref->{count} . ",";
+         $cnt++;$oline[$cnt]="$outline\n";
+         foreach my $h (sort { $dv_node_ref->{values}{$b} <=> $dv_node_ref->{values}{$a} } keys %{$dv_node_ref->{values}} ) {
+            $outline = ",," . $h . ",";
+            $outline .= $dv_node_ref->{values}{$h}. ",";
+            $cnt++;$oline[$cnt]="$outline\n";
          }
       }
    }
@@ -7276,7 +7339,6 @@ print STDERR "working on $ll\n" if $opt_v == 1;
          $iresults =~ s/\s+$//;   #trim trailing whitespace
       } else {
          next if substr($oneline,0,1) ne "[";                    # Look for starting point
-$DB::single=2;
          ($isitname,$ideltastat,$ioriginnode,$ilcltmstmp,$igbltmstmp,$inode,$iatomize,$iresults) = parse_lst(8,$oneline);
          $isitname =~ s/\s+$//;   #trim trailing whitespace
          $ideltastat =~ s/\s+$//;   #trim trailing whitespace
@@ -7288,8 +7350,6 @@ $DB::single=2;
          $iresults =~ s/\s+$//;   #trim trailing whitespace
       }
       next if ($ideltastat ne 'Y') and ($ideltastat ne 'N') and ($ideltastat ne 'X') and ($ideltastat ne 'A') and ($ideltastat ne 'F') and ($ideltastat ne 'S');
-$DB::single=2;
-
       # Squeeze out ending blanks in attribute results to report optics
       # And convert tabs, carriage returns, and linefeeds into symbolics
       # to avoid having reports display strangely by creating multiple lines.
@@ -7384,6 +7444,36 @@ sub init {
          shift(@ARGV);
          $opt_crit = shift(@ARGV);
          die "option -crit with no following crit directory" if !defined $opt_crit;
+      } elsif ( $ARGV[0] eq "-dv") {
+         shift(@ARGV);
+         my $dsit;
+         my $dval;
+         if (defined $ARGV[0]) {
+            if (substr($ARGV[0],0,1) ne "-") {
+               $dsit = shift(@ARGV);
+               if (defined $ARGV[0]) {
+                  if (substr($ARGV[0],0,1) ne "-") {
+                     $dval = shift(@ARGV);
+                     $dv_ref = $dv{$dsit};
+                     if (!defined $dv_ref){
+                        my %dvref = (
+                                       dvalue => $dval,
+                                       count => 0,
+                                       nodes => {},
+                                    );
+                        $dv_ref = \%dvref;
+                        $dv{$dsit} = \%dvref;
+                     }
+                  }
+               } else {
+                  die "option -dv with Situation but no following DisplayValue";
+               }
+            } else {
+              die "option -dv with no following Situation/DisplayValue settings";
+            }
+         } else {
+           die "option -dv with no following settings";
+         }
       } else {
          $logfn = shift(@ARGV);
          die "log file not defined\n" if !defined $logfn;
@@ -7714,6 +7804,7 @@ sub get_epoch {
 # 1.40000  : Include situation pdt in some reports
 # 1.41000  : Change syntax to accomodate Perl 5.16.3
 #          : Sort by name if count equal in report029
+# 1.42000  : Add situation result detail REPORT997.
 # Following is the embedded "DATA" file used to explain
 # advisories and reports.
 __END__
@@ -8924,6 +9015,35 @@ Situations open for long periods cause a steady drain on the TEMS and
 the agent. This is especially true for situations which are deliberately
 always true. The result can be a large TEMS process size and also situation
 alerts which do not indicate a problem.
+
+Recovery plan:  Review report and improve TEMS efficiency by eliminating
+or redesigning the situation workloads.
+----------------------------------------------------------------
+
+EVENTREPORT997
+Text: Detailed Situation DisplayValue Report
+
+Sample:
+
+Situation,Count,Display,NodeCount,
+,Node,Count,ValueCount,
+,,DisplayValue,Count
+K13_WS_Functional_Error,1551,ERRORDESCR,0,
+,AMSESBAPP05:13,420,
+,,Exception in PM Quintiq InventoryBalanceDetailed importMaterial,420,
+,IJMESBAPP04:13,418,
+,,Exception in PM Quintiq InventoryBalanceDetailed importMaterial,418,
+
+This is a detailed report to understand the root cause of many situation
+events. That condition can cause TEPS instability.
+
+It is created by a eventaud.pl option
+
+  -dv <situation> <column>
+
+Those values are determined after reviewing the Report032 - which shows
+situations with a high result rate. And also reviewing report999 which
+shows the details.
 
 Recovery plan:  Review report and improve TEMS efficiency by eliminating
 or redesigning the situation workloads.
